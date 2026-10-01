@@ -1,6 +1,7 @@
 # Design decisions
 
-Initial record: 2026-10-01. No features are implemented.
+Initial record: 2026-10-01. A first compiler subset is now implemented; see the
+implementation decision below. Broader proposals are not implemented.
 
 “Direction” records the project's goals. “Proposed” means a design worth exploring,
 not a stable specification. Record accepted semantic choices here as work proceeds,
@@ -32,7 +33,7 @@ including their rationale and consequences.
 | Value semantics for language-owned objects | Avoid surprising aliases | Copy strategy and foreign R references |
 | Interfaces after basic OOP | Express shared contracts | Dispatch and compatibility rules |
 
-## Questions before the first implementation
+## Questions for language development
 
 1. What is the smallest grammar, including declarations, literals, and comments?
 2. How are scalar values and vectors represented? What are indexing and length
@@ -58,3 +59,36 @@ Revisit them only with motivating user examples.
 For each accepted change, add a dated entry with the problem, decision, examples,
 alternatives considered, consequences, and verification criteria. Update the
 [guide](language-guide.md) in the same change. Explicitly mark superseded choices.
+
+
+## 2026-10-01 — Initial compiler subset
+
+Status: implemented, experimental. The request to begin implementation authorizes
+this small starting subset; these implementation choices remain open to revision.
+
+- First assignment declares a binding; later assignments require mut on the
+  original declaration. Repeated mut declarations fail. One scope, no shadowing.
+- Infer Number (R double), Text, and Boolean. Mutable element types are stable;
+  lengths may change. This adopts stable types for the current subset only.
+- Use +, -, *, / with conventional precedence, unary signs, and parentheses.
+- Vectors are nonempty, homogeneous, and built from length-one expressions.
+  Arithmetic allows equal lengths or scalar broadcasting, rejecting general R
+  recycling to avoid accidental mismatches even when lengths divide evenly.
+- Use double-quoted text, true/false, # comments, and newline-separated statements.
+  Delimiters allow multiline expressions. Print uses base R's display format.
+- Preserve arithmetic Inf/NaN outcomes for now; a full missing-data policy remains
+  open. No R calls, file operations, indexing, or OOP are part of this subset.
+- Expose transpile(source, filename) in a sourceable base-R file. Return R text;
+  execution is explicitly separate. No external dependencies or runtime helpers.
+
+This is enough to verify a real source-to-R path before implementing CSV or OOP.
+Alternatives deferred: required declaration keywords, a scalar/vector type split,
+implicit coercion, and R's general recycling. They would add syntax or surprising
+behavior before there are motivating workflows. Exact grammar and limits are in
+[implemented-subset.md](implemented-subset.md).
+
+Verification: tests/run.R checks successful generated-code execution, rejection
+cases, source locations, literal escaping, and absence of execution during
+transpilation. Future unknown types/lengths will require runtime checks; static
+analysis here is sufficient only because every value comes from known literals
+and supported expressions.

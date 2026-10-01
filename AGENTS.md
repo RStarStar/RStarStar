@@ -13,14 +13,16 @@ CONTRIBUTING.md, and the relevant documents in docs/ before making changes.
 
 ## Current stage
 
-This is a documentation-only design scaffold. No compiler or test runner exists.
-Do not describe proposals as implemented features or invent successful checks.
-Syntax in the guide is provisional. Consult docs/design-decisions.md for status;
+A first compiler and behavioral tests exist. Read docs/implemented-subset.md
+for executable syntax and limits. Do not describe proposals as implemented
+features or invent successful checks. Broader syntax in the guide is provisional. Consult docs/design-decisions.md for status;
 do not silently promote an unresolved choice into a language guarantee.
 
 ## Making changes
 
 - Keep changes focused on the requested task; preserve unrelated user changes.
+- Record every significant implementation change in PROGRESS.md with its scope,
+  verification results, and remaining limitations. Keep the history accurate.
 - Update the guide, decision record, and roadmap when an accepted design changes.
 - Explain behavioral tradeoffs with small examples, including failure cases.
 - Do not introduce dependencies, an object-system backend, a source extension,
@@ -36,10 +38,11 @@ do not silently promote an unresolved choice into a language guarantee.
 ## Verification and reporting
 
 For documentation, check relative links, example consistency, and git diff
-whitespace. No R build or test command is available yet. Once implementation
-exists, document real commands and use focused semantic and integration checks.
-Tests should verify behavior, diagnostics, and generated R results rather than
-only mirror implementation details.
+whitespace. Run Rscript tests/run.R from the repository root for compiler changes.
+Rscript examples/demo.R demonstrates explicit compilation and execution. Add
+focused semantic and integration checks for new behavior. Tests should verify
+behavior, diagnostics, and generated R results rather than only mirror
+implementation details. The toolchain currently uses base R only.
 
 Report what changed, what was checked, and any remaining uncertainty. AI-assisted
 contributions follow the same correctness and review standards as other work.

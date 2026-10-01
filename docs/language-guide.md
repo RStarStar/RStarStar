@@ -1,8 +1,9 @@
 # Initial language guide
 
-This guide explores the intended experience. **All syntax is provisional and
-none of these examples runs yet.** See [design decisions](design-decisions.md)
-for the distinction between direction and open proposals.
+This guide explores the intended experience. **Bindings, mut, literals, vectors,
+arithmetic, and printing now work; data operations, functions, and OOP remain
+proposals.** See the [implemented subset](implemented-subset.md) for exact working
+syntax and [design decisions](design-decisions.md) for open proposals.
 
 ## Read and transform data
 
@@ -35,8 +36,9 @@ mut passing_score = 70
 passing_score = 75
 ```
 
-The proposed arithmetic retains R's element-by-element behavior. For this small
-example, generated R could be:
+The implemented arithmetic retains R's element-by-element behavior. For this small
+example, equivalent R is shown below (the generator additionally quotes names
+and qualifies base functions):
 
 ```r
 scores <- c(72, 85, 91, 68)
@@ -46,7 +48,7 @@ passing_score <- 75
 ```
 
 Immutability is a rule enforced by the toolchain; ordinary R assignment does not
-enforce it. Under the proposal, assigning to scores again would produce:
+enforce it. Assigning to scores again produces a source-located error such as:
 
 ```text
 Cannot reassign 'scores'.
@@ -55,8 +57,8 @@ or choose a new name for this result.
 ```
 
 An indexed update would also require a mutable binding. This is not a promise
-that arbitrary external R objects are deeply immutable. Scope, shadowing, and
-how '=' distinguishes declarations from updates remain open.
+that arbitrary external R objects are deeply immutable. The current subset has one scope: the first assignment declares a binding and
+later assignments require it to be mutable. Indexing is not implemented.
 
 Mutable loading is a candidate spelling:
 
@@ -71,9 +73,9 @@ Text-to-number conversion should be explicit. Proposed conditions require one
 non-missing boolean. Checks involving file contents may happen at runtime, while
 checks supported by known source information can happen before execution.
 
-Candidate type names include Text, Number, and Integer. Their exact mapping to
-R, numeric promotion, overflow behavior, and vector types are not defined yet.
-Keeping a mutable binding's type stable is a proposal awaiting a decision.
+The current subset infers Number (R double), Text, and Boolean, and keeps mutable
+element types stable while allowing length changes. Annotations, Integer, and
+conditions remain proposals. See the implemented subset for arithmetic limits.
 
 ## Missing data
 

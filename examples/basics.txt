@@ -1,0 +1,11 @@
+# RStarStar's implemented first subset.
+scores = [72, 85, 91, 68]
+adjusted = scores + 5
+print adjusted
+
+mut passing_score = 70
+passing_score = passing_score + 5
+print passing_score
+
+message = "Ready to analyze"
+print message

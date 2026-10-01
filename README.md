@@ -4,18 +4,32 @@ An approachable language for R that combines clear syntax with thoughtful
 safeguards, helping users write reliable data analysis while retaining R's
 expressive power and ecosystem.
 
-RStarStar is a planned transpiler **implemented in R** that translates its own
+RStarStar is an experimental transpiler **implemented in R** that translates its own
 syntax into readable R code. It is for people who want to use R but find its
 syntax difficult to approach. Prior programming experience is not required.
 
 ## Project status
 
-**Design stage.** There is no parser, compiler, runtime, or installable package
-yet. All RStarStar examples are proposals, not executable programs or a stable
-language specification. The project name is RStarStar; a source file extension
-and command-line interface have not been chosen.
+**First compiler prototype.** Bindings, `mut`, literals, vectors, arithmetic, and
+printing transpile to readable R. Data loading and OOP remain design proposals.
+The language is experimental, not a stable specification or installable package.
+A source file extension and command-line interface have not been chosen.
 
-## What writing it could look like
+## Try the implemented subset
+
+With R installed, run these commands from the repository root:
+
+```sh
+Rscript tests/run.R
+Rscript examples/demo.R
+```
+
+The toolchain uses base R with no external dependencies. See the
+[implemented subset](docs/implemented-subset.md) for the API, grammar, and limits.
+
+## What the broader language could look like
+
+The read/filter statements below are still proposals; bindings and arithmetic work.
 
 ```text
 read "sales.csv" into sales
@@ -35,6 +49,7 @@ tables should remain useful without learning OOP.
 
 ## Start here
 
+- [Progress log](PROGRESS.md): significant changes and verification results.
 - [Initial language guide](docs/language-guide.md): proposed syntax and behavior.
 - [Design decisions](docs/design-decisions.md): direction, proposals, and unresolved questions.
 - [Architecture](docs/architecture.md): a proposed implementation structure.
@@ -42,9 +57,8 @@ tables should remain useful without learning OOP.
 - [Contributing](CONTRIBUTING.md): how to participate, including with AI assistance.
 - [Agent instructions](AGENTS.md): repository guidance for coding agents.
 
-Start by discussing an example or clarifying an open design question. There are
-currently no installation, build, or test commands. Implementation will begin
-with a small end-to-end subset after its behavior is agreed.
+Start with the implemented subset, an example, or an open design question. Keep
+significant implementation changes and their verification in PROGRESS.md.
 
 ## License
 

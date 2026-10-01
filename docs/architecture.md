@@ -1,7 +1,9 @@
-# Proposed architecture
+# Architecture
 
-This is an implementation outline, not a description of existing code. The
-toolchain will be written in R; package layout and dependencies are undecided.
+R/transpile.R implements tokenization, parsing, semantic analysis, and R generation
+for the initial subset using base R only. It exposes transpile(source, filename).
+The pipeline below also describes how later features should fit; runtime helpers,
+objects, and interoperability are not implemented. Package layout is undecided.
 
 ## Compilation pipeline
 
@@ -40,7 +42,7 @@ Calling R packages is essential to the longer-term design, but external objects
 can have reference behavior or effects the compiler cannot infer. Define the
 interop boundary explicitly before claiming mutation guarantees across it.
 
-## Verification once code exists
+## Verification
 
 - Parser cases should cover valid syntax and useful malformed-input errors.
 - Semantic cases should cover scope, forbidden reassignment, and mutating calls.
@@ -49,5 +51,6 @@ interop boundary explicitly before claiming mutation guarantees across it.
 - Object cases should verify aliasing behavior, including nested state.
 - Data cases should cover missing columns, malformed values, and missing data.
 
-Choose and document real tooling with the first implementation. There is no build
-or test command to run at this stage.
+Run Rscript tests/run.R from the repository root. Rscript examples/demo.R shows
+compilation and explicit execution. Object and data cases above become required
+when those features are implemented. Record significant changes in PROGRESS.md.

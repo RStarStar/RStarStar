@@ -1,6 +1,6 @@
 # Contributing to RStarStar
 
-RStarStar is at the language-design stage. Beginners, experienced R users, and
+RStarStar has a small compiler prototype and an evolving language design. Beginners, experienced R users, and
 AI-assisted contributors are welcome. Useful contributions include small example
 programs, clearer explanations, confusing-error examples, and design critiques.
 
@@ -25,7 +25,8 @@ explicitly provisional while decisions are open.
 - Keep each change focused and explain the problem it solves.
 - Update affected documentation together so examples and rules agree.
 - State what you verified and any checks you could not run.
-- For future compiler changes, include meaningful cases for intended behavior
+- Record significant implementation changes and verification in [PROGRESS.md](PROGRESS.md).
+- For compiler changes, include meaningful cases for intended behavior
   and relevant errors, with expected generated-R behavior.
 - Respect other contributors; critique designs and code rather than people.
 - Submit only material you have the right to contribute under the project's MIT license.
@@ -42,12 +43,17 @@ Coding agents should also follow [AGENTS.md](AGENTS.md).
 
 ## Local checks today
 
-There is no installation or automated test suite yet. For documentation changes:
+The prototype uses base R with no external dependencies. From the repository
+root, run the behavioral suite and example for compiler changes:
 
 ```sh
+Rscript tests/run.R
+Rscript examples/demo.R
 git diff --check
 git status --short
 ```
 
 Also check relative Markdown links and compare examples with the decision record.
-Build and test instructions will be added with the first implementation.
+See the [implemented subset](docs/implemented-subset.md) for the API and supported
+syntax. Documentation-only changes need link and whitespace checks; code checks
+are appropriate when examples or language claims change.

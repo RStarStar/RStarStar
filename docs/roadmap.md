@@ -1,7 +1,8 @@
 # Roadmap
 
-Milestones describe outcomes, not release dates. Except for the initial scaffold,
-all work below is pending. Revise scope as examples reveal design problems.
+Milestones describe outcomes, not release dates. The foundation and first
+compiler subset are implemented; broader features remain pending. See
+[PROGRESS.md](../PROGRESS.md) for verification and limitations.
 
 ## 0. Project foundation
 
@@ -9,7 +10,7 @@ all work below is pending. Revise scope as examples reveal design problems.
 - [x] Repository-wide agent instructions and existing MIT license.
 - [ ] Review the proposed rules against beginner workflows and R behavior.
 
-## 1. Define the smallest language subset
+## 1. Define the smallest language subset — initial version complete
 
 Agree on literals, arithmetic, bindings, mut, printing, comments, and source
 locations. Write successful examples and expected errors. Decide numeric/vector
@@ -18,7 +19,7 @@ behavior needed by those examples, including length mismatches.
 Done when this subset has unambiguous syntax and observable behavior recorded in
 the design documents. OOP and file loading need not block this milestone.
 
-## 2. First end-to-end transpiler
+## 2. First end-to-end transpiler — initial version complete
 
 Implement tokens, parsing, binding checks, and readable R generation for the
 agreed subset. Establish the R development layout and document actual checks.
@@ -26,6 +27,10 @@ agreed subset. Establish the R development layout and document actual checks.
 Done when an example transpiles and its generated R produces the expected result,
 while immutable reassignment fails with an appropriate source location. Keep
 transpilation separate from execution.
+
+The working subset is documented in [implemented-subset.md](implemented-subset.md).
+The implementation uses a sourceable base-R file and a behavioral test runner;
+a distributable R package remains future work.
 
 ## 3. A complete data-analysis workflow
 
