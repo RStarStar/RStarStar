@@ -85,3 +85,29 @@ on the local R 4.6.0 environment. The basic, CSV, and filter demos all passed.
 The filter demo selected North with revenue 120 and separately retained West's
 missing-revenue row for review. Checked nine Markdown files and 23 relative
 links, balanced code fences, code/example whitespace, and git diff --check.
+
+
+## 2026-10-01 — Scalar summaries and PNG charts
+
+Implemented average(...), sum(...), count(...), explicit skipping missing, and
+plot table x column y column as bar to "output.png". Summaries document empty,
+missing, nonfinite, and table-count behavior. Chart validation rejects missing
+values, duplicate labels, nonnumeric heights, empty input, and existing output.
+Generated programs embed required helpers and use R's bundled graphics packages;
+transpilation still performs no input reads, image writes, or execution.
+
+Added tests/summary-chart.R and a CSV-to-filter-to-summary-to-chart example in
+examples/workflow.R and examples/workflow.txt. Marked roadmap milestone 3's initial
+version complete. Grouping, schemas, chart configuration, functions, and OOP
+remain future work. PNG rendering requires Cairo support in the installed R.
+
+Verification: all 94 behavioral checks passed on local R 4.6.0, including PNG
+signature/dimension checks and output protection. The workflow produced average
+102.5, sum 205, and row count 2. Its 1200-by-800 PNG was visually inspected: North
+and South bars, values, title, and axes rendered correctly. The sandbox emitted
+Fontconfig cache-directory warnings during rendering; images were generated and
+verified despite those warnings.
+
+The three earlier demos also passed. Documentation verification covered nine
+Markdown files and 23 local links; code-fence, whitespace, and git diff checks
+passed.

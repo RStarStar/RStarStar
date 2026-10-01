@@ -49,7 +49,7 @@ rss_tokenize <- function(source, filename) {
       begin <- i
       while (i <= n && grepl("^[A-Za-z0-9_]$", current())) advance()
       value <- paste0(chars[begin:(i - 1L)], collapse = "")
-      kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not")) value else "name"
+      kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not", "plot")) value else "name"
       add(kind, value, start)
     } else if (grepl("^[0-9]$", ch)) {
       rest <- paste0(chars[i:n], collapse = "")
@@ -116,6 +116,19 @@ rss_parse <- function(tokens, filename) {
   }
   primary <- function() {
     token <- peek()
+    if (token$kind == "name" && token$value %in% c("average", "sum", "count") && tokens[[position + 1L]]$kind == "(") {
+      take()
+      take()
+      value <- expression()
+      expect(")", "Expected ')' after the summary input.")
+      skip <- FALSE
+      if (peek()$kind == "skipping") {
+        take()
+        expect("missing", "Expected 'missing' after 'skipping'.")
+        skip <- TRUE
+      }
+      return(node("summary", token, operation = token$value, value = value, skip = skip))
+    }
     if (token$kind %in% c("number", "text", "true", "false", "name")) {
       take()
       if (token$kind == "name" && peek()$kind == ".") {
@@ -229,6 +242,28 @@ rss_parse <- function(tokens, filename) {
     if (token$kind == "print") {
       take()
       statement <- node("print", token, value = expression())
+    } else if (token$kind == "plot") {
+      take()
+      table <- expect("name", "Expected a table variable after 'plot'.")
+      word <- function(value) {
+        if (peek()$kind != "name" || peek()$value != value) rss_error(sprintf("Expected '%s' in the plot statement.", value), peek(), filename)
+        take()
+      }
+      column_name <- function() {
+        if (!peek()$kind %in% c("name", "text")) rss_error("Expected a column name or quoted header.", peek(), filename)
+        take()$value
+      }
+      word("x")
+      x <- column_name()
+      word("y")
+      y <- column_name()
+      word("as")
+      word("bar")
+      word("to")
+      path <- expect("text", "Expected a quoted PNG output path.")
+      if (!grepl("\\.png$", path$value, ignore.case = TRUE)) rss_error("Bar charts currently require a .png output path.", path, filename)
+      statement <- node("plot", token, table = table$value, table_token = table,
+                        x = x, y = y, path = path$value)
     } else if (token$kind == "filter") {
       take()
       table <- expect("name", "Expected a table variable after 'filter'.")
@@ -305,6 +340,12 @@ rss_analyze <- function(statements, filename) {
     kind <- value$kind
     recurse <- function(x) infer(x, in_filter)
     if (kind == "read") return(info("Table", 1L))
+    if (kind == "summary") {
+      operand <- recurse(value$value)
+      if (value$operation != "count" && !operand$type %in% c("Number", "Unknown")) rss_error("Numeric summaries require numbers.", value$token, filename)
+      if (value$operation == "count" && operand$type == "Table" && value$skip) rss_error("count(table) counts rows; choose a column to skip missing values.", value$token, filename)
+      return(info("Number", 1L))
+    }
     if (kind == "filter") {
       require_table(value$table, value$table_token)
       predicate <- infer(value$predicate, TRUE)
@@ -370,6 +411,10 @@ rss_analyze <- function(statements, filename) {
     info(result_type, size)
   }
   for (statement in statements) {
+    if (statement$kind == "plot") {
+      require_table(statement$table, statement$table_token)
+      next
+    }
     if (statement$kind == "print") {
       infer(statement$value)
       next
@@ -403,6 +448,7 @@ rss_generate <- function(statements, filename) {
   emit <- function(value, table = NULL) {
     recurse <- function(x) emit(x, table)
     switch(value$kind,
+      summary = call_runtime("summary", c(quote_text(value$operation), recurse(value$value), if (value$skip) "TRUE" else "FALSE"), value$token),
       read = paste0(".rss_read_csv(", quote_text(value$path), ", ", quote_text(value$separator),
                     ", ", quote_text(filename), ", ", value$token$line, "L, ", value$token$column, "L)"),
       filter = {
@@ -426,6 +472,7 @@ rss_generate <- function(statements, filename) {
   }
   declared <- character()
   lines <- vapply(statements, function(statement) {
+    if (statement$kind == "plot") return(call_runtime("plot", c(name(statement$table), quote_text(statement$x), quote_text(statement$y), quote_text(statement$path)), statement$token))
     if (statement$kind == "print") return(paste0("base::print(", emit(statement$value), ")"))
     rhs <- emit(statement$value)
     if (has_data && statement$name %in% declared) rhs <- call_runtime("update", c(name(statement$name), rhs), statement$name_token)
@@ -577,6 +624,61 @@ rss_runtime <- function() {
            ">" = left > right, ">=" = left >= right, "and" = left & right, "or" = left | right)
   }
   list(
+    summary = function(operation, value, skip, filename, line, column) {
+      error <- function(message) fail(message, filename, line, column)
+      if (operation == "count") {
+        if (is.data.frame(value)) {
+          if (skip) error("count(table) counts rows; choose a column to skip missing values.")
+          return(as.double(nrow(value)))
+        }
+        if (!type(value) %in% c("Number", "Text", "Boolean")) error("count requires a vector or table.")
+        return(as.double(if (skip) sum(!is.na(value)) else length(value)))
+      }
+      if (!is.numeric(value)) error("Numeric summaries require numbers.")
+      if (anyNA(value) && !skip) error("Summary input contains missing values. Add 'skipping missing' explicitly.")
+      if (skip) value <- value[!is.na(value)]
+      if (any(!is.finite(value))) error("Numeric summaries require finite values.")
+      if (operation == "average" && !length(value)) error("Cannot average an empty input or an input with no nonmissing values.")
+      result <- if (operation == "average") mean(value) else sum(value)
+      if (!is.finite(result)) error("Summary result is outside the finite numeric range.")
+      as.double(result)
+    },
+    plot = function(table, x, y, path, filename, line, column) {
+      error <- function(message) fail(message, filename, line, column)
+      if (!is.data.frame(table)) error("Plotting requires a table.")
+      if (!all(c(x, y) %in% names(table))) error("Unknown chart column; check the x and y column names.")
+      labels <- table[[x, exact = TRUE]]
+      heights <- table[[y, exact = TRUE]]
+      if (!nrow(table)) error("Cannot plot an empty table.")
+      if (!is.numeric(heights)) error("Bar heights must be numeric.")
+      if (anyNA(labels) || anyNA(heights)) error("Chart columns contain missing values. Filter those rows explicitly before plotting.")
+      if (any(!is.finite(heights))) error("Bar heights must be finite.")
+      if (anyDuplicated(as.character(labels))) error("Bar labels must be unique; grouped summaries are not implemented yet.")
+      if (file.exists(path)) error("Chart output already exists; choose a new path.")
+      if (!dir.exists(dirname(path))) error("Chart output directory does not exist.")
+      if (!capabilities("cairo")) error("PNG chart output requires an R build with Cairo support.")
+      temporary <- tempfile(pattern = ".rstarstar-chart-", tmpdir = dirname(path), fileext = ".png")
+      device <- NULL
+      on.exit({
+        if (!is.null(device) && device %in% grDevices::dev.list()) grDevices::dev.off(device)
+        unlink(temporary)
+      }, add = TRUE)
+      tryCatch({
+        grDevices::png(temporary, width = 1200, height = 800, res = 120, type = "cairo")
+        device <- grDevices::dev.cur()
+        graphics::par(mar = c(6, 5, 4, 2) + 0.1)
+        graphics::barplot(heights, names.arg = as.character(labels), col = "#3678A8",
+                          border = NA, main = paste(y, "by", x), xlab = x, ylab = y,
+                          las = 1, cex.names = 0.85)
+        grDevices::dev.off(device)
+        device <- NULL
+        if (!file.copy(temporary, path, overwrite = FALSE)) error("Could not save chart; check the output path and permissions.")
+      }, error = function(e) {
+        if (inherits(e, "rstarstar_error")) stop(e)
+        error(paste("Could not draw chart:", conditionMessage(e)))
+      })
+      invisible(path)
+    },
     binary = binary,
     unary = function(op, value, filename, line, column) {
       expected <- if (op == "not") "Boolean" else "Number"

@@ -33,7 +33,11 @@ may need to retain their underlying details when a trustworthy translation is no
 Generated output remains standalone: CSV programs embed a loader helper, while
 programs without CSV reads omit it and use direct R expressions. Data programs
 use a private .rss helper environment for column lookup, checked arithmetic and
-comparisons, vector construction, filtering, and stable-type reassignment.
+comparisons, vector construction, filtering, scalar summaries, chart rendering,
+and stable-type reassignment. Summary expressions embed checks even without CSV
+input. Chart helpers call the bundled graphics/grDevices namespaces, require
+Cairo, close their device, and publish a temporary image without overwriting
+existing output.
 Semantic analysis marks unknown column types/lengths for runtime checking; it
 never inspects files. The loader validates structure and reports
 source-located errors at execution time. Future helpers should preserve this

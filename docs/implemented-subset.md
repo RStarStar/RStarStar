@@ -13,6 +13,7 @@ Rscript tests/run.R
 Rscript examples/demo.R
 Rscript examples/read-csv.R
 Rscript examples/filter.R
+Rscript examples/workflow.R
 ```
 
 In an R session at the repository root:
@@ -30,12 +31,14 @@ then returns a single R-source string. It does not run the program, print its
 output, or write files. Each call starts with a fresh binding scope. Generated R
 uses base functions and requires no separately installed RStarStar runtime. CSV
 programs embed a self-contained loader and, when needed, checked expression
-helpers; programs without data loading retain direct arithmetic output. Compilation is not a sandbox
+helpers; summaries also embed runtime checks, and charts use R's bundled
+graphics/grDevices packages. Programs without data loading retain direct arithmetic output. Compilation is not a sandbox
 for later execution, nor are its binding checks enforced if generated R is edited.
 
 Validated locally on R 4.6.0 on macOS arm64. A minimum R version and broader
 compatibility matrix are not yet established. No external dependencies or package
-installation are needed. Internal rss_* functions are not a stable public API.
+installation are needed. PNG charts require capabilities("cairo") to be true;
+the full test suite includes chart rendering and therefore requires Cairo. Internal rss_* functions are not a stable public API.
 
 ## Grammar
 
@@ -46,7 +49,9 @@ statement  = [ "mut" ], name, "=", expression
            | "read", text, "into", [ "mut" ], name,
              [ "with", "delimiter", text ]
            | "filter", name, "where", expression, [ "skipping", "missing" ],
-             "into", [ "mut" ], name ;
+             "into", [ "mut" ], name
+           | "plot", name, "x", (name | text), "y", (name | text),
+             "as", "bar", "to", text ;
 expression = conjunction, { "or", conjunction } ;
 conjunction = negation, { "and", negation } ;
 negation   = "not", negation | comparison ;
@@ -57,6 +62,8 @@ product    = unary, { ("*" | "/"), unary } ;
 unary      = ("+" | "-"), unary | primary ;
 primary    = number | text | "true" | "false" | name | "@", name
            | name, ".", (name | text)
+           | ("average" | "sum" | "count"), "(", expression, ")",
+             [ "skipping", "missing" ]
            | "(", expression, ")"
            | "[", expression, { ",", expression }, "]" ;
 ```
@@ -71,7 +78,7 @@ then not, then and, then or. Comparisons cannot be chained; write x > 0 and x < 
 
 Names match [A-Za-z_][A-Za-z0-9_]* and are case-sensitive. The keywords mut, print,
 true, false, read, into, with, delimiter, filter, where, skipping, missing, is,
-and, or, and not cannot be names. R keywords may be names; generated identifiers
+and, or, not, and plot cannot be names. R keywords may be names; generated identifiers
 are quoted, and generated function calls explicitly use the base namespace.
 
 Numbers start with a digit, have optional fractional digits (such as 1.25), and
@@ -135,7 +142,7 @@ For example, x = 1 followed by x = 2 reports an immutable-reassignment error on
 line 2. Undefined names, mixed vector types, nonnumeric arithmetic, and mismatched
 vector lengths also fail before R generation.
 
-Not implemented: plot, summaries, general indexing, conditional statements, functions,
+Not implemented: grouped summaries, other chart types, general indexing, conditional statements, user-defined functions,
 annotations, explicit conversions, records, classes, interfaces, and arbitrary
 R calls. Input is parsed as RStarStar, never evaluated as R during compilation.
 
@@ -243,3 +250,67 @@ of an already numeric column preserves its numeric type.
 Generated data programs embed .rss expression helpers to enforce runtime type,
 length, missing-value, and mutation checks. No helper installation is necessary.
 Failures point to the source column, operator, assignment, or filter statement.
+
+
+## Scalar summaries
+
+```text
+average_revenue = average(sales.revenue) skipping missing
+total_revenue = sum(sales.revenue) skipping missing
+rows = count(sales)
+known_values = count(sales.revenue) skipping missing
+print average([1, 2, 3])
+```
+
+The built-in names average, sum, and count are recognized only when followed by
+parentheses. They remain legal variable names, and calls still mean the built-in
+operation even if a binding has the same name. This is not general function-call
+support. The entire parenthesized expression is the summary input. An optional
+skipping missing immediately afterward applies only to that summary.
+
+average and sum require numeric input. Missing values (NA/NaN) cause an error
+unless skipping missing is present. Remaining infinite values are errors, as is
+a result outside the finite numeric range. An empty average, including after
+skipping all values, is an error. An empty numeric sum is zero. All-missing CSV
+columns still infer as Text: numeric summaries reject them even when skipping.
+
+count(vector) includes missing entries by default; skipping missing excludes
+them. count(table) returns the number of rows; skipping missing on a table is an
+error because no column policy was specified. Every summary returns a numeric
+scalar. Empty vectors/tables count as zero. Numeric input types are checked
+statically where known and otherwise at runtime; missingness is checked at runtime.
+
+Summaries work inside filter predicates with the same bare-column/@variable rules.
+An outer filter's skipping missing is separate from a summary's option. To avoid
+two adjacent skipping clauses, compute a summary in a variable first and refer to
+it with @name in the filter. Group-by and table-producing summaries are deferred.
+
+## PNG bar charts
+
+```text
+filter sales where revenue is not missing into complete_sales
+plot complete_sales x region y revenue as bar to "revenue.png"
+```
+
+Plotting is a statement with no binding result. The x/y/as/bar/to words are
+contextual markers, so ordinary variables named x or y remain legal. Each axis
+specifies an exact column name or quoted header, not an expression. One bar is
+drawn per row in source order. Labels must be unique after conversion to text;
+repeated categories are rejected rather than summed implicitly. Heights must be
+finite numeric values. Missing labels/heights and empty tables are errors; filter
+them explicitly first. Negative and zero heights are supported.
+
+Output is a 1200-by-800 PNG, using R's Cairo device. The installed R build must
+report capabilities("cairo") as true; other formats and renderers are not yet
+supported. Paths are literal text, end in .png (case-insensitive), and resolve
+from the execution working directory. The parent directory must exist. Existing
+files are not overwritten. Drawing uses a temporary file in that directory and
+publishes it only after the graphics device closes; temporary files are cleaned
+up. The compiler never creates images or opens devices during transpilation.
+
+Titles and axis labels come from the selected column names. Styling, label-layout
+controls, grouped bars, and large-category-count layout are not configurable yet.
+Device errors are reported with the plot statement's source location. Font
+availability depends on the R installation. The demo runner writes a uniquely
+named image under examples/output/ by default, or accepts an explicit new PNG
+path as its sole argument. Generated example output is ignored by Git.

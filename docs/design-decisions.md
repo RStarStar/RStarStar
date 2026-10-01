@@ -157,3 +157,34 @@ remain future work. Summaries and charting are still unimplemented.
 Verification includes runtime types/lengths, missing-value policies, exact lookup,
 compound predicates, alias preservation, mutable targets, empty/single-column
 outputs, source locations, and complete statement spans.
+
+
+## 2026-10-01 — Scalar summaries and saved bar charts
+
+Status: implemented, experimental. average(input), sum(input), and count(input)
+are contextual built-in expressions with an optional skipping missing suffix.
+Parentheses replace the earlier prefix-average sketch to make input boundaries
+unambiguous. The names remain legal bindings; general function calls are deferred.
+
+Numeric summaries reject missing values by default, allow explicit skipping,
+and reject nonfinite remaining inputs/results. Empty numeric sum is zero; empty
+average is an error. count counts entries (including missing by default), or table
+rows. Skipping missing is supported for vectors only. Existing CSV type inference
+continues to apply; schemas and grouped table summaries remain future work.
+
+plot table x column y column as bar to "path.png" saves one bar per row, using
+bundled R graphics with the Cairo PNG device. Contextual axis words preserve x/y
+variable names. Chart columns must be present, labels unique, heights numeric and
+finite, and both columns nonmissing. No implicit aggregation or row dropping.
+The PNG is published from a temporary file after rendering; existing output is
+not overwritten and the parent directory must already exist.
+
+Alternatives deferred: prefix aggregate expressions without parentheses, implicit
+missing removal, group-by, automatic aggregation of repeated labels, GUI devices,
+additional image formats, and configurable styling. This delivers a complete
+small workflow while keeping those choices separate.
+
+Verification includes scalar results, missing/empty/type errors, count policies,
+PNG signatures/dimensions, standalone generated execution, no compilation-time
+file output, and chart validation/output protection. The full suite now requires
+Cairo; broader renderer portability remains future work.

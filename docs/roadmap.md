@@ -32,14 +32,15 @@ The working subset is documented in [implemented-subset.md](implemented-subset.m
 The implementation uses a sourceable base-R file and a behavioral test runner;
 a distributable R package remains future work.
 
-## 3. A complete data-analysis workflow — in progress
+## 3. A complete data-analysis workflow — initial version complete
 
 - [x] CSV loading, optional delimiter, mutable targets, and source-located errors.
 - [x] Column access, comparisons, compound predicates, and explicit missing-value filtering.
-- [ ] A summary and a simple chart.
+- [x] Scalar average/sum/count summaries and a saved PNG bar chart.
 
-Implement the remaining workflow features.
-Resolve column lookup, file parsing, and missing-data policies for that workflow.
+The workflow example now reads, filters, computes scalar summaries, and saves a
+bar chart. Grouped summaries, configurable schemas, and additional chart types
+remain extensions beyond this initial milestone.
 
 Done when a small documented dataset can go from file to summary and chart, with
 useful failures for absent files, missing columns, and invalid inputs.

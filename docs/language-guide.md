@@ -1,8 +1,8 @@
 # Initial language guide
 
 This guide explores the intended experience. **Bindings, mut, literals, vectors,
-arithmetic, printing, CSV loading, column access, and filtering now work; functions
-and OOP remain proposals.** See the [implemented subset](implemented-subset.md) for exact working
+arithmetic, printing, CSV loading, column access, filtering, scalar summaries,
+and PNG bar charts now work; user-defined functions and OOP remain proposals.** See the [implemented subset](implemented-subset.md) for exact working
 syntax and [design decisions](design-decisions.md) for open proposals.
 
 ## Read and transform data
@@ -84,15 +84,29 @@ conditional statements remain proposals. Comparisons and boolean expressions wor
 
 ## Missing data
 
-Missing-value behavior must be visible and documented. One possible spelling is:
+Numeric summaries reject missing values unless skipping is explicit:
 
 ```text
-average sales.revenue skipping missing
+print average(sales.revenue) skipping missing
 ```
 
-The summary operation above is not implemented; its default, all-missing, and
-empty-input behavior remain unresolved. Filtering already has an explicit policy
-as described above. Do not assume missing means zero or false.
+average() and sum() require numeric inputs. After optional missing-value removal,
+an empty average is an error and an empty numeric sum is zero. count() counts
+vector entries including missing values, or table rows; count(column) skipping
+missing counts nonmissing entries. These built-ins use parentheses to make their
+input boundaries explicit. Grouped summaries are not implemented.
+
+## Save a chart
+
+```text
+filter sales where revenue is not missing into complete_sales
+plot complete_sales x region y revenue as bar to "revenue.png"
+```
+
+The first chart feature saves a PNG with one bar per row. It requires unique
+category labels and finite numeric heights, rejects missing plotted values, and
+never overwrites an existing file. Cairo support in the installed R build is
+required. See the implemented subset for output and empty-table behavior.
 
 ## Records: describe data
 

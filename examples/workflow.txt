@@ -1,0 +1,9 @@
+read "examples/data/sales.csv" into sales
+filter sales where revenue is not missing into complete_sales
+average_revenue = average(complete_sales.revenue)
+total_revenue = sum(complete_sales.revenue)
+row_count = count(complete_sales)
+print average_revenue
+print total_revenue
+print row_count
+plot complete_sales x region y revenue as bar to "revenue.png"
