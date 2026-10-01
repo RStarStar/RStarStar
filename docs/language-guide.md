@@ -1,0 +1,194 @@
+# Initial language guide
+
+This guide explores the intended experience. **All syntax is provisional and
+none of these examples runs yet.** See [design decisions](design-decisions.md)
+for the distinction between direction and open proposals.
+
+## Read and transform data
+
+```text
+read "sales.csv" into sales
+filter sales where revenue > 0 into profitable_sales
+```
+
+Sentence-like commands express actions; ordinary expressions express calculations.
+The filter example assumes a numeric revenue column with no missing values.
+Column-name resolution and missing-value filtering rules still need a decision.
+File loading should report errors in terms of the original statement and path.
+
+An optional setting might look like:
+
+```text
+read "sales.csv" into sales with delimiter ";"
+```
+
+File type inference, column type inference, and parsing failures are unresolved.
+We should not silently drop malformed rows or silently replace missing values.
+
+## Bindings and mutation
+
+```text
+scores = [72, 85, 91, 68]
+adjusted = scores + 5
+
+mut passing_score = 70
+passing_score = 75
+```
+
+The proposed arithmetic retains R's element-by-element behavior. For this small
+example, generated R could be:
+
+```r
+scores <- c(72, 85, 91, 68)
+adjusted <- scores + 5
+passing_score <- 70
+passing_score <- 75
+```
+
+Immutability is a rule enforced by the toolchain; ordinary R assignment does not
+enforce it. Under the proposal, assigning to scores again would produce:
+
+```text
+Cannot reassign 'scores'.
+Declare it with 'mut' if you intend to change it,
+or choose a new name for this result.
+```
+
+An indexed update would also require a mutable binding. This is not a promise
+that arbitrary external R objects are deeply immutable. Scope, shadowing, and
+how '=' distinguishes declarations from updates remain open.
+
+Mutable loading is a candidate spelling:
+
+```text
+read "sales.csv" into mut sales
+```
+
+## Types and conditions
+
+Infer types in ordinary code; allow annotations where they help express a contract.
+Text-to-number conversion should be explicit. Proposed conditions require one
+non-missing boolean. Checks involving file contents may happen at runtime, while
+checks supported by known source information can happen before execution.
+
+Candidate type names include Text, Number, and Integer. Their exact mapping to
+R, numeric promotion, overflow behavior, and vector types are not defined yet.
+Keeping a mutable binding's type stable is a proposal awaiting a decision.
+
+## Missing data
+
+Missing-value behavior must be visible and documented. One possible spelling is:
+
+```text
+average sales.revenue skipping missing
+```
+
+The default when no policy is supplied is unresolved. All-missing and empty
+inputs also need explicit behavior. Do not assume missing means zero or false.
+
+## Records: describe data
+
+```text
+record AnalysisResult {
+  label: Text
+  mean: Number
+  sample_size: Integer
+}
+
+result = AnalysisResult(
+  label: "October sales",
+  mean: 145.8,
+  sample_size: 120
+)
+
+print result.mean
+
+updated = result with {
+  label: "Corrected October sales"
+}
+```
+
+Proposed records provide generated constructors, readable printing, and value
+equality. Fields are public to read and immutable by default. The with expression
+creates a new value and validates its field names and types. Equality involving
+missing values or nested objects still needs a specification.
+
+## Classes: protect state and provide behavior
+
+```text
+class Counter {
+  mut value: Integer = 0
+
+  fn increment(mut self) {
+    self.value = self.value + 1
+  }
+
+  fn current(self) {
+    return self.value
+  }
+}
+
+mut counter = Counter()
+counter.increment()
+print counter.current()
+```
+
+Proposed class fields are private; methods are public unless marked private.
+Generated constructors accept initial field values and defaults. Construction
+does not imply permission to access private fields afterward. Validation and
+custom construction are open design topics.
+
+The three mutation markers describe different permissions: mut counter allows
+updates to the binding; mut value permits field changes; mut self permits a
+method to update the receiver. Calling a mutating method requires a mutable
+receiver. This explicit spelling is a starting point for usability review.
+
+Value semantics are proposed for language-owned objects:
+
+```text
+mut first = Counter()
+mut second = first
+second.increment()
+```
+
+The intended result is first.current() == 0 and second.current() == 1. The
+implementation strategy and boundaries around R reference objects are unresolved.
+Nested objects and mutation through function arguments need additional examples.
+
+## Interfaces: share a contract
+
+Interfaces are a later milestone, not a requirement for the first compiler.
+
+```text
+interface Predictor {
+  fn predict(self, x: Number) -> Number
+}
+
+class ConstantModel implements Predictor {
+  value: Number
+
+  fn predict(self, x: Number) -> Number {
+    return self.value
+  }
+}
+
+class LinearModel implements Predictor {
+  slope: Number
+  intercept: Number = 0
+
+  fn predict(self, x: Number) -> Number {
+    return self.slope * x + self.intercept
+  }
+}
+
+fn estimate(model: Predictor, x: Number) -> Number {
+  return model.predict(x)
+}
+
+model = LinearModel(slope: 2, intercept: 1)
+print estimate(model, 10)
+```
+
+The intended output is 21. Implementations must satisfy the declared contract.
+Dispatch, compatibility rules, and mutation in interfaces remain to be designed.
+Composition is preferred initially; inheritance is deferred.
