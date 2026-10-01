@@ -1,0 +1,3 @@
+# Run from the repository root; paths resolve from the execution directory.
+read "examples/data/sales.csv" into sales
+print sales

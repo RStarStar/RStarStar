@@ -108,4 +108,5 @@ check("AST retains complete multiline source spans", {
             ast[[1]]$span$end_line == 3L, ast[[1]]$span$end_column == 2L,
             ast[[1]]$value$span$column == 5L)
 })
+source("tests/csv.R")
 cat(sprintf("\n%d checks passed.\n", checks))

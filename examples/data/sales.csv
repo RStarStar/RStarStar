@@ -1,0 +1,4 @@
+region,revenue,active
+North,120,true
+South,85,false
+West,,true

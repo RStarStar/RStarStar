@@ -49,7 +49,7 @@ rss_tokenize <- function(source, filename) {
       begin <- i
       while (i <= n && grepl("^[A-Za-z0-9_]$", current())) advance()
       value <- paste0(chars[begin:(i - 1L)], collapse = "")
-      kind <- if (value %in% c("mut", "print", "true", "false")) value else "name"
+      kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter")) value else "name"
       add(kind, value, start)
     } else if (grepl("^[0-9]$", ch)) {
       rest <- paste0(chars[i:n], collapse = "")
@@ -170,6 +170,29 @@ rss_parse <- function(tokens, filename) {
     if (token$kind == "print") {
       take()
       statement <- node("print", token, value = expression())
+    } else if (token$kind == "read") {
+      take()
+      path <- expect("text", "Expected a quoted CSV path after 'read'.")
+      expect("into", "Expected 'into' after the CSV path.")
+      mutable <- FALSE
+      if (peek()$kind == "mut") {
+        take()
+        mutable <- TRUE
+      }
+      name <- expect("name", "Expected a variable name after 'into' or 'into mut'.")
+      separator <- ","
+      if (peek()$kind == "with") {
+        take()
+        expect("delimiter", "Expected 'delimiter' after 'with'.")
+        delimiter <- expect("text", "Expected a quoted delimiter.")
+        separator <- delimiter$value
+        if (nchar(separator, type = "bytes") != 1L || separator %in% c('"', "\n", "\r")) {
+          rss_error("Delimiter must be one ASCII character other than a quote or newline.", delimiter, filename)
+        }
+      }
+      statement <- node("assign", token, name = name$value, name_token = name,
+                        mutable = mutable,
+                        value = node("read", token, path = path$value, separator = separator))
     } else {
       mutable <- FALSE
       if (token$kind == "mut") {
@@ -194,6 +217,7 @@ rss_analyze <- function(statements, filename) {
   info <- function(type, size) list(type = type, size = size)
   infer <- function(value) {
     kind <- value$kind
+    if (kind == "read") return(info("Table", 1L))
     if (kind == "number") return(info("Number", 1L))
     if (kind == "text") return(info("Text", 1L))
     if (kind %in% c("true", "false")) return(info("Boolean", 1L))
@@ -210,6 +234,7 @@ rss_analyze <- function(statements, filename) {
         rss_error("Vector elements must each contain one value; nested vectors are not supported.", value$token, filename)
       }
       types <- vapply(elements, function(x) x$type, character(1))
+      if (any(types == "Table")) rss_error("Tables cannot be vector elements.", value$token, filename)
       if (length(unique(types)) != 1L) rss_error("Vector elements must have the same type.", value$token, filename)
       return(info(types[[1L]], length(elements)))
     }
@@ -249,10 +274,14 @@ rss_analyze <- function(statements, filename) {
   invisible(statements)
 }
 
-rss_generate <- function(statements) {
+rss_generate <- function(statements, filename) {
   name <- function(value) paste0("`", value, "`")
   emit <- function(value) {
     switch(value$kind,
+      read = paste0(".rss_read_csv(", encodeString(value$path, quote = '"'), ", ",
+                    encodeString(value$separator, quote = '"'), ", ",
+                    encodeString(filename, quote = '"'), ", ", value$token$line, "L, ",
+                    value$token$column, "L)"),
       number = value$value,
       text = encodeString(value$value, quote = '"'),
       true = "TRUE",
@@ -268,6 +297,11 @@ rss_generate <- function(statements) {
     if (statement$kind == "print") return(paste0("base::print(", emit(statement$value), ")"))
     paste0(name(statement$name), " <- ", emit(statement$value))
   }, character(1))
+  if (any(vapply(statements, function(x) x$kind == "assign" && x$value$kind == "read", logical(1)))) {
+    # Embed a self-contained helper; the output needs no compiler installation.
+    helper <- paste(deparse(rss_read_csv, width.cutoff = 100L), collapse = "\n")
+    lines <- c(paste0(".rss_read_csv <- ", helper), "", lines)
+  }
   paste(lines, collapse = "\n")
 }
 
@@ -282,5 +316,93 @@ transpile <- function(source, filename = "<input>") {
   tokens <- rss_tokenize(source, filename)
   statements <- rss_parse(tokens, filename)
   rss_analyze(statements, filename)
-  rss_generate(statements)
+  rss_generate(statements, filename)
+}
+
+# Self-contained runtime helper, embedded only in programs containing read.
+# Keep all dependencies inside this function or explicitly namespace-qualified.
+rss_read_csv <- function(path, separator, filename, line, column) {
+  fail <- function(message) {
+    stop(structure(list(
+      message = sprintf("%s:%d:%d: Cannot read CSV '%s': %s", filename, line, column, path, message),
+      call = NULL, filename = filename, line = line, column = column,
+      end_line = line, end_column = column + 4L
+    ), class = c("rstarstar_error", "error", "condition")))
+  }
+  if (!file.exists(path) || dir.exists(path)) fail("expected an existing local file.")
+  lines <- tryCatch(withCallingHandlers(
+    readLines(path, warn = FALSE, encoding = "UTF-8"),
+    warning = function(w) stop(conditionMessage(w), call. = FALSE)
+  ), error = function(e) fail(conditionMessage(e)))
+  if (!length(lines)) fail("the file is empty; expected a header row.")
+  if (anyNA(iconv(lines, from = "UTF-8", to = "UTF-8"))) fail("expected valid UTF-8 text.")
+  lines[[1L]] <- sub("^\ufeff", "", lines[[1L]])
+  # readLines removes line endings. Restore them to retain empty records.
+  chars <- strsplit(paste0(paste(lines, collapse = "\n"), "\n"), "", fixed = TRUE)[[1L]]
+  records <- list()
+  record <- character()
+  field <- character()
+  state <- "start"
+  csv_line <- 1L
+  record_line <- 1L
+  width <- NULL
+  finish_field <- function() {
+    record <<- c(record, paste0(field, collapse = ""))
+    field <<- character()
+    state <<- "start"
+  }
+  finish_record <- function() {
+    finish_field()
+    if (is.null(width)) width <<- length(record)
+    if (length(record) != width) {
+      fail(sprintf("CSV row starting on line %d has %d fields; expected %d.", record_line, length(record), width))
+    }
+    records[[length(records) + 1L]] <<- record
+    record <<- character()
+    record_line <<- csv_line + 1L
+  }
+  for (ch in chars) {
+    if (state == "quoted") {
+      if (ch == '"') state <- "closed" else field <- c(field, ch)
+    } else if (state == "closed" && ch == '"') {
+      field <- c(field, '"')
+      state <- "quoted"
+    } else if (ch == separator) {
+      finish_field()
+    } else if (ch == "\n") {
+      finish_record()
+    } else if (state == "start" && ch == '"') {
+      state <- "quoted"
+    } else {
+      if (state == "closed" || ch == '"') fail(sprintf("invalid quoting on CSV line %d.", csv_line))
+      field <- c(field, ch)
+      state <- "plain"
+    }
+    if (ch == "\n") csv_line <- csv_line + 1L
+  }
+  if (state == "quoted") fail(sprintf("unclosed quoted field starting in the row on CSV line %d.", record_line))
+  header <- records[[1L]]
+  if (any(!nzchar(trimws(header))) || anyDuplicated(header)) fail("column names must be nonempty and unique.")
+  rows <- records[-1L]
+  convert <- function(index) {
+    values <- vapply(rows, function(row) row[[index]], character(1))
+    missing <- values %in% c("", "NA")
+    values[missing] <- NA_character_
+    present <- values[!missing]
+    if (!length(present)) return(values)
+    numeric_pattern <- "^[+-]?([0-9]+(\\.[0-9]*)?|\\.[0-9]+)([eE][+-]?[0-9]+)?$"
+    if (all(grepl(numeric_pattern, present))) {
+      result <- as.numeric(values)
+      if (any(!is.finite(result[!missing]))) fail(sprintf("column '%s' contains a number outside the finite range.", header[[index]]))
+      return(result)
+    }
+    if (all(present %in% c("true", "false", "TRUE", "FALSE"))) {
+      return(ifelse(is.na(values), NA, tolower(values) == "true"))
+    }
+    values
+  }
+  columns <- lapply(seq_along(header), convert)
+  names(columns) <- header
+  # Construct explicitly to preserve column names and header-only tables.
+  structure(columns, class = "data.frame", row.names = seq_along(rows))
 }

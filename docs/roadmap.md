@@ -32,9 +32,13 @@ The working subset is documented in [implemented-subset.md](implemented-subset.m
 The implementation uses a sourceable base-R file and a behavioral test runner;
 a distributable R package remains future work.
 
-## 3. A complete data-analysis workflow
+## 3. A complete data-analysis workflow — in progress
 
-Define and implement CSV loading, filtering, a summary, and a simple chart.
+- [x] CSV loading, optional delimiter, mutable targets, and source-located errors.
+- [ ] Column access and filtering.
+- [ ] A summary and a simple chart.
+
+Implement the remaining workflow features.
 Resolve column lookup, file parsing, and missing-data policies for that workflow.
 
 Done when a small documented dataset can go from file to summary and chart, with

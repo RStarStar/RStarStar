@@ -49,6 +49,7 @@ root, run the behavioral suite and example for compiler changes:
 ```sh
 Rscript tests/run.R
 Rscript examples/demo.R
+Rscript examples/read-csv.R
 git diff --check
 git status --short
 ```

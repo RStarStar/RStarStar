@@ -38,3 +38,25 @@ Remaining: CSV operations, comparisons and conditions, missing-data policy,
 functions, indexing, OOP, interfaces, R-package interoperability, and a broader
 supported-R-version matrix. Arithmetic currently retains R's Inf/NaN behavior;
 this is not a complete missing-value design. No performance guarantees yet.
+
+
+## 2026-10-01 — CSV loading
+
+Implemented read "sales.csv" into sales, mutable read targets, and optional
+with delimiter syntax. Added a Table type with existing mutation protections,
+plus an embedded standalone CSV loader. Compilation does not access files.
+
+The loader supports UTF-8 (including BOM), quoted delimiters and multiline fields,
+whole-column numeric/boolean/text inference, and preserved missing values. It
+rejects malformed row widths, quoting, invalid headers/encoding, missing files,
+and numeric overflow with errors pointing to the original read statement.
+
+Added tests/csv.R and an example dataset/program under examples/. Updated the
+language guide, exact subset, design record, architecture, and milestone 3 status.
+Filtering, column access, summaries, charts, and OOP remain unimplemented. CSV
+schemas and configurable missing markers are not available; files load into memory.
+
+Verification: Rscript tests/run.R passed all 57 checks (37 existing and 20 CSV
+checks) on the local R 4.6.0 environment. Both Rscript examples/demo.R and
+Rscript examples/read-csv.R passed. The CSV demo retained all three rows and
+preserved West's missing revenue as NA.

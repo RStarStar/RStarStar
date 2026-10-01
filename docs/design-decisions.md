@@ -92,3 +92,33 @@ cases, source locations, literal escaping, and absence of execution during
 transpilation. Future unknown types/lengths will require runtime checks; static
 analysis here is sufficient only because every value comes from known literals
 and supported expressions.
+
+
+## 2026-10-01 — CSV loading and the runtime boundary
+
+Status: implemented, experimental. read accepts a quoted local path, into, an
+optional mut, a target name, and an optional with delimiter text literal. Loading
+uses existing declaration and reassignment rules. Table is a distinct inferred
+type; table arithmetic and vector elements are rejected. Column access is deferred.
+
+Generated CSV programs embed a self-contained loader so execution needs no compiler
+installation. Compilation never reads data. A strict field parser is used to avoid
+silently filling short rows, treating extra fields as row names, or repairing bad
+quotes. UTF-8 files require unique nonempty headers; quoted multiline fields and
+escaped quotes are supported. See the implemented subset for the exact CSV dialect.
+
+Inference uses whole columns: numbers, booleans, otherwise text. Empty/NA fields
+remain missing, including quoted fields; all-missing columns remain text. Mixed
+numeric/text data stays text rather than being partially converted. Configurable
+schemas and missing markers are deferred, so numeric-looking identifiers may lose
+leading zeros. Runtime failures retain the read statement's source location.
+
+Alternatives deferred: external runtime installation, permissive CSV repair,
+path expressions, remote URLs, and schema syntax. The implementation prioritizes
+an inspectable local-file workflow and predictable failure behavior. It currently
+reads the entire file and does not claim large-dataset performance.
+
+Verification covers CSV content, mutable reload, missing data, malformed rows and
+quotes, encodings, header-only files, delimiter validation, and standalone generated
+execution in an environment containing only base R. Filtering and statistical
+missing-value rules remain separate, unresolved work.

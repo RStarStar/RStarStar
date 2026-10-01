@@ -10,8 +10,9 @@ syntax difficult to approach. Prior programming experience is not required.
 
 ## Project status
 
-**First compiler prototype.** Bindings, `mut`, literals, vectors, arithmetic, and
-printing transpile to readable R. Data loading and OOP remain design proposals.
+**Compiler prototype.** Bindings, `mut`, literals, vectors, arithmetic, printing,
+and CSV loading transpile to readable R. Filtering, summaries, charts, and OOP
+remain future work.
 The language is experimental, not a stable specification or installable package.
 A source file extension and command-line interface have not been chosen.
 
@@ -22,6 +23,7 @@ With R installed, run these commands from the repository root:
 ```sh
 Rscript tests/run.R
 Rscript examples/demo.R
+Rscript examples/read-csv.R
 ```
 
 The toolchain uses base R with no external dependencies. See the
@@ -29,7 +31,7 @@ The toolchain uses base R with no external dependencies. See the
 
 ## What the broader language could look like
 
-The read/filter statements below are still proposals; bindings and arithmetic work.
+CSV loading, bindings, and arithmetic work. The filter statement is still a proposal.
 
 ```text
 read "sales.csv" into sales

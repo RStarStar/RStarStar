@@ -1,7 +1,7 @@
 # Initial language guide
 
 This guide explores the intended experience. **Bindings, mut, literals, vectors,
-arithmetic, and printing now work; data operations, functions, and OOP remain
+arithmetic, printing, and CSV loading now work; filtering, functions, and OOP remain
 proposals.** See the [implemented subset](implemented-subset.md) for exact working
 syntax and [design decisions](design-decisions.md) for open proposals.
 
@@ -14,17 +14,20 @@ filter sales where revenue > 0 into profitable_sales
 
 Sentence-like commands express actions; ordinary expressions express calculations.
 The filter example assumes a numeric revenue column with no missing values.
-Column-name resolution and missing-value filtering rules still need a decision.
-File loading should report errors in terms of the original statement and path.
+Filtering is still a proposal; column-name resolution and missing-value filtering
+rules need a decision. CSV loading works and reports file errors with the original
+statement location and path.
 
-An optional setting might look like:
+CSV loading supports an optional delimiter:
 
 ```text
 read "sales.csv" into sales with delimiter ";"
 ```
 
-File type inference, column type inference, and parsing failures are unresolved.
-We should not silently drop malformed rows or silently replace missing values.
+The loader reads local UTF-8 CSV files with headers. It infers numeric, boolean,
+or text columns, preserves missing values, and rejects malformed rows. See the
+[implemented subset](implemented-subset.md#csv-loading) for exact inference and
+missing-value rules. Schemas and other file formats remain future work.
 
 ## Bindings and mutation
 
@@ -60,7 +63,7 @@ An indexed update would also require a mutable binding. This is not a promise
 that arbitrary external R objects are deeply immutable. The current subset has one scope: the first assignment declares a binding and
 later assignments require it to be mutable. Indexing is not implemented.
 
-Mutable loading is a candidate spelling:
+Mutable loading is supported:
 
 ```text
 read "sales.csv" into mut sales
