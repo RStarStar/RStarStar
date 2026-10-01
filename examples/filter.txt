@@ -1,0 +1,9 @@
+read "examples/data/sales.csv" into sales
+minimum = 100
+filter sales where revenue > @minimum skipping missing into selected
+print selected
+print selected.revenue
+
+# Inspect the rows whose revenue is missing instead of silently discarding them.
+filter sales where revenue is missing into needs_review
+print needs_review

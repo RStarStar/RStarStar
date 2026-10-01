@@ -60,3 +60,28 @@ Verification: Rscript tests/run.R passed all 57 checks (37 existing and 20 CSV
 checks) on the local R 4.6.0 environment. Both Rscript examples/demo.R and
 Rscript examples/read-csv.R passed. The CSV demo retained all three rows and
 preserved West's missing revenue as NA.
+
+
+## 2026-10-01 — Column access and filtering
+
+Added exact table.column and table."quoted header" access, filter/where/into,
+mutable filter targets, and explicit skipping missing. Bare predicate names mean
+columns; @name means a declared variable. Added comparisons, and/or/not, and
+is [not] missing with documented precedence and elementwise behavior.
+
+Extended semantic analysis for unknown CSV types/lengths and embedded runtime
+checks for data expressions, vector construction, filters, and stable mutable
+types. No file reads or source execution occur during compilation. Ordinary
+programs without reads retain direct R expressions. Filtering preserves table
+shape/types and input aliases; it resets displayed row numbers.
+
+Added tests/filter.R and examples/filter.R with a readable source example.
+Updated the guide, grammar, design record, architecture, and roadmap. Existing
+error tests now use non-keyword names/symbols because missing and @ gained syntax.
+Summaries, charts, schemas, indexing, functions, and OOP remain future work.
+
+Verification: Rscript tests/run.R passed all 79 checks (57 previous and 22 new)
+on the local R 4.6.0 environment. The basic, CSV, and filter demos all passed.
+The filter demo selected North with revenue 120 and separately retained West's
+missing-revenue row for review. Checked nine Markdown files and 23 relative
+links, balanced code fences, code/example whitespace, and git diff --check.

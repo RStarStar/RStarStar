@@ -1,8 +1,8 @@
 # Initial language guide
 
 This guide explores the intended experience. **Bindings, mut, literals, vectors,
-arithmetic, printing, and CSV loading now work; filtering, functions, and OOP remain
-proposals.** See the [implemented subset](implemented-subset.md) for exact working
+arithmetic, printing, CSV loading, column access, and filtering now work; functions
+and OOP remain proposals.** See the [implemented subset](implemented-subset.md) for exact working
 syntax and [design decisions](design-decisions.md) for open proposals.
 
 ## Read and transform data
@@ -14,9 +14,11 @@ filter sales where revenue > 0 into profitable_sales
 
 Sentence-like commands express actions; ordinary expressions express calculations.
 The filter example assumes a numeric revenue column with no missing values.
-Filtering is still a proposal; column-name resolution and missing-value filtering
-rules need a decision. CSV loading works and reports file errors with the original
-statement location and path.
+Bare names in a filter refer to columns. Use @minimum to refer to a variable,
+or sales.revenue for explicit column access. If the condition contains missing
+values, filtering reports an error unless skipping missing appears before into.
+Use revenue is missing to select those rows deliberately. CSV and filter errors
+refer to the original source location. See the implemented subset for exact rules.
 
 CSV loading supports an optional delimiter:
 
@@ -78,7 +80,7 @@ checks supported by known source information can happen before execution.
 
 The current subset infers Number (R double), Text, and Boolean, and keeps mutable
 element types stable while allowing length changes. Annotations, Integer, and
-conditions remain proposals. See the implemented subset for arithmetic limits.
+conditional statements remain proposals. Comparisons and boolean expressions work. See the implemented subset for arithmetic limits.
 
 ## Missing data
 
@@ -88,8 +90,9 @@ Missing-value behavior must be visible and documented. One possible spelling is:
 average sales.revenue skipping missing
 ```
 
-The default when no policy is supplied is unresolved. All-missing and empty
-inputs also need explicit behavior. Do not assume missing means zero or false.
+The summary operation above is not implemented; its default, all-missing, and
+empty-input behavior remain unresolved. Filtering already has an explicit policy
+as described above. Do not assume missing means zero or false.
 
 ## Records: describe data
 

@@ -35,7 +35,7 @@ a distributable R package remains future work.
 ## 3. A complete data-analysis workflow — in progress
 
 - [x] CSV loading, optional delimiter, mutable targets, and source-located errors.
-- [ ] Column access and filtering.
+- [x] Column access, comparisons, compound predicates, and explicit missing-value filtering.
 - [ ] A summary and a simple chart.
 
 Implement the remaining workflow features.

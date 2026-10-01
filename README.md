@@ -11,8 +11,8 @@ syntax difficult to approach. Prior programming experience is not required.
 ## Project status
 
 **Compiler prototype.** Bindings, `mut`, literals, vectors, arithmetic, printing,
-and CSV loading transpile to readable R. Filtering, summaries, charts, and OOP
-remain future work.
+CSV loading, column access, and filtering transpile to readable R. Summaries,
+charts, and OOP remain future work.
 The language is experimental, not a stable specification or installable package.
 A source file extension and command-line interface have not been chosen.
 
@@ -24,18 +24,20 @@ With R installed, run these commands from the repository root:
 Rscript tests/run.R
 Rscript examples/demo.R
 Rscript examples/read-csv.R
+Rscript examples/filter.R
 ```
 
 The toolchain uses base R with no external dependencies. See the
 [implemented subset](docs/implemented-subset.md) for the API, grammar, and limits.
 
-## What the broader language could look like
+## What you can write now
 
-CSV loading, bindings, and arithmetic work. The filter statement is still a proposal.
+Filtering uses explicit missing-value handling:
 
 ```text
 read "sales.csv" into sales
-filter sales where revenue > 0 into profitable_sales
+filter sales where revenue > 0 skipping missing into profitable_sales
+print profitable_sales.revenue
 
 scores = [72, 85, 91, 68]
 adjusted = scores + 5

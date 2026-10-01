@@ -2,7 +2,8 @@
 
 R/transpile.R implements tokenization, parsing, semantic analysis, and R generation
 for the initial subset using base R only. It exposes transpile(source, filename).
-CSV programs embed a self-contained runtime loader from the same file. The pipeline
+CSV programs embed a self-contained runtime loader and checked expression helpers
+from the same file. The pipeline
 below also describes how later features should fit; objects and interoperability
 are not implemented. Package layout is undecided.
 
@@ -30,7 +31,11 @@ enough source information to explain the original operation. Arbitrary R errors
 may need to retain their underlying details when a trustworthy translation is not possible.
 
 Generated output remains standalone: CSV programs embed a loader helper, while
-programs without CSV reads omit it. The loader validates structure and reports
+programs without CSV reads omit it and use direct R expressions. Data programs
+use a private .rss helper environment for column lookup, checked arithmetic and
+comparisons, vector construction, filtering, and stable-type reassignment.
+Semantic analysis marks unknown column types/lengths for runtime checking; it
+never inspects files. The loader validates structure and reports
 source-located errors at execution time. Future helpers should preserve this
 explicit boundary unless a later design decision changes the distribution model.
 

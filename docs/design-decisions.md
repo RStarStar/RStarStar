@@ -122,3 +122,38 @@ Verification covers CSV content, mutable reload, missing data, malformed rows an
 quotes, encodings, header-only files, delimiter validation, and standalone generated
 execution in an environment containing only base R. Filtering and statistical
 missing-value rules remain separate, unresolved work.
+
+
+## 2026-10-01 — Columns and filtering
+
+Status: implemented, experimental. Column access uses table.column or a quoted
+header after the dot. Bare names inside where always mean input columns; @name
+explicitly references a declared variable. This avoids silent column/local name
+collisions and schema-dependent fallback. Outside filters, @name and name both
+refer to variables. Exact column lookup happens at runtime without partial matches.
+
+Added typed, vectorized comparisons, and/or/not, and is [not] missing. Ordered
+comparisons accept numbers or text; equality also accepts booleans. Comparisons
+cannot be chained. Logical operations are elementwise and not short-circuiting.
+They retain R's three-valued logic; the final predicate determines missingness.
+
+A filter requires a boolean scalar or one boolean per input row. Missing results
+fail by default; skipping missing explicitly removes those rows. is missing can
+select them instead. No automatic missing-row removal is performed. Table shape,
+column types, and input row order are preserved, with display row numbers reset.
+Targets follow existing immutable/mutable binding rules.
+
+Data-derived values carry unknown static types/lengths. Embedded runtime helpers
+apply the same operand, vector-construction, and reassignment checks to these
+values. Numeric/text mixing and unequal nonscalar lengths remain errors. Programs
+without reads retain direct R expressions. Compiler-only validation cannot enforce
+these guarantees on unknown data, so runtime checks are part of generated output.
+
+Alternatives deferred: implicit column/local precedence, silent NA filtering,
+partial column matches, row alignment/joins, and a general indexing syntax.
+All-missing/header-only columns retain the existing CSV Text inference; schemas
+remain future work. Summaries and charting are still unimplemented.
+
+Verification includes runtime types/lengths, missing-value policies, exact lookup,
+compound predicates, alias preservation, mutable targets, empty/single-column
+outputs, source locations, and complete statement spans.

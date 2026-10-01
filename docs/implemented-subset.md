@@ -12,6 +12,7 @@ From the repository root, with R installed:
 Rscript tests/run.R
 Rscript examples/demo.R
 Rscript examples/read-csv.R
+Rscript examples/filter.R
 ```
 
 In an R session at the repository root:
@@ -28,7 +29,8 @@ transpile() accepts one source string and an optional filename for diagnostics,
 then returns a single R-source string. It does not run the program, print its
 output, or write files. Each call starts with a fresh binding scope. Generated R
 uses base functions and requires no separately installed RStarStar runtime. CSV
-programs embed a self-contained loader; arithmetic-only output stays minimal. Compilation is not a sandbox
+programs embed a self-contained loader and, when needed, checked expression
+helpers; programs without data loading retain direct arithmetic output. Compilation is not a sandbox
 for later execution, nor are its binding checks enforced if generated R is edited.
 
 Validated locally on R 4.6.0 on macOS arm64. A minimum R version and broader
@@ -42,11 +44,19 @@ program    = { newline | statement newline }, [ statement ] ;
 statement  = [ "mut" ], name, "=", expression
            | "print", expression
            | "read", text, "into", [ "mut" ], name,
-             [ "with", "delimiter", text ] ;
-expression = product, { ("+" | "-"), product } ;
+             [ "with", "delimiter", text ]
+           | "filter", name, "where", expression, [ "skipping", "missing" ],
+             "into", [ "mut" ], name ;
+expression = conjunction, { "or", conjunction } ;
+conjunction = negation, { "and", negation } ;
+negation   = "not", negation | comparison ;
+comparison = sum, [ ("==" | "!=" | "<" | "<=" | ">" | ">="), sum
+                 | "is", [ "not" ], "missing" ] ;
+sum        = product, { ("+" | "-"), product } ;
 product    = unary, { ("*" | "/"), unary } ;
 unary      = ("+" | "-"), unary | primary ;
-primary    = number | text | "true" | "false" | name
+primary    = number | text | "true" | "false" | name | "@", name
+           | name, ".", (name | text)
            | "(", expression, ")"
            | "[", expression, { ",", expression }, "]" ;
 ```
@@ -56,10 +66,12 @@ are allowed. Newlines inside parentheses or brackets are ignored, so those
 expressions may span lines. A # starts a comment outside text. Semicolons and
 trailing commas are not supported. Multiplication and division bind more tightly
 than addition and subtraction; binary operators associate left. Unary signs bind
-more tightly than binary operators.
+more tightly than binary operators. Comparisons bind less tightly than arithmetic,
+then not, then and, then or. Comparisons cannot be chained; write x > 0 and x < 10.
 
 Names match [A-Za-z_][A-Za-z0-9_]* and are case-sensitive. The keywords mut, print,
-true, false, read, into, with, and delimiter cannot be names. R keywords may be names; generated identifiers
+true, false, read, into, with, delimiter, filter, where, skipping, missing, is,
+and, or, and not cannot be names. R keywords may be names; generated identifiers
 are quoted, and generated function calls explicitly use the base namespace.
 
 Numbers start with a digit, have optional fractional digits (such as 1.25), and
@@ -97,9 +109,9 @@ containers are not supported. Scalars are length-one values, consistent with R.
 
 Arithmetic requires numbers. Operand lengths must match or one operand must
 have length one. General R recycling is rejected even when lengths divide evenly.
-All arithmetic operand lengths are known statically in this subset. Loaded table
-columns are not accessible in expressions yet; that future feature will need
-runtime checks for lengths and types not known at compilation.
+Known types and lengths are checked during compilation. Column types and lengths
+are checked at runtime, including when columns are assigned to other bindings.
+The same vector, arithmetic, and mutable-type rules apply to loaded values.
 
 ```text
 print [1, 2] + 10
@@ -123,7 +135,7 @@ For example, x = 1 followed by x = 2 reports an immutable-reassignment error on
 line 2. Undefined names, mixed vector types, nonnumeric arithmetic, and mismatched
 vector lengths also fail before R generation.
 
-Not implemented: filter/plot, column access, summaries, indexing, comparisons, conditions, functions,
+Not implemented: plot, summaries, general indexing, conditional statements, functions,
 annotations, explicit conversions, records, classes, interfaces, and arbitrary
 R calls. Input is parsed as RStarStar, never evaluated as R during compilation.
 
@@ -170,5 +182,64 @@ The CSV loader reads the whole file into memory and is an initial implementation
 not a streaming or large-dataset engine.
 
 Generated output embeds .rss_read_csv only when needed. That helper name cannot
-collide with a source binding because dots are not allowed in source identifiers.
+collide with a source binding because dots are column-access punctuation, not
+part of source binding names.
 The output can be saved and run in a fresh R session without sourcing the compiler.
+
+
+## Column access, comparisons, and filtering
+
+```text
+read "sales.csv" into sales
+print sales.revenue
+print sales."Order total"
+minimum = 100
+filter sales where revenue > @minimum skipping missing into selected
+filter sales where revenue is missing into needs_review
+```
+
+Column lookup is exact, case-sensitive, and checked at execution. Missing columns
+produce source-located errors rather than NULL or partial matches. Quote headers
+with spaces, punctuation, or reserved keywords after the dot. Column access is
+read-only; field assignment and general indexing are not supported.
+
+Inside where, bare names always refer to the input table's columns, even if a
+variable has the same name. Use @name for a declared variable; table.column also
+works for explicit column references. Outside where, bare names are variables
+and @name is an equivalent explicit spelling. There is no fallback from an
+unknown column to a variable, preventing accidental name capture. References to
+columns of another table are positional and require compatible lengths; filtering
+does not align or join rows by keys.
+
+Comparisons ==, !=, <, <=, >, >= operate element by element on matching types.
+Equality supports numbers, text, and booleans; ordered comparisons support numbers
+and text only. Text ordering follows the executing R session's locale. No implicit
+text/number or boolean/number conversions occur. Lengths must match or one side
+must be scalar. An empty vector with a scalar produces an empty result; an empty
+vector with a nonscalar nonempty vector is a length error.
+
+and, or, and not require booleans and use elementwise R logical behavior, including
+its three-valued missing-value rules. They do not short-circuit. is missing and
+is not missing work on scalar/vector values, including NA and NaN; they always
+produce nonmissing booleans. Tables themselves cannot be tested this way.
+
+The filter condition must be a boolean scalar (applied to every row) or have one
+value per input row. A condition containing NA is an error by default. Explicit
+skipping missing discards rows whose final condition is missing; it does not drop
+rows merely because an unrelated column is missing. Alternatively, use a predicate
+such as revenue is not missing and revenue > 0, or revenue is missing to retain
+missing rows intentionally. Skipping does not suppress type or column errors.
+
+Filtering preserves row order, column names/types, and table shape, even with zero
+rows or a single column. Printed row numbers are reset. The original table remains
+unchanged unless its mutable binding is the target. into mut declares a new mutable
+target; existing targets follow ordinary reassignment rules.
+
+CSV inference still governs empty and all-missing columns: these are Text until a
+schema feature exists. A numeric comparison on a header-only or all-missing Text
+column fails a type check; is missing works. By contrast, filtering all rows out
+of an already numeric column preserves its numeric type.
+
+Generated data programs embed .rss expression helpers to enforce runtime type,
+length, missing-value, and mutation checks. No helper installation is necessary.
+Failures point to the source column, operator, assignment, or filter statement.
