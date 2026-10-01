@@ -1,4 +1,4 @@
-read "examples/data/sales.csv" into sales
+read "data/sales.csv" into sales
 minimum = 100
 filter sales where revenue > @minimum skipping missing into selected
 print selected

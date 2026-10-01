@@ -44,8 +44,9 @@ including their rationale and consequences.
 6. How can users call R packages, and what guarantees stop at that boundary?
 7. What generated code or helpers are required for mutation and object semantics?
 
-The file extension, package layout, supported R versions, dependency policy, CLI,
-and object backend are unchosen. Do not assume S3, S4, R6, or another system is
+The source extension is .rsspps. Detailed package layout, supported R versions,
+dependency policy, and object backend remain unchosen. R package distribution is selected;
+a public CLI is not planned (see the package decision below). Do not assume S3, S4, R6, or another system is
 the backend merely because the surface language has classes.
 
 ## Deferred scope
@@ -231,3 +232,91 @@ Implicit sorting, dropping missing keys, combined chart labels, and grouped bars
 remain excluded. Existing single-key programs continue to work. Tests cover
 multiple key types, missing combinations, separator-like text, quoted headers,
 empty input, collisions, malformed syntax, and rolling results up again.
+
+
+## 2026-10-01 — Initial user-defined functions
+
+Status: implemented, experimental. fn name(parameters) { return expression }
+provides a deliberately small foundation for later methods. Calls use exact-count
+positional arguments evaluated eagerly once in order. Bodies see parameters,
+built-in summaries, and earlier functions; data must be passed explicitly.
+Function names are immutable, share the top-level namespace, and cannot replace
+built-in summary names. Functions are not first-class values in this version.
+
+Semantic analysis checks each body in its own scope without execution. Parameter
+types/lengths are unknown until runtime, where existing value checks apply. Body
+errors retain source locations and include the call chain. Generated functions
+cannot alter helpers through name collisions: embedded runtime and CSV helper
+closures now use base-R parent environments. Generated code remains standalone.
+
+Deferred alternatives: capture/closure semantics, recursion, annotations, named or
+default arguments, multiple statements, nested functions, and mutable parameters.
+Choosing explicit arguments and one return expression establishes useful reuse
+without prematurely fixing those language rules. Existing typed OOP examples
+remain proposals; records and methods are not implemented.
+
+Verification covers calls, composition, scope isolation, arity, eager unused
+arguments, tables, filter predicates, dynamic type/length checks, call locations,
+namespace collisions, and compilation without body execution.
+
+
+## 2026-10-01 — Distribute as an R package
+
+Status: accepted direction, packaging not yet implemented. At the user's request,
+RStarStar will be an R package people load and use from an R session, rather than
+a public CLI program. This supersedes earlier language treating CLI conventions
+as an unresolved release task. Existing Rscript demos remain development helpers.
+
+Keep transpile(source, filename) as the initial public API: it returns readable R
+without executing input. Package loading, examples, and a future explicit execution
+helper must preserve that boundary. Keep rss_* implementation helpers internal.
+The package does not change the RStarStar language or require users to write the
+translated R themselves; a small R-session entry point invokes the toolchain.
+
+Package metadata, namespace, help pages, installed-package tests, and build/check
+validation are planned next. No installation or publication has happened in this
+change. CRAN versus another release channel, the final package name, supported R
+versions, and the execution-helper API remain open. See [r-package.md](r-package.md).
+
+
+## 2026-10-01 — .rsspps-only public source API and R interoperability
+
+Status: accepted direction, file API and interoperability bridge not implemented.
+At the user's request, the public package API will consume .rsspps source files
+only. This supersedes the preceding plan to expose transpile(source, filename)
+as the public API. Retain that string compiler internally; the intended public
+entry point is file-based, illustrated as transpile("analysis.rsspps"). Existing
+.txt fixtures and source-string examples remain prototype artifacts until migrated.
+
+.rsspps programs are intended to interoperate with existing R code, packages,
+tooling, and codebase APIs. R invokes the public package API; an explicit future
+bridge lets RStarStar use R/project functions and exchange ordinary results. This
+does not make .R files valid compiler inputs or expose compiler internals publicly.
+Dataset and output formats are unaffected by the source-file restriction.
+
+Interop syntax, result transfer, execution environments, and reference/mutation
+semantics still require design and testing. Compilation must remain separate from
+execution; neither source loading nor package loading runs user code. See the
+[package plan](r-package.md) for the boundary and implementation work.
+
+
+## 2026-10-01 — Initial installable package and file API
+
+Status: implemented locally, not published. RStarStar 0.0.1 exports only
+transpile(path), accepting one regular local UTF-8 file with an exact lowercase
+.rsspps suffix. Source may have a BOM or no terminal newline; invalid encoding,
+NUL bytes, wrong extensions, directories, and invalid argument shapes fail.
+Readable source diagnostics use normalized absolute paths. The former string
+entry point is now the internal rss_compile(source, filename).
+
+The package includes metadata, namespace, help pages, and canonical examples under
+inst/examples/. Developer runners and tests use the installed namespace. Generated
+R remains standalone, and execution stays explicit. Maintainer metadata comes
+from the repository's existing Git author identity; the full MIT text is retained
+in LICENSE.md alongside the package-format license stub in LICENSE.
+
+R >= 4.1.0 is declared as the initial baseline, but verification so far covers
+R 4.6.0/macOS arm64 only. Dependencies are bundled with R. Chart execution requires
+Cairo and chart tests explicitly skip on builds without it. PDF-manual generation,
+broader CI, release publication, an execution helper, and the R-call bridge remain
+outside this milestone. This supersedes prior documentation-only package status.

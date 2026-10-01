@@ -1,6 +1,11 @@
-# Run from the repository root: Rscript examples/read-csv.R
-source("R/transpile.R")
-input <- paste(readLines("examples/read-csv.txt"), collapse = "\n")
-generated <- transpile(input, filename = "examples/read-csv.txt")
-# The generated source includes its loader and can also be saved as an R script.
-eval(parse(text = generated), envir = new.env(parent = baseenv()))
+# Run from the repository root after installing RStarStar: Rscript examples/read-csv.R
+library(RStarStar)
+path <- system.file("examples", "read-csv.rsspps", package = "RStarStar", mustWork = TRUE)
+local({
+  previous <- getwd()
+  on.exit(setwd(previous))
+  # Dataset paths in the packaged examples are relative to their examples folder.
+  setwd(dirname(path))
+  generated <- transpile(path)
+  eval(parse(text = generated), envir = new.env(parent = baseenv()))
+})

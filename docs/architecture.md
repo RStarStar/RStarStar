@@ -1,11 +1,13 @@
 # Architecture
 
-R/transpile.R implements tokenization, parsing, semantic analysis, and R generation
-for the initial subset using base R only. It exposes transpile(source, filename).
-CSV programs embed a self-contained runtime loader and checked expression helpers
-from the same file. The pipeline
-below also describes how later features should fit; objects and interoperability
-are not implemented. Package layout is undecided.
+R/api.R exposes the package's sole exported function, transpile(path). It validates
+and reads local UTF-8 .rsspps files, then delegates to the internal rss_compile()
+in R/transpile.R. The compiler performs tokenization, parsing, semantic analysis,
+and R generation. Internal rss_* functions are not exported.
+
+CSV programs embed a self-contained loader and checked expression helpers.
+Objects and the explicit R interoperability bridge are not implemented. The
+package uses only R-bundled dependencies; see the [package guide](r-package.md).
 
 ## Compilation pipeline
 
@@ -31,7 +33,8 @@ enough source information to explain the original operation. Arbitrary R errors
 may need to retain their underlying details when a trustworthy translation is not possible.
 
 Generated output remains standalone: CSV programs embed a loader helper, while
-programs without CSV reads omit it and use direct R expressions. Data programs
+programs without CSV reads omit the loader. Programs without CSV reads or
+function definitions use direct R arithmetic expressions. Data programs
 use a private .rss helper environment for column lookup, checked arithmetic and
 comparisons, vector construction, filtering, scalar/grouped summaries, chart rendering,
 and stable-type reassignment. Summary expressions embed checks even without CSV
@@ -72,3 +75,12 @@ runtime validates columns, maps each typed grouping column to integer IDs with
 unique/match, combines those collision-free IDs, and partitions row indices in
 first-seen order. It reuses scalar summary checks for each group. No source expressions
 are evaluated dynamically; only the supported aggregate descriptors are executed.
+
+
+Function declarations create semantic parameter scopes containing only parameters
+and previously declared function signatures. Bodies are checked without execution;
+unknown parameter types/lengths require runtime checks. Emission uses ordinary R
+functions and a checked call helper that evaluates arguments eagerly and appends
+call locations to language errors. Function values and ambient variable capture
+are rejected before generation. Embedded helper closures are created in base-R
+parent environments, preventing user function names from shadowing dependencies.

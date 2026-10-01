@@ -48,7 +48,7 @@ with_chart <- function(code) {
 plot_statement <- function(path, table = "selected", x = "region", y = "revenue") {
   paste("plot", table, "x", x, "y", y, "as bar to", path)
 }
-check("CSV-filter-summary-chart produces a valid standalone PNG", {
+check_chart("CSV-filter-summary-chart produces a valid standalone PNG", {
   with_sales(function(prefix) with_chart(function(path, quoted) {
     before <- grDevices::dev.list()
     result <- run(paste0(prefix, 'filter sales where revenue is not missing into selected\nmean_revenue = average(selected.revenue)\n', plot_statement(quoted)))
@@ -105,7 +105,7 @@ check("chart syntax and non-table checks", {
   fails('read "a.csv" into data\nplot data x region y revenue as line to "out.png"', "Expected 'bar'")
   fails('read "a.csv" into data\nplot data x region y revenue as bar to "out.pdf"', ".png")
 })
-check("chart supports quoted headers and negative and zero values", {
+check_chart("chart supports quoted headers and negative and zero values", {
   with_csv(c('Group name,Net total', 'A,-5', 'B,0'), function(csv) with_chart(function(path, quoted) {
     run(paste("read", csv, "into selected\n", plot_statement(quoted, x = '"Group name"', y = '"Net total"')))
     stopifnot(file.info(path)$size > 1000)

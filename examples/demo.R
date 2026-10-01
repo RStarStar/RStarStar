@@ -1,7 +1,11 @@
-# Run from the repository root: Rscript examples/demo.R
-source("R/transpile.R")
-input <- paste(readLines("examples/basics.txt", warn = FALSE), collapse = "\n")
-generated <- transpile(input, filename = "examples/basics.txt")
-cat("Generated R:\n", generated, "\n\nOutput:\n", sep = "")
-# Execution is a separate, explicit step, used here to demonstrate the result.
-eval(parse(text = generated), envir = new.env(parent = baseenv()))
+# Run from the repository root after installing RStarStar: Rscript examples/demo.R
+library(RStarStar)
+path <- system.file("examples", "basics.rsspps", package = "RStarStar", mustWork = TRUE)
+local({
+  previous <- getwd()
+  on.exit(setwd(previous))
+  # Dataset paths in the packaged examples are relative to their examples folder.
+  setwd(dirname(path))
+  generated <- transpile(path)
+  eval(parse(text = generated), envir = new.env(parent = baseenv()))
+})

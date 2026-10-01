@@ -6,6 +6,11 @@ CONTRIBUTING.md, and the relevant documents in docs/ before making changes.
 ## Project intent
 
 - Build a language that transpiles to readable R, with the toolchain written in R.
+- Deliver it as an R package used from R sessions. Follow docs/r-package.md; a
+  public CLI is not planned unless the user explicitly revisits that decision.
+- The public source API accepts local UTF-8 .rsspps files only. Keep raw-string
+  compilation internal; preserve interoperability with existing R
+  code, packages, tooling, and documented project APIs as described in the plan.
 - Serve beginners to R with concise syntax and understandable diagnostics.
 - Preserve useful R concepts and access to its ecosystem.
 - Keep ordinary analysis usable without classes, interfaces, or type annotations.
@@ -13,7 +18,9 @@ CONTRIBUTING.md, and the relevant documents in docs/ before making changes.
 
 ## Current stage
 
-A first compiler and behavioral tests exist. Read docs/implemented-subset.md
+An installable R package and behavioral tests exist. Only transpile(path) is
+exported. Packaged source examples live in inst/examples/; tests run against the
+installed namespace, with internal compiler cases kept under tests/cases/. Read docs/implemented-subset.md
 for executable syntax and limits. Do not describe proposals as implemented
 features or invent successful checks. Broader syntax in the guide is provisional. Consult docs/design-decisions.md for status;
 do not silently promote an unresolved choice into a language guarantee.
@@ -38,11 +45,14 @@ do not silently promote an unresolved choice into a language guarantee.
 ## Verification and reporting
 
 For documentation, check relative links, example consistency, and git diff
-whitespace. Run Rscript tests/run.R from the repository root for compiler changes.
+whitespace. Reinstall the changed package before running Rscript tests/run.R from
+the repository root. Validate package changes with R CMD build . and
+R CMD check --no-manual RStarStar_0.0.1.tar.gz (use the current version).
 Rscript examples/demo.R demonstrates explicit compilation and execution. Add
 focused semantic and integration checks for new behavior. Tests should verify
 behavior, diagnostics, and generated R results rather than only mirror
-implementation details. The toolchain currently uses base R only.
+implementation details. Dependencies are limited to R-bundled packages. Chart
+rendering tests explicitly skip when Cairo is unavailable; report skipped coverage.
 
 Report what changed, what was checked, and any remaining uncertainty. AI-assisted
 contributions follow the same correctness and review standards as other work.

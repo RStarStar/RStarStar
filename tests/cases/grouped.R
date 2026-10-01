@@ -78,7 +78,7 @@ check("grouped numeric operations reject text but count accepts it", {
     stopifnot(identical(result$env$totals$rows, c(2, 2)))
   })
 })
-check("grouped output can be filtered and charted", {
+check_chart("grouped output can be filtered and charted", {
   with_groups(function(prefix) with_chart(function(path, quoted) {
     result <- run(paste0(prefix, "summarize sales by region with total = sum(revenue) skipping missing into totals\n",
                         "filter totals where total >= 20 into selected\n", plot_statement(quoted, "selected", "region", "total")))

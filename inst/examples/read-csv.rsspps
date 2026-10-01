@@ -1,0 +1,3 @@
+# Execute from the packaged examples folder; data paths use the working directory.
+read "data/sales.csv" into sales
+print sales

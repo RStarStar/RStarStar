@@ -29,8 +29,8 @@ while immutable reassignment fails with an appropriate source location. Keep
 transpilation separate from execution.
 
 The working subset is documented in [implemented-subset.md](implemented-subset.md).
-The implementation uses a sourceable base-R file and a behavioral test runner;
-a distributable R package remains future work.
+The implementation is distributed as a local-installable R package, with a
+file-only public API and installed-namespace behavioral tests.
 
 ## 3. A complete data-analysis workflow — initial version complete
 
@@ -46,7 +46,25 @@ additional chart types remain extensions.
 Done when a small documented dataset can go from file to summary and chart, with
 useful failures for absent files, missing columns, and invalid inputs.
 
-## 4. Approachable objects
+## 3a. Package the working prototype — initial version complete
+
+- [x] Add R package metadata, namespace exports, and API help pages.
+- [x] Expose a .rsspps-file-only transpile() API, with path/content diagnostics.
+- [x] Keep the raw-string compiler internal and migrate language examples to .rsspps.
+- [x] Provide an R-session quickstart and packaged examples.
+- [x] Adapt tests to the installed namespace and establish package build/check commands.
+- [x] Choose supported R versions and document Cairo requirements for charts.
+
+Done when a user can install the package locally, load it in an R session, and
+transpile an example without sourcing repository files. Compilation must still
+perform no program execution. R >= 4.1.0 is declared; verification beyond local
+R 4.6.0 remains pending. No public CLI is planned. See the
+[package plan](r-package.md); release hosting is a separate future decision.
+
+## 4. Approachable objects — foundations in progress
+
+- [x] Basic functions with parameters, a single return expression, and checked calls.
+- [ ] Records, classes, constructors, and methods.
 
 Implement records, classes, constructors, methods, and explicit mutation after
 settling the object backend and value-semantics boundary. Define functions and
@@ -57,7 +75,9 @@ copying and nested mutation behave as documented.
 
 ## 5. Contracts and ecosystem access
 
-Specify interfaces and explicit R-package interoperability. Prototype interop
+Specify interfaces and explicit interoperability between .rsspps programs,
+existing R functions/packages, and project APIs. Define how R callers receive
+results/functions through the package API. Prototype interop
 earlier if needed to avoid architectural dead ends.
 
 Done when the Predictor example works and a documented external-package example
@@ -65,8 +85,9 @@ states exactly which checks and mutation guarantees apply.
 
 ## 6. Contributor-ready preview
 
-Choose supported R versions, installation and CLI conventions, automate the
-established checks, and document limitations and compatibility expectations.
+Refine the R package installation and API documentation, automate the established
+package checks, and document limitations and compatibility expectations. Choose
+a release channel separately; public CLI conventions are outside the plan.
 
 Done when a new contributor can follow the setup guide, run the checks, and make
 a small change without relying on undocumented maintainer knowledge.

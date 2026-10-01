@@ -153,3 +153,89 @@ passing (105 existing and seven new), including single-key regressions and chart
 checks. The grouped demo produced four region/product combinations and rolled
 them back up to South = 40 and North = 20. All nine Markdown files, 23 relative
 links, code fences, and git diff whitespace checks passed.
+
+
+## 2026-10-01 — Initial user-defined functions
+
+Implemented fn declarations with parameters, one return expression, and positional
+calls to previously declared functions. Added independent parameter scopes,
+immutable function names, eager argument evaluation, and body errors with call
+locations. Functions operate on vectors/tables and work in filter predicates.
+Runtime type/length/mutation checks apply even in programs without CSV reads.
+Isolated generated runtime and CSV helper environments from user function names.
+
+Added tests/functions.R, examples/functions.R, and examples/functions.txt. Updated
+the grammar, guide, architecture, design record, README, and roadmap. Captures,
+recursion, first-class functions, annotations, named/default arguments, multiple
+body statements, and OOP remain unsupported.
+
+Verification: all 128 checks passed (112 previous and 16 new). Tests include
+function composition, table inputs, eager unused arguments, call chains, static
+scope/arity errors, runtime type/length errors, and helper-name isolation.
+The functions demo returned 11/22, mean revenue 102.5, and North's selected row;
+the original demo also passed. All nine Markdown files, 23 relative links,
+code fences, and git diff whitespace checks passed.
+
+
+## 2026-10-01 — R package distribution direction
+
+Recorded the user's decision to distribute RStarStar as an R package used from
+an R session, rather than a public CLI. Added docs/r-package.md and updated the
+README, contributor/agent guidance, architecture, implementation guide, design
+record, and roadmap. Package work is now the next planned milestone; existing
+Rscript examples remain developer tools.
+
+Documentation-only change: no package metadata, installation, publication, or
+compiler behavior changed. The current sourceable API still works as before.
+Verification is limited to documentation links, fences, and whitespace checks;
+the compiler test suite was not rerun for this documentation-only change.
+All 10 Markdown files and 31 relative links passed validation, along with
+code-fence and git diff whitespace checks.
+
+
+## 2026-10-01 — .rsspps source API and interoperability direction
+
+Recorded .rsspps as the required source format for the planned public package API.
+The file-based API supersedes the previous public raw-string API plan; the existing
+string compiler will become internal. Documented interoperability goals for R
+callers, RStarStar programs, existing R packages/tooling, and project APIs, while
+keeping compiler internals private and compilation separate from execution.
+
+Updated package plan, README, agent/contributor guidance, implemented-subset status,
+architecture, roadmap, and design decisions. This is documentation only: no file
+validation, fixture renaming, package installation, or R-call bridge was implemented.
+The current prototype behavior remains unchanged.
+
+Verification: all 10 Markdown files, 32 relative links, code fences, and git diff
+whitespace checks passed. No compiler tests were needed for this documentation change.
+
+
+## 2026-10-01 — Installable package and .rsspps public API
+
+Added package metadata, NAMESPACE, installed help, and a sole public transpile(path)
+export. The string compiler is now internal rss_compile(). The public API reads
+one local UTF-8 .rsspps file, rejects other inputs and invalid text, preserves
+source locations, and does not run the program or access its datasets.
+
+Moved canonical language examples/data to inst/examples/ and changed source files
+to .rsspps. Developer runners now use the installed package. Tests run against its
+namespace under both Rscript and R CMD check; added 12 public API/package cases.
+Chart rendering tests explicitly skip without Cairo. The full MIT license remains
+in LICENSE.md, with a standard package license stub in LICENSE. Maintainer metadata
+uses the repository's existing Git author identity. R >= 4.1.0 is declared, with
+only local R 4.6.0 verified so far. No CRAN publication or interoperability bridge.
+
+Initial package validation: clean source build, installation, and R CMD check
+--no-manual succeeded with Status: OK after fixing license metadata and explicitly
+qualifying utils::file_test. Network-restricted dependency checks were rerun with
+approved access.
+
+Final verification: built the source archive, installed it in a fresh temporary
+library, and passed 140 checks with zero skips. R CMD check --no-manual reported
+Status: OK (zero errors, warnings, or notes), including installed help examples
+and tests. All six developer demos ran against the fresh installation; the full
+workflow saved its chart successfully. Installation did not modify the user's
+default R library. PDF manual generation and other R/platform versions were not
+tested. A final source-example comment correction does not change program behavior.
+Rebuilt the archive after that comment correction. All 11 Markdown files,
+33 local links, code fences, and git diff whitespace checks passed.

@@ -41,21 +41,38 @@ to tools. Review standards are the same regardless of how a contribution was mad
 
 Coding agents should also follow [AGENTS.md](AGENTS.md).
 
-## Local checks today
+## Package workflow
 
-The prototype uses base R with no external dependencies. From the repository
-root, run the behavioral suite and example for compiler changes:
+RStarStar is an installable R package with a .rsspps-file-only public source API.
+The string compiler and rss_* helpers are internal. Language examples and data
+live in inst/examples/; development runners live in examples/. See the
+[package guide](docs/r-package.md).
+
+From the repository root, install the current source before testing:
 
 ```sh
+R CMD INSTALL .
 Rscript tests/run.R
 Rscript examples/demo.R
-Rscript examples/read-csv.R
-Rscript examples/filter.R
-Rscript examples/workflow.R
+Rscript examples/functions.R
 Rscript examples/grouped.R
+Rscript examples/workflow.R
+R CMD build .
+R CMD check --no-manual RStarStar_0.0.1.tar.gz
 git diff --check
-git status --short
 ```
+
+Use the current package version in the archive name. Choose a writable R library
+with --library=/path/to/library when needed, and set R_LIBS to that library when
+running tests or demos. These Rscript files are development runners, not a public
+CLI. Reinstall after R/ changes so tests exercise the current implementation.
+
+The suite combines internal compiler tests with public API tests against the
+installed namespace. It also runs under R CMD check. Chart-rendering tests report
+skips when Cairo is unavailable; compiler and file-API checks remain available.
+--no-manual skips PDF manual generation; API help and examples are still checked.
+Only R-bundled packages are dependencies. Package metadata declares R >= 4.1.0;
+current validation is on R 4.6.0, and broader compatibility still needs CI coverage.
 
 Also check relative Markdown links and compare examples with the decision record.
 See the [implemented subset](docs/implemented-subset.md) for the API and supported

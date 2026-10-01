@@ -1,5 +1,11 @@
-# Run from the repository root: Rscript examples/grouped.R
-source("R/transpile.R")
-input <- paste(readLines("examples/grouped.txt"), collapse = "\n")
-generated <- transpile(input, filename = "examples/grouped.txt")
-eval(parse(text = generated), envir = new.env(parent = baseenv()))
+# Run from the repository root after installing RStarStar: Rscript examples/grouped.R
+library(RStarStar)
+path <- system.file("examples", "grouped.rsspps", package = "RStarStar", mustWork = TRUE)
+local({
+  previous <- getwd()
+  on.exit(setwd(previous))
+  # Dataset paths in the packaged examples are relative to their examples folder.
+  setwd(dirname(path))
+  generated <- transpile(path)
+  eval(parse(text = generated), envir = new.env(parent = baseenv()))
+})

@@ -1,4 +1,4 @@
-read "examples/data/sales.csv" into sales
+read "data/sales.csv" into sales
 filter sales where revenue is not missing into complete_sales
 average_revenue = average(complete_sales.revenue)
 total_revenue = sum(complete_sales.revenue)

@@ -2,7 +2,7 @@
 
 This guide explores the intended experience. **Bindings, mut, literals, vectors,
 arithmetic, printing, CSV loading, column access, filtering, scalar/grouped summaries,
-and PNG bar charts now work; user-defined functions and OOP remain proposals.** See the [implemented subset](implemented-subset.md) for exact working
+PNG bar charts, and simple user-defined functions now work; OOP remains proposed.** See the [implemented subset](implemented-subset.md) for exact working
 syntax and [design decisions](design-decisions.md) for open proposals.
 
 ## Read and transform data
@@ -115,6 +115,21 @@ The first chart feature saves a PNG with one bar per row. It requires unique
 category labels and finite numeric heights, rejects missing plotted values, and
 never overwrites an existing file. Cairo support in the installed R build is
 required. See the implemented subset for output and empty-table behavior.
+
+## Reuse a calculation
+
+```text
+fn add_tax(amount, rate) {
+  return amount * (1 + rate)
+}
+print add_tax([10, 20], 0.1)
+```
+
+The initial function form has parameters and a single return expression. Pass
+needed data explicitly; functions do not capture outer variables. Functions may
+call previously declared functions. Annotations, multi-statement bodies, recursion,
+and methods are still proposals. The typed functions in the OOP examples below
+are therefore not executable yet.
 
 ## Records: describe data
 

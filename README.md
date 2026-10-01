@@ -13,25 +13,39 @@ syntax difficult to approach. Prior programming experience is not required.
 **Compiler prototype.** Bindings, `mut`, literals, vectors, arithmetic, printing,
 CSV loading, column access, filtering, scalar/grouped summaries, and PNG bar charts
 transpile to readable R. Grouping supports multiple columns, such as region and
-product. Functions and OOP remain future work.
-The language is experimental, not a stable specification or installable package.
-A source file extension and command-line interface have not been chosen.
+product. Simple user-defined functions are supported; records, classes, and
+interfaces remain future work.
+The language and package API are experimental. RStarStar is now an installable
+**R package**, with no public CLI. Its only exported function, transpile(path),
+accepts local UTF-8 **.rsspps files only** and returns R code without running it.
+The R-call bridge remains future work. See the [package guide](docs/r-package.md).
 
-## Try the implemented subset
+## Install locally and try it
 
-With R installed, run these commands from the repository root:
+From an R session with this repository as the working directory:
 
-```sh
-Rscript tests/run.R
-Rscript examples/demo.R
-Rscript examples/read-csv.R
-Rscript examples/filter.R
-Rscript examples/workflow.R
-Rscript examples/grouped.R
+```r
+install.packages(".", repos = NULL, type = "source")
+library(RStarStar)
+path <- system.file("examples", "basics.rsspps", package = "RStarStar")
+code <- transpile(path)
+cat(code)
 ```
 
-The toolchain uses base R with no external dependencies. See the
-[implemented subset](docs/implemented-subset.md) for the API, grammar, and limits.
+To compile your own source, use transpile("analysis.rsspps"). Execution is a
+separate, explicit R operation:
+
+```r
+results <- new.env(parent = baseenv())
+eval(parse(text = code), envir = results)
+results$adjusted
+```
+
+This is a local source installation, not a CRAN release. The package uses only
+packages bundled with R. It declares R >= 4.1.0 and has been verified locally on
+R 4.6.0; a broader version/platform matrix remains pending. PNG execution needs
+Cairo support. See the [implemented subset](docs/implemented-subset.md) for syntax
+and [Contributing](CONTRIBUTING.md) for package checks and developer demos.
 
 ## What you can write now
 
@@ -61,6 +75,7 @@ tables should remain useful without learning OOP.
 
 ## Start here
 
+- [R package guide](docs/r-package.md): installation, file API, and interoperability plans.
 - [Progress log](PROGRESS.md): significant changes and verification results.
 - [Initial language guide](docs/language-guide.md): proposed syntax and behavior.
 - [Design decisions](docs/design-decisions.md): direction, proposals, and unresolved questions.
@@ -74,4 +89,4 @@ significant implementation changes and their verification in PROGRESS.md.
 
 ## License
 
-RStarStar is licensed under the [MIT License](LICENSE).
+RStarStar is licensed under the [MIT License](LICENSE.md).

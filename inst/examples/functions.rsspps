@@ -1,0 +1,18 @@
+fn add_tax(amount, rate) {
+  return amount * (1 + rate)
+}
+
+fn mean_revenue(data) {
+  return average(data.revenue) skipping missing
+}
+
+fn above(value, threshold) {
+  return value > threshold
+}
+
+print add_tax([10, 20], 0.1)
+read "data/sales.csv" into sales
+print mean_revenue(sales)
+minimum = 100
+filter sales where above(revenue, @minimum) skipping missing into selected
+print selected

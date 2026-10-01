@@ -1,10 +1,22 @@
 # Run from the repository root: Rscript tests/run.R
-source("R/transpile.R")
+library(RStarStar)
+# Focused internal compiler cases complement tests of the file-only public API.
+transpile <- get("rss_compile", asNamespace("RStarStar"))
+rss_parse <- get("rss_parse", asNamespace("RStarStar"))
+rss_tokenize <- get("rss_tokenize", asNamespace("RStarStar"))
+test_directory <- if (dir.exists("tests/cases")) "tests" else "."
+skipped <- 0L
 checks <- 0L
 check <- function(label, code) {
   force(code)
   checks <<- checks + 1L
   cat("PASS", label, "\n")
+}
+check_chart <- function(label, code) {
+  if (capabilities("cairo")) check(label, code) else {
+    skipped <<- skipped + 1L
+    cat("SKIP", label, "(Cairo unavailable)\n")
+  }
 }
 run <- function(source) {
   generated <- transpile(source, "test.input")
@@ -108,8 +120,10 @@ check("AST retains complete multiline source spans", {
             ast[[1]]$span$end_line == 3L, ast[[1]]$span$end_column == 2L,
             ast[[1]]$value$span$column == 5L)
 })
-source("tests/csv.R")
-source("tests/filter.R")
-source("tests/summary-chart.R")
-source("tests/grouped.R")
-cat(sprintf("\n%d checks passed.\n", checks))
+source(file.path(test_directory, "cases", "csv.R"))
+source(file.path(test_directory, "cases", "filter.R"))
+source(file.path(test_directory, "cases", "summary-chart.R"))
+source(file.path(test_directory, "cases", "grouped.R"))
+source(file.path(test_directory, "cases", "functions.R"))
+source(file.path(test_directory, "cases", "package.R"))
+cat(sprintf("\n%d checks passed; %d skipped.\n", checks, skipped))

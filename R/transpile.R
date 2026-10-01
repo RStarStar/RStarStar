@@ -49,7 +49,7 @@ rss_tokenize <- function(source, filename) {
       begin <- i
       while (i <= n && grepl("^[A-Za-z0-9_]$", current())) advance()
       value <- paste0(chars[begin:(i - 1L)], collapse = "")
-      kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not", "plot", "summarize")) value else "name"
+      kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not", "plot", "summarize", "fn", "return")) value else "name"
       add(kind, value, start)
     } else if (grepl("^[0-9]$", ch)) {
       rest <- paste0(chars[i:n], collapse = "")
@@ -80,7 +80,7 @@ rss_tokenize <- function(source, filename) {
       advance()
       advance()
       add(paste0(ch, "="), paste0(ch, "="), start)
-    } else if (ch %in% c(".", "@", "<", ">", "=", "+", "-", "*", "/", "(", ")", "[", "]", ",")) {
+    } else if (ch %in% c("{", "}", ".", "@", "<", ">", "=", "+", "-", "*", "/", "(", ")", "[", "]", ",")) {
       advance()
       if (ch %in% c("(", "[")) depth <- depth + 1L
       if (ch %in% c(")", "]")) depth <- max(0L, depth - 1L)
@@ -131,6 +131,16 @@ rss_parse <- function(tokens, filename) {
     }
     if (token$kind %in% c("number", "text", "true", "false", "name")) {
       take()
+      if (token$kind == "name" && peek()$kind == "(") {
+        take()
+        arguments <- list()
+        if (peek()$kind != ")") {
+          arguments <- list(expression())
+          while (peek()$kind == ",") { take(); arguments[[length(arguments) + 1L]] <- expression() }
+        }
+        expect(")", "Expected ')' after function arguments.")
+        return(node("call", token, name = token$value, arguments = arguments))
+      }
       if (token$kind == "name" && peek()$kind == ".") {
         take()
         column <- peek()
@@ -239,7 +249,31 @@ rss_parse <- function(tokens, filename) {
       next
     }
     token <- peek()
-    if (token$kind == "print") {
+    if (token$kind == "fn") {
+      take()
+      name <- expect("name", "Expected a function name after 'fn'.")
+      if (name$value %in% c("average", "sum", "count")) rss_error("A function cannot replace a built-in summary.", name, filename)
+      expect("(", "Expected '(' after the function name.")
+      parameters <- character()
+      if (peek()$kind != ")") {
+        repeat {
+          parameter <- expect("name", "Expected a parameter name.")
+          if (parameter$value %in% parameters) rss_error("Parameter names must be unique.", parameter, filename)
+          parameters <- c(parameters, parameter$value)
+          if (peek()$kind != ",") break
+          take()
+        }
+      }
+      expect(")", "Expected ')' after function parameters.")
+      expect("{", "Expected '{' before the function body.")
+      while (peek()$kind == "newline") take()
+      expect("return", "Functions currently require one 'return' expression.")
+      body <- expression()
+      while (peek()$kind == "newline") take()
+      expect("}", "Expected '}' after the return expression; multi-statement functions are not supported yet.")
+      statement <- node("function", token, name = name$value, name_token = name,
+                        parameters = parameters, body = body)
+    } else if (token$kind == "print") {
       take()
       statement <- node("print", token, value = expression())
     } else if (token$kind == "summarize") {
@@ -377,6 +411,13 @@ rss_analyze <- function(statements, filename) {
   infer <- function(value, in_filter = FALSE) {
     kind <- value$kind
     recurse <- function(x) infer(x, in_filter)
+    if (kind == "call") {
+      target <- lookup(value$name, value$token)
+      if (target$type != "Function") rss_error(sprintf("'%s' is not a declared function.", value$name), value$token, filename)
+      if (length(value$arguments) != length(target$parameters)) rss_error(sprintf("Function '%s' expects %d arguments; received %d.", value$name, length(target$parameters), length(value$arguments)), value$token, filename)
+      lapply(value$arguments, recurse)
+      return(target$result)
+    }
     if (kind == "read") return(info("Table", 1L))
     if (kind == "summarize") {
       require_table(value$table, value$table_token)
@@ -398,13 +439,19 @@ rss_analyze <- function(statements, filename) {
       require_table(value$table, value$token)
       return(info("Unknown", NA_integer_))
     }
-    if (kind == "local") return(lookup(value$value, value$token))
+    if (kind == "local") {
+      result <- lookup(value$value, value$token)
+      if (result$type == "Function") rss_error("Functions must be called; function values are not supported yet.", value$token, filename)
+      return(result)
+    }
     if (kind == "number") return(info("Number", 1L))
     if (kind == "text") return(info("Text", 1L))
     if (kind %in% c("true", "false")) return(info("Boolean", 1L))
     if (kind == "name") {
       if (in_filter) return(info("Unknown", NA_integer_))
-      return(lookup(value$value, value$token))
+      result <- lookup(value$value, value$token)
+      if (result$type == "Function") rss_error("Functions must be called; function values are not supported yet.", value$token, filename)
+      return(result)
     }
     if (kind == "group") return(recurse(value$value))
     if (kind == "missing") {
@@ -453,6 +500,24 @@ rss_analyze <- function(statements, filename) {
     info(result_type, size)
   }
   for (statement in statements) {
+    if (statement$kind == "function") {
+      if (exists(statement$name, bindings, inherits = FALSE)) rss_error("Function name is already declared.", statement$name_token, filename)
+      outer <- bindings
+      bindings <- new.env(parent = emptyenv())
+      # Bodies can see only parameters and earlier functions, never ambient data.
+      for (key in ls(outer, all.names = TRUE)) {
+        entry <- get(key, outer, inherits = FALSE)
+        if (entry$info$type == "Function") assign(key, entry, bindings)
+      }
+      for (parameter in statement$parameters) assign(parameter, list(info = info("Unknown", NA_integer_), mutable = FALSE), bindings)
+      result <- infer(statement$body)
+      bindings <- outer
+      signature <- info("Function", 1L)
+      signature$parameters <- statement$parameters
+      signature$result <- result
+      assign(statement$name, list(info = signature, mutable = FALSE), bindings)
+      next
+    }
     if (statement$kind == "plot") {
       require_table(statement$table, statement$table_token)
       next
@@ -481,6 +546,7 @@ rss_generate <- function(statements, filename) {
   name <- function(value) paste0("`", value, "`")
   quote_text <- function(value) encodeString(value, quote = '"')
   has_data <- any(vapply(statements, function(x) x$kind == "assign" && x$value$kind == "read", logical(1)))
+  checked <- has_data || any(vapply(statements, function(x) x$kind == "function", logical(1)))
   needs_runtime <- FALSE
   call_runtime <- function(method, args, token) {
     needs_runtime <<- TRUE
@@ -490,6 +556,7 @@ rss_generate <- function(statements, filename) {
   emit <- function(value, table = NULL) {
     recurse <- function(x) emit(x, table)
     switch(value$kind,
+      call = call_runtime("call", c(name(value$name), paste0("base::list(", paste(vapply(value$arguments, recurse, character(1)), collapse = ", "), ")")), value$token),
       summarize = {
         specs <- vapply(value$summaries, function(spec) {
           input <- spec$value$value
@@ -516,32 +583,36 @@ rss_generate <- function(statements, filename) {
       false = "FALSE",
       name = if (is.null(table)) name(value$value) else call_runtime("column", c(table, quote_text(value$value)), value$token),
       group = paste0("(", recurse(value$value), ")"),
-      missing = if (has_data) call_runtime("missing", c(recurse(value$value), if (value$negate) "TRUE" else "FALSE"), value$token) else
+      missing = if (checked) call_runtime("missing", c(recurse(value$value), if (value$negate) "TRUE" else "FALSE"), value$token) else
         paste0(if (value$negate) "!" else "", "base::is.na(", recurse(value$value), ")"),
-      vector = if (!has_data) paste0("base::c(", paste(vapply(value$values, recurse, character(1)), collapse = ", "), ")") else call_runtime("vector", paste0("base::list(", paste(vapply(value$values, recurse, character(1)), collapse = ", "), ")"), value$token),
-      unary = if (!has_data) paste0("(", if (value$operator == "not") "!" else value$operator, recurse(value$value), ")") else call_runtime("unary", c(quote_text(value$operator), recurse(value$value)), value$token),
-      binary = if (!has_data) paste0("(", recurse(value$left), " ", switch(value$operator, "and" = "&", "or" = "|", value$operator), " ", recurse(value$right), ")") else call_runtime("binary", c(quote_text(value$operator), recurse(value$left), recurse(value$right)), value$operator_token)
+      vector = if (!checked) paste0("base::c(", paste(vapply(value$values, recurse, character(1)), collapse = ", "), ")") else call_runtime("vector", paste0("base::list(", paste(vapply(value$values, recurse, character(1)), collapse = ", "), ")"), value$token),
+      unary = if (!checked) paste0("(", if (value$operator == "not") "!" else value$operator, recurse(value$value), ")") else call_runtime("unary", c(quote_text(value$operator), recurse(value$value)), value$token),
+      binary = if (!checked) paste0("(", recurse(value$left), " ", switch(value$operator, "and" = "&", "or" = "|", value$operator), " ", recurse(value$right), ")") else call_runtime("binary", c(quote_text(value$operator), recurse(value$left), recurse(value$right)), value$operator_token)
     )
   }
   declared <- character()
   lines <- vapply(statements, function(statement) {
+    if (statement$kind == "function") {
+      declared <<- c(declared, statement$name)
+      return(paste0(name(statement$name), " <- function(", paste(vapply(statement$parameters, name, character(1)), collapse = ", "), ") {\n  return(", emit(statement$body), ")\n}"))
+    }
     if (statement$kind == "plot") return(call_runtime("plot", c(name(statement$table), quote_text(statement$x), quote_text(statement$y), quote_text(statement$path)), statement$token))
     if (statement$kind == "print") return(paste0("base::print(", emit(statement$value), ")"))
     rhs <- emit(statement$value)
-    if (has_data && statement$name %in% declared) rhs <- call_runtime("update", c(name(statement$name), rhs), statement$name_token)
+    if (checked && statement$name %in% declared) rhs <- call_runtime("update", c(name(statement$name), rhs), statement$name_token)
     declared <<- c(declared, statement$name)
     paste0(name(statement$name), " <- ", rhs)
   }, character(1))
   helpers <- character()
-  if (needs_runtime) helpers <- c(helpers, paste0(".rss <- (", paste(deparse(rss_runtime, width.cutoff = 100L), collapse = "\n"), ")()"))
+  if (needs_runtime) helpers <- c(helpers, paste0(".rss <- base::eval(base::quote((", paste(deparse(rss_runtime, width.cutoff = 100L), collapse = "\n"), ")()), base::new.env(parent = base::baseenv()))"))
   if (has_data) {
-    helpers <- c(helpers, paste0(".rss_read_csv <- ", paste(deparse(rss_read_csv, width.cutoff = 100L), collapse = "\n")))
+    helpers <- c(helpers, paste0(".rss_read_csv <- base::eval(base::quote(", paste(deparse(rss_read_csv, width.cutoff = 100L), collapse = "\n"), "), base::baseenv())"))
   }
   paste(c(helpers, if (length(helpers)) "", lines), collapse = "\n")
 }
 
 # Return R source as a single string. The caller decides whether to save or run it.
-transpile <- function(source, filename = "<input>") {
+rss_compile <- function(source, filename = "<input>") {
   if (!is.character(source) || length(source) != 1L || is.na(source)) {
     stop("source must be one non-missing character string.", call. = FALSE)
   }
@@ -677,6 +748,14 @@ rss_runtime <- function() {
            ">" = left > right, ">=" = left >= right, "and" = left & right, "or" = left | right)
   }
   runtime <- list(
+    call = function(target, arguments, filename, line, column) {
+      # Force each argument once before entering the function, including unused ones.
+      arguments <- lapply(arguments, identity)
+      tryCatch(do.call(target, arguments), rstarstar_error = function(e) {
+        e$message <- paste0(e$message, "\n  called at ", filename, ":", line, ":", column)
+        stop(e)
+      })
+    },
     summary = function(operation, value, skip, filename, line, column) {
       error <- function(message) fail(message, filename, line, column)
       if (operation == "count") {

@@ -1,0 +1,9 @@
+^\.git$
+^\.gitignore$
+^AGENTS\.md$
+^CONTRIBUTING\.md$
+^PROGRESS\.md$
+^docs$
+^examples$
+^.*\.Rcheck$
+^.*\.tar\.gz$

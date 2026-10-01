@@ -6,46 +6,51 @@ language are experimental and may change.
 
 ## Run it
 
-From the repository root, with R installed:
-
-```sh
-Rscript tests/run.R
-Rscript examples/demo.R
-Rscript examples/read-csv.R
-Rscript examples/filter.R
-Rscript examples/workflow.R
-Rscript examples/grouped.R
-```
-
-In an R session at the repository root:
+The user interface is the R package; see the [package guide](r-package.md).
+From an R session in the repository root, install locally and compile an example:
 
 ```r
-source("R/transpile.R")
-generated <- transpile("scores = [72, 85, 91, 68]\nprint scores + 5")
+install.packages(".", repos = NULL, type = "source")
+library(RStarStar)
+path <- system.file("examples", "basics.rsspps", package = "RStarStar")
+generated <- transpile(path)
 cat(generated)
 # Choose explicitly whether to execute:
 eval(parse(text = generated), envir = new.env(parent = baseenv()))
 ```
 
-transpile() accepts one source string and an optional filename for diagnostics,
-then returns a single R-source string. It does not run the program, print its
-output, or write files. Each call starts with a fresh binding scope. Generated R
-uses base functions and requires no separately installed RStarStar runtime. CSV
-programs embed a self-contained loader and, when needed, checked expression
-helpers; summaries also embed runtime checks, and charts use R's bundled
-graphics/grDevices packages. Programs without data loading retain direct arithmetic output. Compilation is not a sandbox
-for later execution, nor are its binding checks enforced if generated R is edited.
+transpile(path) accepts one nonempty path to a regular local file with the exact
+lowercase .rsspps suffix. Source must be UTF-8 (a BOM is accepted) without NUL
+bytes. Empty programs are valid. Inline source, .R/.txt files, uppercase suffixes,
+URLs, connections, and path vectors are not supported. Readable source diagnostics
+use normalized absolute paths; input-validation errors retain the supplied path.
 
-Validated locally on R 4.6.0 on macOS arm64. A minimum R version and broader
-compatibility matrix are not yet established. No external dependencies or package
-installation are needed. PNG charts require capabilities("cairo") to be true;
-the full test suite includes chart rendering and therefore requires Cairo. Internal rss_* functions are not a stable public API.
+Compilation reads the source file only: it does not run the program, load datasets,
+print program output, or write charts. Each call uses a fresh binding scope and
+returns one R-source string. The internal rss_compile(source, filename) interface
+is not exported or supported as a public API. Arbitrary R calls from RStarStar
+and a dedicated execution API remain future work.
+
+Generated R includes its runtime helpers and runs independently of the compiler.
+Chart code uses the R-bundled graphics/grDevices packages. Compilation is not a
+sandbox for later execution, and checks cannot protect generated R that is edited.
+Relative dataset and chart paths use the execution working directory, not the
+source-file directory. Developer runners in examples/ set the working directory
+to the installed example folder explicitly and compile packaged .rsspps files.
+
+The package declares R >= 4.1.0 and is tested locally on R 4.6.0/macOS arm64.
+Earlier versions and other platforms are not yet verified. Only R-bundled packages
+are dependencies. PNG execution requires Cairo; chart rendering checks report
+explicit skips without it. See CONTRIBUTING.md in the repository for installed
+namespace tests and package build/check commands.
 
 ## Grammar
 
 ```text
 program    = { newline | statement newline }, [ statement ] ;
-statement  = [ "mut" ], name, "=", expression
+statement  = "fn", name, "(", [ name, { ",", name } ], ")", "{",
+             { newline }, "return", expression, { newline }, "}"
+           | [ "mut" ], name, "=", expression
            | "print", expression
            | "read", text, "into", [ "mut" ], name,
              [ "with", "delimiter", text ]
@@ -66,6 +71,7 @@ sum        = product, { ("+" | "-"), product } ;
 product    = unary, { ("*" | "/"), unary } ;
 unary      = ("+" | "-"), unary | primary ;
 primary    = number | text | "true" | "false" | name | "@", name
+           | name, "(", [ expression, { ",", expression } ], ")"
            | name, ".", (name | text)
            | ("average" | "sum" | "count"), "(", expression, ")",
              [ "skipping", "missing" ]
@@ -83,7 +89,7 @@ then not, then and, then or. Comparisons cannot be chained; write x > 0 and x < 
 
 Names match [A-Za-z_][A-Za-z0-9_]* and are case-sensitive. The keywords mut, print,
 true, false, read, into, with, delimiter, filter, where, skipping, missing, is,
-and, or, not, plot, and summarize cannot be names. R keywords may be names; generated identifiers
+and, or, not, plot, summarize, fn, and return cannot be names. R keywords may be names; generated identifiers
 are quoted, and generated function calls explicitly use the base namespace.
 
 Numbers start with a digit, have optional fractional digits (such as 1.25), and
@@ -97,7 +103,8 @@ Booleans are true and false.
 
 The first assignment declares a name. Later assignments update it only if its
 original declaration used mut. A second mut declaration of the same name is an
-error. There is one scope and no shadowing or forward references. The right-hand
+error. Top-level declarations share one scope without redeclaration or forward
+references. Functions have a separate parameter scope as described below. The right-hand
 side can read the previous value during an update, but a declaration cannot read
 its own not-yet-created binding.
 
@@ -147,7 +154,7 @@ For example, x = 1 followed by x = 2 reports an immutable-reassignment error on
 line 2. Undefined names, mixed vector types, nonnumeric arithmetic, and mismatched
 vector lengths also fail before R generation.
 
-Not implemented: other chart types, general indexing, conditional statements, user-defined functions,
+Not implemented: other chart types, general indexing, conditional statements, multi-statement functions,
 annotations, explicit conversions, records, classes, interfaces, and arbitrary
 R calls. Input is parsed as RStarStar, never evaluated as R during compilation.
 
@@ -269,8 +276,8 @@ print average([1, 2, 3])
 
 The built-in names average, sum, and count are recognized only when followed by
 parentheses. They remain legal variable names, and calls still mean the built-in
-operation even if a binding has the same name. This is not general function-call
-support. The entire parenthesized expression is the summary input. An optional
+operation even if a binding has the same name. These built-in calls are distinct from user-defined function calls; user functions
+cannot use these three names. The entire parenthesized expression is the summary input. An optional
 skipping missing immediately afterward applies only to that summary.
 
 average and sum require numeric input. Missing values (NA/NaN) cause an error
@@ -376,3 +383,57 @@ A missing region with product A and a missing region with product B are separate
 groups. Filtering or charting grouped results follows the existing rules: a chart
 still needs unique labels on its chosen x column. Multi-column grouping does not
 implicitly create combined chart labels or grouped bars.
+
+
+## User-defined functions
+
+```text
+fn add_tax(amount, rate) {
+  return amount * (1 + rate)
+}
+
+print add_tax([10, 20], 0.1)
+```
+
+Functions are top-level declarations with unique names and parameter names. A body
+contains exactly one return expression. Braces may share a line with the expression
+or enclose it on separate lines; comments and blank lines around return are allowed.
+Multiline return expressions must use parentheses/brackets, as elsewhere.
+
+Calls use positional arguments with exactly the declared count, including zero
+arguments. Arguments are evaluated once, left to right, before entering the body,
+even when unused. Parameters are immutable local bindings; they can shadow outer
+variable names without changing them. Functions accept scalar/vector/table values,
+and may return those values. Types and lengths that are unknown from source are
+checked at runtime by the same helpers used for loaded data.
+
+Bodies can reference parameters, built-in summaries, and previously declared
+functions. They cannot capture outer variables: pass needed data explicitly.
+There are no forward references or recursion. Function names are immutable and
+share the top-level declaration namespace. Functions cannot be copied into
+variables, passed as values, or returned as values. A parameter shadowing an earlier
+function cannot be called as a function. Built-in summary names cannot be used
+for function definitions, though ordinary bindings may still use them.
+
+```text
+fn mean_revenue(data) {
+  return average(data.revenue) skipping missing
+}
+read "sales.csv" into sales
+print mean_revenue(sales)
+```
+
+Functions may be called inside filters. Call arguments follow the filter's existing
+column/@variable rules; the function body itself uses parameter scope. Grouped
+aggregate inputs remain restricted to columns and do not accept function calls yet.
+
+Definitions are checked during compilation but bodies are never executed until
+called in the generated R program. Body runtime errors retain their source location
+and append call locations as they propagate. Argument errors retain their original
+expression location. Runtime helpers are isolated from user functions so names
+such as mean or c cannot replace implementation dependencies.
+
+This first version excludes annotations, named/default arguments, nested functions,
+closures, recursion, assignments or other statements inside bodies, and methods.
+A function definition need not be followed by a call. A bare call as a top-level
+statement is not yet supported: assign or print its result instead.
