@@ -14,6 +14,7 @@ Rscript examples/demo.R
 Rscript examples/read-csv.R
 Rscript examples/filter.R
 Rscript examples/workflow.R
+Rscript examples/grouped.R
 ```
 
 In an R session at the repository root:
@@ -50,8 +51,12 @@ statement  = [ "mut" ], name, "=", expression
              [ "with", "delimiter", text ]
            | "filter", name, "where", expression, [ "skipping", "missing" ],
              "into", [ "mut" ], name
+           | "summarize", name, "by", (name | text), "with",
+             grouped_result, { ",", grouped_result }, "into", [ "mut" ], name
            | "plot", name, "x", (name | text), "y", (name | text),
              "as", "bar", "to", text ;
+grouped_result = name, "=", ("average" | "sum" | "count"), "(",
+                 (name | name, ".", (name | text)), ")", [ "skipping", "missing" ] ;
 expression = conjunction, { "or", conjunction } ;
 conjunction = negation, { "and", negation } ;
 negation   = "not", negation | comparison ;
@@ -78,7 +83,7 @@ then not, then and, then or. Comparisons cannot be chained; write x > 0 and x < 
 
 Names match [A-Za-z_][A-Za-z0-9_]* and are case-sensitive. The keywords mut, print,
 true, false, read, into, with, delimiter, filter, where, skipping, missing, is,
-and, or, not, and plot cannot be names. R keywords may be names; generated identifiers
+and, or, not, plot, and summarize cannot be names. R keywords may be names; generated identifiers
 are quoted, and generated function calls explicitly use the base namespace.
 
 Numbers start with a digit, have optional fractional digits (such as 1.25), and
@@ -142,7 +147,7 @@ For example, x = 1 followed by x = 2 reports an immutable-reassignment error on
 line 2. Undefined names, mixed vector types, nonnumeric arithmetic, and mismatched
 vector lengths also fail before R generation.
 
-Not implemented: grouped summaries, other chart types, general indexing, conditional statements, user-defined functions,
+Not implemented: multi-column grouping, other chart types, general indexing, conditional statements, user-defined functions,
 annotations, explicit conversions, records, classes, interfaces, and arbitrary
 R calls. Input is parsed as RStarStar, never evaluated as R during compilation.
 
@@ -283,7 +288,8 @@ statically where known and otherwise at runtime; missingness is checked at runti
 Summaries work inside filter predicates with the same bare-column/@variable rules.
 An outer filter's skipping missing is separate from a summary's option. To avoid
 two adjacent skipping clauses, compute a summary in a variable first and refer to
-it with @name in the filter. Group-by and table-producing summaries are deferred.
+it with @name in the filter. Table-producing grouped summaries use a separate
+summarize statement described below.
 
 ## PNG bar charts
 
@@ -296,7 +302,8 @@ Plotting is a statement with no binding result. The x/y/as/bar/to words are
 contextual markers, so ordinary variables named x or y remain legal. Each axis
 specifies an exact column name or quoted header, not an expression. One bar is
 drawn per row in source order. Labels must be unique after conversion to text;
-repeated categories are rejected rather than summed implicitly. Heights must be
+repeated categories are rejected rather than summed implicitly. Use summarize
+to combine repeated categories before plotting. Heights must be
 finite numeric values. Missing labels/heights and empty tables are errors; filter
 them explicitly first. Negative and zero heights are supported.
 
@@ -314,3 +321,43 @@ Device errors are reported with the plot statement's source location. Font
 availability depends on the R installation. The demo runner writes a uniquely
 named image under examples/output/ by default, or accepts an explicit new PNG
 path as its sole argument. Generated example output is ignored by Git.
+
+
+## Grouped summaries
+
+```text
+summarize sales by region with total = sum(revenue) skipping missing, rows = count(revenue) into totals
+print totals
+plot totals x region y total as bar to "totals.png"
+```
+
+summarize accepts one grouping column and one or more named aggregate outputs.
+The grouping column may be quoted; by is contextual, while summarize is reserved.
+Outputs must have unique names different from the grouping column. Each result
+must be average(column), sum(column), or count(column), with optional skipping
+missing on that individual result. Quoted input headers use the qualified form,
+for example sum(sales."Order total"). Bare inputs always refer to source columns,
+not ordinary variables. Qualified inputs must name the source table. General
+expressions, constants, external variables, nesting, and references to newly
+computed output columns are not yet supported within grouped results.
+
+Groups appear in first-seen order; grouping values retain their types. Missing
+keys form a retained group, with no implicit dropping. Filter missing keys before
+grouping if they should be excluded (or before charting, which rejects missing
+labels). A single group is produced per distinct key using R's unique/match value
+semantics, not a concatenated text key.
+
+Each group's statistic follows the scalar summary rules. count(column) counts
+all group rows; skipping missing counts nonmissing column values. Missing numeric
+inputs require explicit skipping for sum/average. An all-missing numeric group
+sums to zero when skipping; its average is an error. If any group fails, the
+statement fails instead of producing a partial result. Type checks apply to the
+entire input column, retaining the existing all-missing CSV Text inference rule.
+
+Empty input produces a zero-row table with the grouping column's original type
+and numeric summary columns. Input columns and types are still validated even
+when empty. There is no invented empty group, so average is not evaluated when
+there are zero groups. The source table is unchanged; target bindings follow
+ordinary immutability and mut rules. Output can be filtered, summarized again,
+or charted. This initial implementation groups in memory and does not claim
+large-dataset performance or support multiple grouping columns.

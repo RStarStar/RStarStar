@@ -33,7 +33,7 @@ may need to retain their underlying details when a trustworthy translation is no
 Generated output remains standalone: CSV programs embed a loader helper, while
 programs without CSV reads omit it and use direct R expressions. Data programs
 use a private .rss helper environment for column lookup, checked arithmetic and
-comparisons, vector construction, filtering, scalar summaries, chart rendering,
+comparisons, vector construction, filtering, scalar/grouped summaries, chart rendering,
 and stable-type reassignment. Summary expressions embed checks even without CSV
 input. Chart helpers call the bundled graphics/grDevices namespaces, require
 Cairo, close their device, and publish a temporary image without overwriting
@@ -65,3 +65,9 @@ interop boundary explicitly before claiming mutation guarantees across it.
 Run Rscript tests/run.R from the repository root. Rscript examples/demo.R shows
 compilation and explicit execution. Object and data cases above become required
 when those features are implemented. Record significant changes in PROGRESS.md.
+
+
+Grouped summaries compile into descriptors for named aggregate columns. The
+runtime validates columns, partitions row indices by a single key using unique
+and match, and reuses scalar summary checks for each group. No source expressions
+are evaluated dynamically; only the supported aggregate descriptors are executed.

@@ -52,6 +52,7 @@ Rscript examples/demo.R
 Rscript examples/read-csv.R
 Rscript examples/filter.R
 Rscript examples/workflow.R
+Rscript examples/grouped.R
 git diff --check
 git status --short
 ```

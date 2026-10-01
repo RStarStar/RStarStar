@@ -1,0 +1,5 @@
+read "examples/data/grouped-sales.csv" into sales
+summarize sales by region with total = sum(revenue) skipping missing, mean = average(revenue) skipping missing, rows = count(revenue) into totals
+print totals
+filter totals where total > 25 into top_regions
+print top_regions

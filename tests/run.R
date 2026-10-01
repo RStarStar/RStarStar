@@ -111,4 +111,5 @@ check("AST retains complete multiline source spans", {
 source("tests/csv.R")
 source("tests/filter.R")
 source("tests/summary-chart.R")
+source("tests/grouped.R")
 cat(sprintf("\n%d checks passed.\n", checks))

@@ -39,8 +39,9 @@ a distributable R package remains future work.
 - [x] Scalar average/sum/count summaries and a saved PNG bar chart.
 
 The workflow example now reads, filters, computes scalar summaries, and saves a
-bar chart. Grouped summaries, configurable schemas, and additional chart types
-remain extensions beyond this initial milestone.
+bar chart. The grouped-summary extension now combines repeated categories with
+one grouping key and multiple outputs. Configurable schemas, multi-key grouping,
+and additional chart types remain extensions.
 
 Done when a small documented dataset can go from file to summary and chart, with
 useful failures for absent files, missing columns, and invalid inputs.

@@ -1,7 +1,7 @@
 # Initial language guide
 
 This guide explores the intended experience. **Bindings, mut, literals, vectors,
-arithmetic, printing, CSV loading, column access, filtering, scalar summaries,
+arithmetic, printing, CSV loading, column access, filtering, scalar/grouped summaries,
 and PNG bar charts now work; user-defined functions and OOP remain proposals.** See the [implemented subset](implemented-subset.md) for exact working
 syntax and [design decisions](design-decisions.md) for open proposals.
 
@@ -94,7 +94,15 @@ average() and sum() require numeric inputs. After optional missing-value removal
 an empty average is an error and an empty numeric sum is zero. count() counts
 vector entries including missing values, or table rows; count(column) skipping
 missing counts nonmissing entries. These built-ins use parentheses to make their
-input boundaries explicit. Grouped summaries are not implemented.
+input boundaries explicit. Grouped summaries produce a table:
+
+```text
+summarize sales by region with total = sum(revenue) skipping missing, rows = count(revenue) into totals
+```
+
+Groups stay in first-seen order, including a group for missing keys. Each output
+has its own missing-value policy. One grouping column is supported initially;
+see the implemented subset for empty-input and naming rules.
 
 ## Save a chart
 

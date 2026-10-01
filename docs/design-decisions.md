@@ -188,3 +188,27 @@ Verification includes scalar results, missing/empty/type errors, count policies,
 PNG signatures/dimensions, standalone generated execution, no compilation-time
 file output, and chart validation/output protection. The full suite now requires
 Cairo; broader renderer portability remains future work.
+
+
+## 2026-10-01 — Grouped table summaries
+
+Status: implemented, experimental. summarize table by key with name = sum(column),
+... into target supports one key and named average/sum/count outputs. The separate
+statement avoids introducing persistent grouped-table state. Each aggregate may
+specify skipping missing. Outputs are unique and cannot replace the key name.
+
+Keys retain type and first-seen order, including a missing-key group. Empty inputs
+produce typed zero-row output; columns/types are still validated. Aggregate rules
+reuse scalar summaries per group, so missing input does not disappear silently.
+Bare inputs mean columns; qualified inputs must name the source table. Immutable
+and mutable target rules remain unchanged. The whole assignment fails on an error.
+
+Deferred alternatives: multiple grouping keys, arbitrary expressions in aggregate
+inputs, output-to-output references, implicit missing-key removal, and sorting
+groups automatically. These limits keep the first grouped workflow explicit.
+The chart's duplicate-label diagnostic now suggests summarize instead of claiming
+that grouped summaries are unavailable.
+
+Verification covers repeated and missing keys, multiple aggregates, per-result
+missing policy, quoted headers, type preservation, empty input, invalid columns,
+output-name conflicts, mutable targets, and grouped output flowing into a chart.

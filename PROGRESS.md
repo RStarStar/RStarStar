@@ -111,3 +111,25 @@ verified despite those warnings.
 The three earlier demos also passed. Documentation verification covered nine
 Markdown files and 23 local links; code-fence, whitespace, and git diff checks
 passed.
+
+
+## 2026-10-01 — Grouped summaries
+
+Implemented summarize table by key with named average/sum/count results into a
+target table. Supports one grouping key, multiple outputs, per-output missing
+policies, quoted input headers, and ordinary mutable/immutable target rules.
+Grouping preserves key types and first-seen order, including missing-key groups.
+Empty output retains its schema; invalid columns/types still fail. The runtime
+reuses scalar summary checks instead of silently dropping incomplete values.
+
+Added tests/grouped.R and examples/grouped.R with a repeated-category dataset.
+Updated guides, grammar, architecture, roadmap, and the duplicate-chart-label
+error. Multi-key grouping, arbitrary grouped expressions, schemas, functions,
+and OOP remain future work.
+
+Verification: Rscript tests/run.R passed all 105 checks (94 existing and 11 new),
+including grouped-output filtering and PNG chart generation. The existing sandbox
+Fontconfig cache warnings remain nonfatal. Rscript examples/grouped.R passed:
+South totals 40 and North totals 20, each with two source rows; filtering the
+result retains South. Checked nine Markdown files, 23 local links, code fences,
+and git diff --check successfully.

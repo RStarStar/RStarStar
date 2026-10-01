@@ -49,7 +49,7 @@ rss_tokenize <- function(source, filename) {
       begin <- i
       while (i <= n && grepl("^[A-Za-z0-9_]$", current())) advance()
       value <- paste0(chars[begin:(i - 1L)], collapse = "")
-      kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not", "plot")) value else "name"
+      kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not", "plot", "summarize")) value else "name"
       add(kind, value, start)
     } else if (grepl("^[0-9]$", ch)) {
       rest <- paste0(chars[i:n], collapse = "")
@@ -242,6 +242,37 @@ rss_parse <- function(tokens, filename) {
     if (token$kind == "print") {
       take()
       statement <- node("print", token, value = expression())
+    } else if (token$kind == "summarize") {
+      take()
+      table <- expect("name", "Expected a table variable after 'summarize'.")
+      if (peek()$kind != "name" || peek()$value != "by") rss_error("Expected 'by' before the grouping column.", peek(), filename)
+      take()
+      key <- peek()
+      if (!key$kind %in% c("name", "text")) rss_error("Expected a grouping column name or quoted header.", key, filename)
+      take()
+      expect("with", "Expected 'with' before the named summaries.")
+      summaries <- list()
+      repeat {
+        label <- expect("name", "Expected a name for the summary output column.")
+        expect("=", "Expected '=' after the summary output name.")
+        value <- expression()
+        if (value$kind != "summary" || !value$value$kind %in% c("name", "column")) {
+          rss_error("Each grouped result must be average(column), sum(column), or count(column).", value$token, filename)
+        }
+        if (value$value$kind == "column" && value$value$table != table$value) rss_error("Grouped summaries must use columns from the input table.", value$value$token, filename)
+        summaries[[length(summaries) + 1L]] <- list(name = label$value, value = value)
+        if (peek()$kind != ",") break
+        take()
+      }
+      labels <- c(key$value, vapply(summaries, function(x) x$name, character(1)))
+      if (anyDuplicated(labels)) rss_error("Summary output names must be unique and different from the grouping column.", token, filename)
+      expect("into", "Expected 'into' after the grouped summaries.")
+      mutable <- FALSE
+      if (peek()$kind == "mut") { take(); mutable <- TRUE }
+      target <- expect("name", "Expected a target variable after 'into' or 'into mut'.")
+      statement <- node("assign", token, name = target$value, name_token = target,
+                        mutable = mutable, value = node("summarize", token,
+                        table = table$value, table_token = table, key = key$value, summaries = summaries))
     } else if (token$kind == "plot") {
       take()
       table <- expect("name", "Expected a table variable after 'plot'.")
@@ -340,6 +371,10 @@ rss_analyze <- function(statements, filename) {
     kind <- value$kind
     recurse <- function(x) infer(x, in_filter)
     if (kind == "read") return(info("Table", 1L))
+    if (kind == "summarize") {
+      require_table(value$table, value$table_token)
+      return(info("Table", 1L))
+    }
     if (kind == "summary") {
       operand <- recurse(value$value)
       if (value$operation != "count" && !operand$type %in% c("Number", "Unknown")) rss_error("Numeric summaries require numbers.", value$token, filename)
@@ -448,6 +483,17 @@ rss_generate <- function(statements, filename) {
   emit <- function(value, table = NULL) {
     recurse <- function(x) emit(x, table)
     switch(value$kind,
+      summarize = {
+        specs <- vapply(value$summaries, function(spec) {
+          input <- spec$value$value
+          column <- if (input$kind == "name") input$value else input$column
+          paste0("base::list(name = ", quote_text(spec$name), ", operation = ", quote_text(spec$value$operation),
+                 ", column = ", quote_text(column), ", skip = ", if (spec$value$skip) "TRUE" else "FALSE",
+                 ", line = ", spec$value$token$line, "L, position = ", spec$value$token$column, "L)")
+        }, character(1))
+        call_runtime("summarize", c(name(value$table), quote_text(value$key),
+                     paste0("base::list(", paste(specs, collapse = ", "), ")")), value$token)
+      },
       summary = call_runtime("summary", c(quote_text(value$operation), recurse(value$value), if (value$skip) "TRUE" else "FALSE"), value$token),
       read = paste0(".rss_read_csv(", quote_text(value$path), ", ", quote_text(value$separator),
                     ", ", quote_text(filename), ", ", value$token$line, "L, ", value$token$column, "L)"),
@@ -623,7 +669,7 @@ rss_runtime <- function() {
            "==" = left == right, "!=" = left != right, "<" = left < right, "<=" = left <= right,
            ">" = left > right, ">=" = left >= right, "and" = left & right, "or" = left | right)
   }
-  list(
+  runtime <- list(
     summary = function(operation, value, skip, filename, line, column) {
       error <- function(message) fail(message, filename, line, column)
       if (operation == "count") {
@@ -653,7 +699,7 @@ rss_runtime <- function() {
       if (!is.numeric(heights)) error("Bar heights must be numeric.")
       if (anyNA(labels) || anyNA(heights)) error("Chart columns contain missing values. Filter those rows explicitly before plotting.")
       if (any(!is.finite(heights))) error("Bar heights must be finite.")
-      if (anyDuplicated(as.character(labels))) error("Bar labels must be unique; grouped summaries are not implemented yet.")
+      if (anyDuplicated(as.character(labels))) error("Bar labels must be unique; use 'summarize ... by ...' to combine repeated categories.")
       if (file.exists(path)) error("Chart output already exists; choose a new path.")
       if (!dir.exists(dirname(path))) error("Chart output directory does not exist.")
       if (!capabilities("cairo")) error("PNG chart output requires an R build with Cairo support.")
@@ -717,4 +763,28 @@ rss_runtime <- function() {
       value
     }
   )
+  runtime$summarize <- function(table, key, specs, filename, line, column) {
+    error <- function(message) fail(message, filename, line, column)
+    if (!is.data.frame(table)) error("Grouped summaries require a table.")
+    if (!key %in% names(table)) error(sprintf("Unknown grouping column '%s'.", key))
+    # Validate even for zero rows; otherwise a typo could silently pass on empty input.
+    for (spec in specs) {
+      if (!spec$column %in% names(table)) fail(sprintf("Unknown summary column '%s'.", spec$column), filename, spec$line, spec$position)
+      if (spec$operation != "count" && !is.numeric(table[[spec$column]])) fail("Numeric summaries require numbers.", filename, spec$line, spec$position)
+    }
+    keys <- unique(table[[key]])
+    ids <- match(table[[key]], keys)
+    groups <- lapply(seq_along(keys), function(id) which(ids == id))
+    columns <- list(keys)
+    names(columns) <- key
+    for (spec in specs) {
+      values <- vapply(groups, function(rows) {
+        runtime$summary(spec$operation, table[[spec$column]][rows], spec$skip,
+                        filename, spec$line, spec$position)
+      }, numeric(1))
+      columns[[spec$name]] <- values
+    }
+    structure(columns, class = "data.frame", row.names = seq_along(keys))
+  }
+  runtime
 }

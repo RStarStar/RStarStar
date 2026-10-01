@@ -11,8 +11,8 @@ syntax difficult to approach. Prior programming experience is not required.
 ## Project status
 
 **Compiler prototype.** Bindings, `mut`, literals, vectors, arithmetic, printing,
-CSV loading, column access, filtering, scalar summaries, and PNG bar charts
-transpile to readable R. Grouped summaries and OOP remain future work.
+CSV loading, column access, filtering, scalar/grouped summaries, and PNG bar charts
+transpile to readable R. Functions and OOP remain future work.
 The language is experimental, not a stable specification or installable package.
 A source file extension and command-line interface have not been chosen.
 
@@ -26,6 +26,7 @@ Rscript examples/demo.R
 Rscript examples/read-csv.R
 Rscript examples/filter.R
 Rscript examples/workflow.R
+Rscript examples/grouped.R
 ```
 
 The toolchain uses base R with no external dependencies. See the
@@ -33,15 +34,17 @@ The toolchain uses base R with no external dependencies. See the
 
 ## What you can write now
 
-Filtering uses explicit missing-value handling. This example expects unique region
-labels and at least one retained row; chart output requires Cairo support in R:
+Filtering uses explicit missing-value handling; grouped summaries combine repeated
+regions. This example expects at least one retained row and nonmissing region
+labels; chart output requires Cairo support in R:
 
 ```text
 read "sales.csv" into sales
 filter sales where revenue > 0 skipping missing into profitable_sales
 print average(profitable_sales.revenue)
 print sum(profitable_sales.revenue)
-plot profitable_sales x region y revenue as bar to "revenue.png"
+summarize profitable_sales by region with total = sum(revenue) into totals
+plot totals x region y total as bar to "revenue.png"
 
 scores = [72, 85, 91, 68]
 adjusted = scores + 5
