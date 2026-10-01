@@ -12,7 +12,8 @@ syntax difficult to approach. Prior programming experience is not required.
 
 **Compiler prototype.** Bindings, `mut`, literals, vectors, arithmetic, printing,
 CSV loading, column access, filtering, scalar/grouped summaries, and PNG bar charts
-transpile to readable R. Functions and OOP remain future work.
+transpile to readable R. Grouping supports multiple columns, such as region and
+product. Functions and OOP remain future work.
 The language is experimental, not a stable specification or installable package.
 A source file extension and command-line interface have not been chosen.
 

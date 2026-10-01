@@ -1,5 +1,5 @@
-region,revenue
-South,10
-North,20
-South,30
-North,
+region,revenue,product
+South,10,Books
+North,20,Books
+South,30,Games
+North,,Games

@@ -40,8 +40,8 @@ a distributable R package remains future work.
 
 The workflow example now reads, filters, computes scalar summaries, and saves a
 bar chart. The grouped-summary extension now combines repeated categories with
-one grouping key and multiple outputs. Configurable schemas, multi-key grouping,
-and additional chart types remain extensions.
+one or more grouping keys and multiple outputs. Configurable schemas and
+additional chart types remain extensions.
 
 Done when a small documented dataset can go from file to summary and chart, with
 useful failures for absent files, missing columns, and invalid inputs.

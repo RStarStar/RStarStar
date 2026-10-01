@@ -212,3 +212,22 @@ that grouped summaries are unavailable.
 Verification covers repeated and missing keys, multiple aggregates, per-result
 missing policy, quoted headers, type preservation, empty input, invalid columns,
 output-name conflicts, mutable targets, and grouped output flowing into a chart.
+
+
+## 2026-10-01 — Multiple grouping columns
+
+Status: implemented, experimental. A comma-separated list after by replaces the
+single-key restriction. Duplicate key names and aggregate names colliding with
+any key are compile-time errors. Every key is validated even for empty input.
+Keys appear in the specified order with their original types; complete key
+combinations appear in first-seen order, including missing-value combinations.
+
+Each column is matched independently to integer IDs using unique/match. Combining
+those IDs avoids raw-text separator collisions and preserves typed equality.
+The existing per-group scalar summary and mutation rules are unchanged. Empty
+input returns all key columns and numeric output columns with zero rows.
+
+Implicit sorting, dropping missing keys, combined chart labels, and grouped bars
+remain excluded. Existing single-key programs continue to work. Tests cover
+multiple key types, missing combinations, separator-like text, quoted headers,
+empty input, collisions, malformed syntax, and rolling results up again.

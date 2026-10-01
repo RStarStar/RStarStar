@@ -247,9 +247,16 @@ rss_parse <- function(tokens, filename) {
       table <- expect("name", "Expected a table variable after 'summarize'.")
       if (peek()$kind != "name" || peek()$value != "by") rss_error("Expected 'by' before the grouping column.", peek(), filename)
       take()
-      key <- peek()
-      if (!key$kind %in% c("name", "text")) rss_error("Expected a grouping column name or quoted header.", key, filename)
-      take()
+      keys <- character()
+      repeat {
+        key <- peek()
+        if (!key$kind %in% c("name", "text")) rss_error("Expected a grouping column name or quoted header.", key, filename)
+        take()
+        if (key$value %in% keys) rss_error("Grouping columns must be unique.", key, filename)
+        keys <- c(keys, key$value)
+        if (peek()$kind != ",") break
+        take()
+      }
       expect("with", "Expected 'with' before the named summaries.")
       summaries <- list()
       repeat {
@@ -264,15 +271,15 @@ rss_parse <- function(tokens, filename) {
         if (peek()$kind != ",") break
         take()
       }
-      labels <- c(key$value, vapply(summaries, function(x) x$name, character(1)))
-      if (anyDuplicated(labels)) rss_error("Summary output names must be unique and different from the grouping column.", token, filename)
+      labels <- c(keys, vapply(summaries, function(x) x$name, character(1)))
+      if (anyDuplicated(labels)) rss_error("Summary output names must be unique and different from all grouping columns.", token, filename)
       expect("into", "Expected 'into' after the grouped summaries.")
       mutable <- FALSE
       if (peek()$kind == "mut") { take(); mutable <- TRUE }
       target <- expect("name", "Expected a target variable after 'into' or 'into mut'.")
       statement <- node("assign", token, name = target$value, name_token = target,
                         mutable = mutable, value = node("summarize", token,
-                        table = table$value, table_token = table, key = key$value, summaries = summaries))
+                        table = table$value, table_token = table, keys = keys, summaries = summaries))
     } else if (token$kind == "plot") {
       take()
       table <- expect("name", "Expected a table variable after 'plot'.")
@@ -491,7 +498,7 @@ rss_generate <- function(statements, filename) {
                  ", column = ", quote_text(column), ", skip = ", if (spec$value$skip) "TRUE" else "FALSE",
                  ", line = ", spec$value$token$line, "L, position = ", spec$value$token$column, "L)")
         }, character(1))
-        call_runtime("summarize", c(name(value$table), quote_text(value$key),
+        call_runtime("summarize", c(name(value$table), paste0("base::c(", paste(vapply(value$keys, quote_text, character(1)), collapse = ", "), ")"),
                      paste0("base::list(", paste(specs, collapse = ", "), ")")), value$token)
       },
       summary = call_runtime("summary", c(quote_text(value$operation), recurse(value$value), if (value$skip) "TRUE" else "FALSE"), value$token),
@@ -763,20 +770,25 @@ rss_runtime <- function() {
       value
     }
   )
-  runtime$summarize <- function(table, key, specs, filename, line, column) {
+  runtime$summarize <- function(table, keys, specs, filename, line, column) {
     error <- function(message) fail(message, filename, line, column)
     if (!is.data.frame(table)) error("Grouped summaries require a table.")
-    if (!key %in% names(table)) error(sprintf("Unknown grouping column '%s'.", key))
+    absent <- keys[!keys %in% names(table)]
+    if (length(absent)) error(sprintf("Unknown grouping column '%s'.", absent[[1L]]))
     # Validate even for zero rows; otherwise a typo could silently pass on empty input.
     for (spec in specs) {
       if (!spec$column %in% names(table)) fail(sprintf("Unknown summary column '%s'.", spec$column), filename, spec$line, spec$position)
       if (spec$operation != "count" && !is.numeric(table[[spec$column]])) fail("Numeric summaries require numbers.", filename, spec$line, spec$position)
     }
-    keys <- unique(table[[key]])
-    ids <- match(table[[key]], keys)
-    groups <- lapply(seq_along(keys), function(id) which(ids == id))
-    columns <- list(keys)
-    names(columns) <- key
+    # Match each typed column independently, including missing values. Joining
+    # integer IDs is collision-free; joining raw text values would not be.
+    codes <- lapply(keys, function(key) match(table[[key]], unique(table[[key]])))
+    tuples <- if (nrow(table)) do.call(paste, c(codes, sep = ":")) else character()
+    first <- which(!duplicated(tuples))
+    ids <- match(tuples, tuples[first])
+    groups <- lapply(seq_along(first), function(id) which(ids == id))
+    columns <- lapply(keys, function(key) table[[key]][first])
+    names(columns) <- keys
     for (spec in specs) {
       values <- vapply(groups, function(rows) {
         runtime$summary(spec$operation, table[[spec$column]][rows], spec$skip,
@@ -784,7 +796,7 @@ rss_runtime <- function() {
       }, numeric(1))
       columns[[spec$name]] <- values
     }
-    structure(columns, class = "data.frame", row.names = seq_along(keys))
+    structure(columns, class = "data.frame", row.names = seq_along(first))
   }
   runtime
 }

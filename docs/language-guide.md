@@ -101,7 +101,7 @@ summarize sales by region with total = sum(revenue) skipping missing, rows = cou
 ```
 
 Groups stay in first-seen order, including a group for missing keys. Each output
-has its own missing-value policy. One grouping column is supported initially;
+has its own missing-value policy. Multiple grouping columns are comma-separated, such as by region, product;
 see the implemented subset for empty-input and naming rules.
 
 ## Save a chart

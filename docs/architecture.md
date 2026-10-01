@@ -68,6 +68,7 @@ when those features are implemented. Record significant changes in PROGRESS.md.
 
 
 Grouped summaries compile into descriptors for named aggregate columns. The
-runtime validates columns, partitions row indices by a single key using unique
-and match, and reuses scalar summary checks for each group. No source expressions
+runtime validates columns, maps each typed grouping column to integer IDs with
+unique/match, combines those collision-free IDs, and partitions row indices in
+first-seen order. It reuses scalar summary checks for each group. No source expressions
 are evaluated dynamically; only the supported aggregate descriptors are executed.

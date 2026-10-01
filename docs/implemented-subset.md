@@ -51,7 +51,7 @@ statement  = [ "mut" ], name, "=", expression
              [ "with", "delimiter", text ]
            | "filter", name, "where", expression, [ "skipping", "missing" ],
              "into", [ "mut" ], name
-           | "summarize", name, "by", (name | text), "with",
+           | "summarize", name, "by", (name | text), { ",", (name | text) }, "with",
              grouped_result, { ",", grouped_result }, "into", [ "mut" ], name
            | "plot", name, "x", (name | text), "y", (name | text),
              "as", "bar", "to", text ;
@@ -147,7 +147,7 @@ For example, x = 1 followed by x = 2 reports an immutable-reassignment error on
 line 2. Undefined names, mixed vector types, nonnumeric arithmetic, and mismatched
 vector lengths also fail before R generation.
 
-Not implemented: multi-column grouping, other chart types, general indexing, conditional statements, user-defined functions,
+Not implemented: other chart types, general indexing, conditional statements, user-defined functions,
 annotations, explicit conversions, records, classes, interfaces, and arbitrary
 R calls. Input is parsed as RStarStar, never evaluated as R during compilation.
 
@@ -331,9 +331,10 @@ print totals
 plot totals x region y total as bar to "totals.png"
 ```
 
-summarize accepts one grouping column and one or more named aggregate outputs.
+summarize accepts one or more comma-separated grouping columns and one or more
+named aggregate outputs. Grouping columns must be unique.
 The grouping column may be quoted; by is contextual, while summarize is reserved.
-Outputs must have unique names different from the grouping column. Each result
+Outputs must have unique names different from every grouping column. Each result
 must be average(column), sum(column), or count(column), with optional skipping
 missing on that individual result. Quoted input headers use the qualified form,
 for example sum(sales."Order total"). Bare inputs always refer to source columns,
@@ -344,8 +345,9 @@ computed output columns are not yet supported within grouped results.
 Groups appear in first-seen order; grouping values retain their types. Missing
 keys form a retained group, with no implicit dropping. Filter missing keys before
 grouping if they should be excluded (or before charting, which rejects missing
-labels). A single group is produced per distinct key using R's unique/match value
-semantics, not a concatenated text key.
+labels). A single group is produced per distinct combination of keys using R's unique/match
+value semantics for each column. Different missing-key combinations stay distinct.
+Raw key values are never joined as text, avoiding separator collisions.
 
 Each group's statistic follows the scalar summary rules. count(column) counts
 all group rows; skipping missing counts nonmissing column values. Missing numeric
@@ -354,10 +356,23 @@ sums to zero when skipping; its average is an error. If any group fails, the
 statement fails instead of producing a partial result. Type checks apply to the
 entire input column, retaining the existing all-missing CSV Text inference rule.
 
-Empty input produces a zero-row table with the grouping column's original type
+Empty input produces a zero-row table with each grouping column's original type
 and numeric summary columns. Input columns and types are still validated even
 when empty. There is no invented empty group, so average is not evaluated when
 there are zero groups. The source table is unchanged; target bindings follow
 ordinary immutability and mut rules. Output can be filtered, summarized again,
 or charted. This initial implementation groups in memory and does not claim
-large-dataset performance or support multiple grouping columns.
+large-dataset performance. Output key columns appear in the order specified.
+
+
+For example, summarize each region/product combination, then roll up again:
+
+```text
+summarize sales by region, product with total = sum(revenue) skipping missing into detail
+summarize detail by region with total = sum(total) into totals
+```
+
+A missing region with product A and a missing region with product B are separate
+groups. Filtering or charting grouped results follows the existing rules: a chart
+still needs unique labels on its chosen x column. Multi-column grouping does not
+implicitly create combined chart labels or grouped bars.

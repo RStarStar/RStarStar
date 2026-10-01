@@ -85,3 +85,53 @@ check("grouped output can be filtered and charted", {
     stopifnot(file.info(path)$size > 1000, nrow(result$env$selected) == 2L)
   }))
 })
+check("multiple keys preserve tuples, types, column order and first appearance", {
+  with_csv(c("region,product,active,value", "South,2,true,10", "North,1,false,20",
+             "South,2,true,5", "South,1,false,7"), function(path) {
+    result <- run(paste("read", path, "into data\nsummarize data by region, product, active with total = sum(value), rows = count(value) into totals"))$env$totals
+    stopifnot(identical(names(result), c("region", "product", "active", "total", "rows")),
+              identical(result$region, c("South", "North", "South")),
+              identical(result$product, c(2, 1, 1)), identical(result$active, c(TRUE, FALSE, FALSE)),
+              identical(result$total, c(15, 20, 7)), identical(result$rows, c(2, 1, 1)))
+  })
+})
+check("multi-key grouping cannot collide on text separators", {
+  with_csv(c('a,b,value', 'a:b,c,1', 'a,b:c,2', 'a:b,c,3'), function(path) {
+    result <- run(paste("read", path, "into data\nsummarize data by a, b with total = sum(value) into totals"))$env$totals
+    stopifnot(nrow(result) == 2L, identical(result$total, c(4, 2)))
+  })
+})
+check("missing combinations stay distinct and repeated missing tuples combine", {
+  with_csv(c('a,b,value', 'NA,x,1', 'x,NA,2', 'NA,NA,3', 'NA,x,4'), function(path) {
+    result <- run(paste("read", path, "into data\nsummarize data by a, b with total = sum(value) into totals"))$env$totals
+    stopifnot(identical(result$a, c(NA_character_, "x", NA_character_)),
+              identical(result$b, c("x", NA_character_, NA_character_)), identical(result$total, c(5, 2, 3)))
+  })
+})
+check("empty multi-key output keeps typed keys and validates later columns", {
+  with_csv(c('a,b,value', 'x,1,5'), function(path) {
+    prefix <- paste("read", path, "into data\nfilter data where false into empty\n")
+    result <- run(paste0(prefix, "summarize empty by a, b with total = sum(value) into totals"))$env$totals
+    stopifnot(nrow(result) == 0L, is.character(result$a), is.numeric(result$b), is.numeric(result$total))
+    filter_error(paste0(prefix, "summarize empty by a, typo with total = sum(value) into totals"), "Unknown grouping column 'typo'")
+  })
+})
+check("multiple quoted grouping headers work", {
+  with_csv(c('First key,Second key,value', 'x,a,1', 'x,a,2'), function(path) {
+    result <- run(paste("read", path, 'into data\nsummarize data by "First key", "Second key" with total = sum(value) into totals'))$env$totals
+    stopifnot(identical(names(result), c("First key", "Second key", "total")), result$total == 3)
+  })
+})
+check("duplicate grouping keys and output collisions fail at compile time", {
+  prefix <- 'read "a.csv" into data\n'
+  fails(paste0(prefix, 'summarize data by a, a with total = sum(value) into totals'), "Grouping columns must be unique")
+  fails(paste0(prefix, 'summarize data by a, "a" with total = sum(value) into totals'), "Grouping columns must be unique")
+  fails(paste0(prefix, 'summarize data by a, b with b = sum(value) into totals'), "must be unique")
+  fails(paste0(prefix, 'summarize data by a, with total = sum(value) into totals'), "Expected a grouping column")
+})
+check("multi-key results can roll up again without changing the source", {
+  with_csv(c('region,product,value', 'A,x,1', 'A,y,2', 'A,x,3'), function(path) {
+    result <- run(paste("read", path, 'into data\nsummarize data by region, product with total = sum(value) into detail\nsummarize detail by region with total = sum(total) into overall'))
+    stopifnot(nrow(result$env$data) == 3L, nrow(result$env$detail) == 2L, result$env$overall$total == 6)
+  })
+})

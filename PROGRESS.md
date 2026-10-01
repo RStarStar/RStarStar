@@ -133,3 +133,23 @@ Fontconfig cache warnings remain nonfatal. Rscript examples/grouped.R passed:
 South totals 40 and North totals 20, each with two source rows; filtering the
 result retains South. Checked nine Markdown files, 23 local links, code fences,
 and git diff --check successfully.
+
+
+## 2026-10-01 — Multiple grouping columns
+
+Extended summarize to accept comma-separated grouping columns. Groups use typed
+per-column matches and collision-free integer combinations rather than joining
+raw text keys. Preserves first-seen combinations, key order/types, missing-key
+combinations, and zero-row schemas. Duplicate keys and output/key name collisions
+fail before execution; unknown keys fail at runtime even for empty input.
+
+Added seven behavioral checks and extended the grouped example with region/product
+combinations and a second aggregation back to region totals. Updated the guide,
+grammar, architecture, design decisions, roadmap, and README. Grouped expressions,
+combined chart labels, schemas, functions, and OOP remain unimplemented.
+
+Verification: Rscript tests/run.R completed successfully with all 112 checks
+passing (105 existing and seven new), including single-key regressions and chart
+checks. The grouped demo produced four region/product combinations and rolled
+them back up to South = 40 and North = 20. All nine Markdown files, 23 relative
+links, code fences, and git diff whitespace checks passed.
