@@ -26,3 +26,14 @@ print result != current
 # Read a field directly from a function result or updated value.
 print describe([2, 4], label: "Preview").mean
 print (result with { mean: 30 }).mean
+
+# Records can contain earlier record types.
+record Report {
+  title: Text
+  result: AnalysisResult
+}
+report = Report("October", result)
+revised = report with { result: report.result with { mean: 50 } }
+print report.result.mean
+print revised.result.mean
+print report != revised

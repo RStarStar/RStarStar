@@ -492,3 +492,32 @@ the network-enabled R CMD check --no-manual rerun reported Status: OK with zero
 errors, warnings, or notes. Documentation links, fences, and git diff whitespace
 checks passed. Validation remains local R 4.6.0/macOS arm64; hosted CI and PDF
 manual generation remain unverified.
+
+
+## 2026-10-02 — Nested records
+
+Added earlier-declared record types as field annotations in version 0.0.10. Nested
+fields retain exact nominal types through constructors, chained access, explicit
+inner with updates, and recursive equality. Unknown, forward, self-recursive, and
+mutually recursive schemas are rejected. Number/Text/Boolean cannot be record
+declaration names because they denote primitive field types; ordinary bindings
+with those names remain allowed.
+
+Runtime construction recursively accepts supported scalar/record trees and rejects
+reference-bearing or attributed nested inputs. Updates preserve inner, outer, and
+sibling aliases; equality retains the existing three-valued rules recursively.
+The tagged-list R boundary remains experimental, without full schema provenance
+validation for arbitrary forged/modified R objects or external deep immutability.
+Recursive schemas, vector/table fields, dotted replacement labels, and classes
+remain future work. Updated record examples, installed package help, guides,
+architecture, decisions, roadmap, README, and version references.
+
+Verification: the shared runner reinstalled the package and passed 218 checks with
+zero skips. Seven new cases cover construction/access, invalid schemas, nominal
+field types, nested copy independence, function/update errors, recursive missing
+value equality, three-level records, and public/standalone/R boundaries. All eight
+demos and source build passed. Following sandbox dependency-index failures, a
+network-enabled R CMD check --no-manual rerun reported Status: OK with zero errors,
+warnings, or notes. Documentation links, fences, and git diff whitespace checks
+passed. Validation remains local R 4.6.0/macOS arm64; hosted CI and PDF manual
+generation remain unverified.

@@ -71,7 +71,8 @@ R 4.6.0 remains pending. No public CLI is planned. See the
 - [x] Validated record copy updates with with expressions.
 - [x] Same-type scalar-field record equality with explicit missing-value rules.
 - [x] Direct field/column access on calls, updates, and parenthesized expressions.
-- [ ] Nested records, classes, and methods.
+- [x] Acyclic nested records with checked construction, updates, and equality.
+- [ ] Classes and methods.
 
 Implement records, classes, constructors, methods, and explicit mutation after
 settling the object backend and value-semantics boundary. Define functions and

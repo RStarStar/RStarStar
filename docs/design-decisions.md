@@ -497,3 +497,28 @@ The AST retains legacy explicit column nodes and introduces expression member no
 to avoid changing aggregate grammar or filter name resolution. Tests cover records,
 returned tables, quoted headers, updates, conditionals, scope, failures, complete
 source spans, and both public and standalone execution.
+
+
+## 2026-10-02 — Nested records with acyclic schemas
+
+Status: implemented, experimental in 0.0.10. Field annotations may name earlier
+record declarations. Nested values retain exact nominal types; chained reads,
+explicit inner with updates, and recursive equality extend existing behavior.
+Declare dependencies first: unknown, forward, self-recursive, and mutually recursive
+schemas fail. Number/Text/Boolean are no longer permitted as record declaration
+names because their annotations denote primitives; ordinary bindings are unaffected.
+
+Nested updates create new inner and outer values without changing aliases. Equality
+uses the same three-valued reduction at each level, including definite mismatch
+overriding missing comparisons. Missing values are permitted only in typed primitive
+fields, not in place of a whole nested record. Constructors recursively reject
+unsupported/reference-bearing field structures and extra record attributes from R.
+The tagged-list representation remains experimental and does not prove full schema
+provenance or immutability for externally forged/modified objects.
+
+This supersedes the scalar-only record-field restriction and deferral of nested
+updates/equality. Recursive types, vector/table fields, dotted update labels, methods,
+and classes remain deferred. Requiring earlier types avoids cycle handling before
+there is a motivating recursive-data workflow. Verification covers declaration
+order, type mismatches, multi-level field inference, copy independence, failed
+updates, nested missing equality, and public/standalone/R boundaries.

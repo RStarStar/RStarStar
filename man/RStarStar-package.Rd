@@ -6,7 +6,7 @@
 \description{
 An R package that compiles local \code{.rsspps} source files to ordinary R.
 The initial language includes immutable bindings, explicit mutation, vectors,
-CSV loading and export, filtering, grouped summaries, PNG charts, simple functions, conditional expressions, and records with typed scalar fields.
+CSV loading and export, filtering, grouped summaries, PNG charts, simple functions, conditional expressions, and records with typed scalar and nested fields.
 }
 \details{
 Use \code{transpile(path)} to compile a file without running it. Packaged source

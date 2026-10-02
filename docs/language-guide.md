@@ -185,16 +185,16 @@ print result.mean
 print AnalysisResult(label: "Preview", mean: 10, sample_size: 1).mean
 ```
 
-This initial record form is implemented. Fields require one plain Number, Text,
-or Boolean value each. Constructors use the same positional/named argument rules
+This initial record form is implemented. Fields require one plain Number, Text, Boolean, or earlier-declared record value
+each. Constructors use the same positional/named argument rules
 as functions. Fields are public to read and cannot be assigned. A mut binding may
 be replaced with another value of the same declared record type; copies retain
 their original fields. An Integer field type is not implemented.
 
 Records use ordinary named R lists with an internal type attribute and base R
 printing. No class backend or dispatch system is selected. R callers can modify
-returned lists, so immutability is a source-language rule. Nested records, vector
-or table fields, validation blocks, and defaults remain future work. See [records](implemented-subset.md#records)
+returned lists, so immutability is a source-language rule. Vector or table fields,
+validation blocks, and defaults remain future work. See [records](implemented-subset.md#records)
 for exact limits and failures.
 
 Use with to create an updated record without repeating every field:
@@ -217,7 +217,7 @@ print result == unchanged  # true
 print result != updated    # true when at least one field differs
 ```
 
-Equality compares every scalar field. A definite mismatch makes equality false;
+Equality compares primitive fields and descends through nested records. A definite mismatch makes equality false;
 otherwise any missing field comparison makes it missing. Different record types
 are incompatible, and ordering is not defined. See
 [record equality](implemented-subset.md#record-equality) for the full contract.
@@ -231,6 +231,21 @@ print (result with { mean: 150 }).mean
 The same syntax reads columns from functions returning tables. Access is exact;
 see [field expressions](implemented-subset.md#field-access-on-expression-results)
 for scope and precedence rules.
+
+Records may contain earlier-declared record types:
+
+```text
+record Point { x: Number }
+record Place { location: Point }
+place = Place(Point(10))
+moved = place with { location: place.location with { x: 20 } }
+print place.location.x  # 10
+print moved.location.x  # 20
+```
+
+Nested updates preserve the original values, and equality compares nested fields
+recursively using the same missing-value rules. Forward references and recursive
+schemas are not supported. See [nested records](implemented-subset.md#nested-records).
 
 ## Classes: protect state and provide behavior
 

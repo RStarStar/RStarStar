@@ -324,14 +324,15 @@ rss_parse <- function(tokens, filename) {
       expect("{", "Expected '{' before record fields.")
       fields <- character()
       types <- character()
+      type_tokens <- list()
       while (peek()$kind == "newline") take()
       while (peek()$kind != "}") {
         if (peek()$kind == "eof") rss_error("Expected '}' to close the record.", peek(), filename)
         field <- expect("name", "Expected a field name or '}' in the record.")
         if (field$value %in% fields) rss_error("Record field names must be unique.", field, filename)
         expect(":", "Expected ':' and a type after the field name.")
-        type <- expect("name", "Expected Number, Text, or Boolean after ':'.")
-        if (!type$value %in% c("Number", "Text", "Boolean")) rss_error("Record fields currently support Number, Text, or Boolean only.", type, filename)
+        type <- expect("name", "Expected a scalar type or earlier record type after ':'.")
+        type_tokens[[length(type_tokens) + 1L]] <- type
         fields <- c(fields, field$value)
         types <- c(types, type$value)
         if (peek()$kind == "eof") rss_error("Expected '}' to close the record.", peek(), filename)
@@ -340,7 +341,7 @@ rss_parse <- function(tokens, filename) {
       }
       take()
       if (!length(fields)) rss_error("A record must declare at least one field.", name, filename)
-      statement <- node("record", token, name = name$value, name_token = name, fields = fields, types = types)
+      statement <- node("record", token, name = name$value, name_token = name, fields = fields, types = types, type_tokens = type_tokens)
     } else if (token$kind == "fn") {
       take()
       name <- expect("name", "Expected a function name after 'fn'.")
@@ -657,12 +658,19 @@ rss_analyze <- function(statements, filename) {
     if (statement$kind == "record") {
       if (exists(statement$name, bindings, inherits = FALSE)) rss_error("Record name is already declared.", statement$name_token, filename)
       record_type <- paste0("Record:", statement$name)
-      schema <- statement$types
+      if (statement$name %in% c("Number", "Text", "Boolean")) rss_error("A record name cannot replace a built-in field type.", statement$name_token, filename)
+      schema <- vapply(seq_along(statement$types), function(i) {
+        field_type <- statement$types[[i]]
+        if (field_type %in% c("Number", "Text", "Boolean")) return(field_type)
+        nested <- paste0("Record:", field_type)
+        if (!exists(nested, records, inherits = FALSE)) rss_error(sprintf("Unknown field type '%s'; use Number, Text, Boolean, or an earlier record type.", field_type), statement$type_tokens[[i]], filename)
+        nested
+      }, character(1))
       names(schema) <- statement$fields
       assign(record_type, schema, records)
       signature <- info("Function", 1L)
       signature$parameters <- statement$fields
-      signature$field_types <- statement$types
+      signature$field_types <- unname(schema)
       signature$result <- info(record_type, 1L)
       assign(statement$name, list(info = signature, mutable = FALSE), bindings)
       next
@@ -781,7 +789,8 @@ rss_generate <- function(statements, filename) {
       declared <<- c(declared, statement$name)
       vector <- function(values) paste0("base::c(", paste(vapply(values, quote_text, character(1)), collapse = ", "), ")")
       values <- paste0("base::list(", paste(vapply(statement$fields, name, character(1)), collapse = ", "), ")")
-      body <- call_runtime("record", c(quote_text(statement$name), vector(statement$fields), vector(statement$types), values), statement$token)
+      types <- ifelse(statement$types %in% c("Number", "Text", "Boolean"), statement$types, paste0("Record:", statement$types))
+      body <- call_runtime("record", c(quote_text(statement$name), vector(statement$fields), vector(types), values), statement$token)
       return(paste0(name(statement$name), " <- function(", paste(vapply(statement$fields, name, character(1)), collapse = ", "), ") {\n  return(", body, ")\n}"))
     }
     if (statement$kind == "function") {
@@ -924,6 +933,16 @@ rss_runtime <- function() {
     if (is.logical(value)) return("Boolean")
     "Unsupported"
   }
+  plain_scalar <- function(value) {
+    length(value) == 1L && is.null(attributes(value)) &&
+      typeof(value) %in% c("double", "integer", "logical", "character")
+  }
+  plain_record <- function(value) {
+    if (!startsWith(type(value), "Record:") || !length(value) ||
+        !setequal(names(attributes(value)), c("names", "rss_record_type")) ||
+        is.null(names(value)) || anyNA(names(value)) || any(!nzchar(names(value))) || anyDuplicated(names(value))) return(FALSE)
+    all(vapply(value, function(field) plain_scalar(field) || plain_record(field), logical(1)))
+  }
   binary <- function(op, left, right, filename, line, column) {
     error <- function(message) fail(message, filename, line, column)
     types <- c(type(left), type(right))
@@ -939,6 +958,10 @@ rss_runtime <- function() {
         matches <- vapply(seq_along(left), function(i) {
           a <- left[[i]]
           b <- right[[i]]
+          if (any(startsWith(c(type(a), type(b)), "Record:"))) {
+            if (!plain_record(a) || !plain_record(b)) error("Nested record equality requires plain record values.")
+            return(binary("==", a, b, filename, line, column))
+          }
           if (length(a) != 1L || length(b) != 1L || !is.null(attributes(a)) || !is.null(attributes(b)) ||
               !typeof(a) %in% c("double", "integer", "logical", "character") ||
               !typeof(b) %in% c("double", "integer", "logical", "character") || type(a) != type(b)) {
@@ -963,8 +986,8 @@ rss_runtime <- function() {
     record = function(record_name, fields, types, values, filename, line, column) {
       for (i in seq_along(fields)) {
         value <- values[[i]]
-        if (type(value) != types[[i]] || length(value) != 1L ||
-            !is.null(attributes(value)) || !typeof(value) %in% c("double", "integer", "logical", "character")) {
+        valid <- if (startsWith(types[[i]], "Record:")) plain_record(value) else plain_scalar(value)
+        if (type(value) != types[[i]] || !valid) {
           fail(sprintf("Field '%s' requires one plain %s value.", fields[[i]], types[[i]]), filename, line, column)
         }
       }

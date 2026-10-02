@@ -6,7 +6,7 @@ in R/transpile.R. The compiler performs tokenization, parsing, semantic analysis
 and R generation. Internal rss_* functions are not exported.
 
 CSV programs embed a self-contained loader and checked expression helpers.
-Basic scalar-field records are implemented; classes and the explicit R interoperability bridge are not. The
+Records with scalar and nested fields are implemented; classes and the explicit R interoperability bridge are not. The
 package uses only R-bundled dependencies; see the [package guide](r-package.md).
 
 ## Compilation pipeline
@@ -115,12 +115,12 @@ quoted exact argument names where supplied, and passes it to the existing eager
 call helper. R's partial argument matching is never used to accept source calls.
 
 
-Record declarations register a nominal type and scalar field schema. Their generated
+Record declarations register a nominal type and field schema. Their generated
 constructor functions call the embedded runtime validator and create ordinary named
 lists with an internal rss_record_type attribute; no class dispatch backend is used.
 Known field types participate in inference, and dynamic field lookup checks exact
 names. Runtime type tags distinguish mutable bindings of different record types.
-The scalar-only, attribute-free constructor boundary excludes nested references;
+The plain-scalar/record-tree constructor boundary excludes foreign references;
 external R mutation of returned values is outside the source-language guarantee.
 
 
@@ -129,13 +129,13 @@ expressions, and source spans. Analysis validates known schemas and defers unkno
 receivers to runtime. The runtime checks receiver/name validity, evaluates replacement
 values in source order, and validates a copied candidate through the existing record
 constructor helper. No field of the original list is assigned. Internal type/order
-metadata and unchanged scalar fields are preserved; this is not a foreign-reference
+metadata and unchanged fields are preserved; this is not a foreign-reference
 copying policy.
 
 
 Record equality is handled by the embedded binary-operation helper. Analysis permits
 ==/!= for compatible nominal types; dynamic checks enforce same-type records and
-matching plain scalar field layouts. Corresponding field comparisons reduce to false
+matching supported field layouts. Corresponding field comparisons reduce to false
 on a definite mismatch, missing if otherwise uncertain, and true if all match.
 Inequality negates that scalar result. Ordering remains rejected; no R class/operator
 dispatch methods are registered.
@@ -147,3 +147,12 @@ updates while preserving the complete source span and dot location. Known record
 schemas supply field types; unknown/table receivers use the existing runtime field
 helper. Generation emits the receiver once. Original name.column nodes remain for
 explicit table lookup and the restricted grouped-summary grammar.
+
+
+Nested record annotations resolve against previously registered schemas; primitive
+names are reserved for field typing. Inference carries canonical Record:Name field
+types through construction and chained lookup. Generation passes canonical tags to
+the embedded constructor. Runtime validation recursively accepts only supported
+plain scalar/record trees; with updates reuse construction checks and equality
+recursively reduces nested comparisons. Schema declaration order excludes recursive
+types. This is not a provenance validator for arbitrary manually altered R values.

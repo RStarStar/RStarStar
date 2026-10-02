@@ -156,7 +156,7 @@ line 2. Undefined names, mixed vector types, nonnumeric arithmetic, and mismatch
 vector lengths also fail before R generation.
 
 Not implemented: other chart types, general indexing, conditional statements, multi-statement functions,
-function annotations, explicit conversions, nested records, classes, interfaces, and arbitrary
+function annotations, explicit conversions, recursive records, classes, interfaces, and arbitrary
 R calls. Input is parsed as RStarStar, never evaluated as R during compilation.
 
 
@@ -552,7 +552,7 @@ source locations and language call-chain context.
 This syntax applies to user-defined functions and record constructors. Built-in average, sum, and
 count retain their single-input syntax and optional skipping missing modifier.
 Function parameter declarations remain plain names; function annotations, default
-values, nested record fields, and the external R-call bridge are still future work. Functions
+values, recursive record fields, and the external R-call bridge are still future work. Functions
 returned to R callers remain ordinary R closures with ordinary R call syntax.
 
 
@@ -569,9 +569,10 @@ print result.mean
 
 record is reserved. A top-level declaration defines at least one uniquely named
 field, one per line inside braces (a single field may share a line with the braces).
-Fields require explicit Number, Text, or Boolean annotations and hold exactly one
-plain scalar of that type. Integer, nested records, vectors, tables, defaults, and
-methods are not supported as field declarations. A scalar missing value is allowed
+Fields require explicit Number, Text, Boolean, or earlier record-type annotations
+and hold exactly one value of that type. Primitive fields are plain scalars; nested
+fields hold record values. Integer, vectors, tables, defaults, and methods are not
+supported as field declarations. A scalar missing value is allowed
 when it has the required type; no nonmissing or finite-number constraint is added.
 
 The generated constructor takes every field exactly once, using ordinary source
@@ -605,9 +606,9 @@ rss_record_type attribute used by runtime checks. No S3/S4/R6 class backend is
 selected; print uses base R list display. run_file() returns both records and
 constructor functions. R callers use ordinary R calls and may modify those lists;
 this representation is experimental and offers no deep-immutability or validation
-guarantee after external modification. Direct R constructor calls require plain
-attribute-free scalar fields (including no Date, factor, matrix, environment,
-list, complex, or attributed scalar values). See the packaged records.rsspps and
+guarantee after external modification. Direct R constructor calls require plain attribute-free primitive scalars or nested
+record values with supported structure. Date, factor, matrix, environment, raw list,
+complex, and attributed primitive fields remain unsupported. See the packaged records.rsspps and
 examples/records.R demonstration.
 
 
@@ -621,7 +622,7 @@ current = current with { mean: current.mean + 1 }
 
 A with { field: expression, ... } expression copies a record and replaces selected
 fields. At least one field is required. Field names must be unique and match exactly;
-values must retain the field's scalar type. Unspecified fields, declaration order,
+values must retain the field's declared type. Unspecified fields, declaration order,
 and the nominal record type are preserved. The source record and any aliases stay
 unchanged, including on failure. Rebinding an immutable variable still fails.
 
@@ -645,8 +646,8 @@ to with and retain function call chains. Unchosen conditional branches remain la
 
 For example, p with { unknown: 1 } fails for an unknown field, while p with
 { x: "text" } fails if x is Number. An update inside a function can accept a record
-parameter and returns a new record. No general table update, nested update,
-or foreign-object immutability policy is introduced. The existing experimental R
+parameter and returns a new record. Nested updates use explicit inner with expressions; no dotted update labels,
+general table update, or foreign-object immutability policy is introduced. The existing experimental R
 representation and external-mutation limits still apply.
 
 
@@ -665,7 +666,7 @@ print a != (b with { x: 3 })  # true
 
 == and != compare records of the same declared type and return one Boolean result.
 Construction argument order and separate instances do not affect equality. Each
-corresponding scalar field uses the existing equality operation, including exact
+corresponding primitive field uses the existing equality operation, including exact
 numeric comparison without a tolerance and ordinary text/boolean comparison.
 Comparisons do not modify either record.
 
@@ -681,14 +682,13 @@ Different declared record types are incompatible even with identical field layou
 comparison with a scalar or table is also an error. Ordering (<, <=, >, >=) remains
 undefined and is rejected. Known incompatible operands fail during analysis;
 dynamic operands fail at the comparison location with existing function call chains.
-Runtime comparison also rejects mismatched field layouts or non-plain/non-scalar
-fields in externally modified R values. This is defensive validation, not a complete
+Runtime comparison also rejects mismatched field layouts or unsupported primitive
+fields in externally modified R values, and recursively compares nested records. This is defensive validation, not a complete
 foreign-object schema or immutability guarantee.
 
 These operators are implemented by generated runtime calls. Direct use of R's ==
 on returned raw lists is not this language feature; R callers can use a returned
-function such as fn same(a, b) { return a == b }. Nested record equality remains
-outside the scalar-field record subset.
+function such as fn same(a, b) { return a == b }. Nested record equality follows the same reduction rules recursively.
 
 
 ## Field access on expression results
@@ -714,9 +714,9 @@ unchosen conditional branch to execute.
 Field access and with updates are applied from left to right before arithmetic.
 Use parentheses to select a whole conditional receiver: (if flag then a else b).x.
 Suffixes may chain syntactically, but each intermediate value must be a table or
-record. Since records still contain scalar fields, Point(1).x.other is an error;
-this change does not introduce nested records, vector indexing, methods, or calls
-through field values. Known invalid receivers/fields fail at compile time; dynamic
+record. A scalar field cannot be a receiver, so Point(1).x.other is an error when x is
+Number. Nested record fields can be chained, but vector indexing, methods, and calls
+through field values remain unsupported. Known invalid receivers/fields fail at compile time; dynamic
 failures retain source locations (the dot for expression-result access).
 
 Existing table.column spelling retains its explicit table-variable lookup. Other
@@ -727,3 +727,48 @@ look for a column named sales. Parenthesizing a bare name does not escape filter
 scope. Grouped summaries retain their existing restriction to bare columns or
 input_table.column; general expression-result access is not a grouped aggregate
 input. Direct field assignment is still unsupported.
+
+
+## Nested records
+
+```text
+record Point {
+  x: Number
+  y: Number
+}
+record Place {
+  label: Text
+  location: Point
+}
+home = Place("Home", Point(1, 2))
+moved = home with { location: home.location with { x: 3 } }
+print home.location.x   # 1
+print moved.location.x  # 3
+```
+
+A field annotation may name an earlier record declaration. Constructors require
+one value of that exact nominal type, and nested field access preserves schema
+information where known. A structurally similar different record is not accepted.
+Scalar/vector/table values cannot replace record fields. An entire nested field
+cannot be missing; missingness belongs to correctly typed primitive fields inside it.
+
+Declare dependencies first. Unknown annotations, forward references, self-recursive
+and mutually recursive schemas fail at the annotation location. Number, Text, and
+Boolean cannot be used as record declaration names, avoiding ambiguous field types;
+ordinary bindings with those names remain allowed. These primitive type names are
+not new lexer keywords. Integer is still not an implemented primitive type.
+
+To change an inner value, use an inner with expression and replace the outer field.
+Dotted replacement labels such as with { location.x: 3 } are unsupported. The inner
+and outer originals and aliases retain their values, including when passed through
+functions or on failed validation. Equality descends through matching nested record
+types; at every level a definite mismatch wins over missing comparisons. Ordering
+remains undefined. Direct field assignment remains unsupported.
+
+The R representation remains nested named lists with internal nominal tags. Nested
+constructor inputs are recursively checked to exclude unsupported/reference-bearing
+fields and extra attributes. This validates the supported value structure, not a
+complete schema provenance contract for manually forged or modified R objects.
+Do not infer safe arbitrary-R interoperability or deep immutability outside the
+language. Recursive schemas, vector/table fields, methods, and classes are separate
+future work; no additional object backend or dependency is introduced.

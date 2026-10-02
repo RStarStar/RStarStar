@@ -8,7 +8,7 @@ check("record schemas reject malformed duplicate and unsupported fields", {
   fails('record Empty {}', "at least one field")
   fails('record Point { x: Number\nx: Number }', "must be unique")
   fails('record Point { x Number }', "Expected ':'")
-  fails('record Point { x: Integer }', "Number, Text, or Boolean only")
+  fails('record Point { x: Integer }', "Unknown field type")
   fails('record Point { x: Number y: Number }', "new line between record fields")
   fails('record Point { x: Number', "Expected '}' to close the record")
 })
@@ -92,7 +92,7 @@ check("public execution exposes record constructors and independent R values", {
   })
 })
 
-check("record fields reject nested records and table values", {
+check("scalar record fields reject record and table values", {
   prefix <- 'record Point { x: Number }\n'
   fails(paste0(prefix, 'p = Point(Point(1))'), "requires one Number")
   with_sales(function(source) fails(paste0(prefix, source, 'p = Point(sales)'), "requires one Number"))
