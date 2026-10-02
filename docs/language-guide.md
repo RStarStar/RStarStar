@@ -182,6 +182,7 @@ result = AnalysisResult(
   sample_size: 120
 )
 print result.mean
+print AnalysisResult(label: "Preview", mean: 10, sample_size: 1).mean
 ```
 
 This initial record form is implemented. Fields require one plain Number, Text,
@@ -220,6 +221,16 @@ Equality compares every scalar field. A definite mismatch makes equality false;
 otherwise any missing field comparison makes it missing. Different record types
 are incompatible, and ordering is not defined. See
 [record equality](implemented-subset.md#record-equality) for the full contract.
+
+You can also read a field directly from a function or updated result:
+
+```text
+print (result with { mean: 150 }).mean
+```
+
+The same syntax reads columns from functions returning tables. Access is exact;
+see [field expressions](implemented-subset.md#field-access-on-expression-results)
+for scope and precedence rules.
 
 ## Classes: protect state and provide behavior
 

@@ -22,3 +22,7 @@ print current.mean
 unchanged = result with { mean: result.mean }
 print result == unchanged
 print result != current
+
+# Read a field directly from a function result or updated value.
+print describe([2, 4], label: "Preview").mean
+print (result with { mean: 30 }).mean

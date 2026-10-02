@@ -631,8 +631,8 @@ need parentheses as usual. Trailing commas are not supported. Updates bind to th
 preceding primary expression, including a constructor call, function call, or a
 parenthesized expression. They can chain: p with { x: 2 } with { x: 3 }. To update
 an entire conditional result, use (if flag then a else b) with { x: 3 }.
-Assign the result to a variable before reading its fields; general chained field
-access is not added by this change.
+A field can be read directly from the update result, for example
+(p with { x: 3 }).x. See field access on expression results below.
 
 All expressions are analyzed during compilation. At runtime the receiver is
 evaluated first and must be a record; update names are then checked. Replacement
@@ -689,3 +689,41 @@ These operators are implemented by generated runtime calls. Direct use of R's ==
 on returned raw lists is not this language feature; R callers can use a returned
 function such as fn same(a, b) { return a == b }. Nested record equality remains
 outside the scalar-field record subset.
+
+
+## Field access on expression results
+
+```text
+record Point {
+  x: Number
+}
+fn make_point(value) {
+  return Point(value)
+}
+a = make_point(10).x
+b = (Point(10) with { x: 20 }).x
+```
+
+.field or ."quoted field" may follow a constructor call, function call, parenthesized
+expression, explicit @variable, or record update. It reads an exact record field
+or table column from the resulting value. For example, average(copy(sales).revenue)
+skipping missing works when copy returns the table. Quoted headers retain spaces
+and punctuation. The receiver is evaluated once; accessing it never causes an
+unchosen conditional branch to execute.
+
+Field access and with updates are applied from left to right before arithmetic.
+Use parentheses to select a whole conditional receiver: (if flag then a else b).x.
+Suffixes may chain syntactically, but each intermediate value must be a table or
+record. Since records still contain scalar fields, Point(1).x.other is an error;
+this change does not introduce nested records, vector indexing, methods, or calls
+through field values. Known invalid receivers/fields fail at compile time; dynamic
+failures retain source locations (the dot for expression-result access).
+
+Existing table.column spelling retains its explicit table-variable lookup. Other
+receiver expressions use ordinary expression scope: bare names inside filter
+expressions are columns, and @name accesses a surrounding binding. For example,
+copy(@sales).revenue refers to the outer sales table in a filter; copy(sales) would
+look for a column named sales. Parenthesizing a bare name does not escape filter
+scope. Grouped summaries retain their existing restriction to bare columns or
+input_table.column; general expression-result access is not a grouped aggregate
+input. Direct field assignment is still unsupported.

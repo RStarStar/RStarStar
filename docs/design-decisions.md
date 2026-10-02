@@ -476,3 +476,24 @@ and without a definite mismatch, nominal incompatibility, forbidden ordering,
 conditional use, call-chain diagnostics, and public/standalone execution. Nested
 records, tolerance-based numeric comparison, and foreign-object equality remain
 outside this implementation.
+
+
+## 2026-10-02 — Field access on expression results
+
+Status: implemented, experimental in 0.0.9. Allow exact .field/."header" access on
+constructor calls, function calls, parenthesized expressions, explicit @variables,
+and record-update results. Postfix access/updates associate left to right before
+arithmetic; parenthesize an entire conditional receiver. Each receiver is emitted
+once and must be a table or record. Known schema/type errors are static; dynamic
+errors retain the dot location and existing call-chain behavior.
+
+Preserve original table.column lookup and grouped-summary restrictions. General
+receiver expressions use their existing scope, including column lookup for bare
+names inside filters and explicit @bindings for outer values. Nested records,
+indexing, methods, field assignment, and callable field values remain deferred.
+This supersedes the temporary-variable requirement for reading an update result.
+
+The AST retains legacy explicit column nodes and introduces expression member nodes
+to avoid changing aggregate grammar or filter name resolution. Tests cover records,
+returned tables, quoted headers, updates, conditionals, scope, failures, complete
+source spans, and both public and standalone execution.

@@ -139,3 +139,11 @@ matching plain scalar field layouts. Corresponding field comparisons reduce to f
 on a definite mismatch, missing if otherwise uncertain, and true if all match.
 Inequality negates that scalar result. Ordering remains rejected; no R class/operator
 dispatch methods are registered.
+
+
+General expression-result field access uses a member AST node containing the
+receiver expression and exact field name. Postfix parsing composes it with record
+updates while preserving the complete source span and dot location. Known record
+schemas supply field types; unknown/table receivers use the existing runtime field
+helper. Generation emits the receiver once. Original name.column nodes remain for
+explicit table lookup and the restricted grouped-summary grammar.

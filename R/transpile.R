@@ -203,8 +203,18 @@ rss_parse <- function(tokens, filename) {
   }
   primary <- function() {
     value <- atom()
-    while (peek()$kind == "with") {
+    while (peek()$kind %in% c("with", ".")) {
       token <- take()
+      if (token$kind == ".") {
+        field <- peek()
+        if (!field$kind %in% c("name", "text")) rss_error("Expected a field name or quoted header after '.'.", field, filename)
+        take()
+        member <- node("member", token, value = value, column = field$value)
+        member$span$line <- value$span$line
+        member$span$column <- value$span$column
+        value <- member
+        next
+      }
       expect("{", "Expected '{' after 'with' for a record update.")
       while (peek()$kind == "newline") take()
       fields <- character()
@@ -568,14 +578,16 @@ rss_analyze <- function(statements, filename) {
       if (!predicate$type %in% c("Boolean", "Unknown")) rss_error("Filter condition must be boolean.", value$predicate$token, filename)
       return(info("Table", 1L))
     }
-    if (kind == "column") {
-      receiver <- lookup(value$table, value$token)
+    if (kind %in% c("column", "member")) {
+      receiver <- if (kind == "column") lookup(value$table, value$token) else recurse(value$value)
       if (startsWith(receiver$type, "Record:")) {
         schema <- get(receiver$type, records, inherits = FALSE)
         if (!value$column %in% names(schema)) rss_error(sprintf("Unknown record field '%s'.", value$column), value$token, filename)
         return(info(schema[[value$column]], 1L))
       }
-      require_table(value$table, value$token)
+      if (kind == "column") require_table(value$table, value$token) else if (!receiver$type %in% c("Table", "Unknown")) {
+        rss_error("Field access requires a table or record.", value$token, filename)
+      }
       return(info("Unknown", NA_integer_))
     }
     if (kind == "local") {
@@ -747,6 +759,7 @@ rss_generate <- function(statements, filename) {
         predicate <- emit(value$predicate, name(value$table))
         call_runtime("filter", c(name(value$table), predicate, if (value$skip) "TRUE" else "FALSE"), value$token)
       },
+      member = call_runtime("column", c(recurse(value$value), quote_text(value$column)), value$token),
       column = call_runtime("column", c(name(value$table), quote_text(value$column)), value$token),
       local = name(value$value),
       number = value$value,
@@ -1073,7 +1086,7 @@ rss_runtime <- function() {
         if (!name %in% names(table)) fail(sprintf("Unknown record field '%s'.", name), filename, line, column)
         return(table[[name, exact = TRUE]])
       }
-      if (!is.data.frame(table)) fail("Column access requires a table.", filename, line, column)
+      if (!is.data.frame(table)) fail("Field access requires a table or record.", filename, line, column)
       if (!(name %in% names(table))) fail(sprintf("Unknown column '%s'. Check the table's column names.", name), filename, line, column)
       table[[name, exact = TRUE]]
     },

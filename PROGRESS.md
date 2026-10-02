@@ -468,3 +468,27 @@ dependency-index failures, the network-enabled R CMD check --no-manual rerun
 reported Status: OK with zero errors, warnings, or notes. Documentation links,
 fences, and git diff whitespace checks passed. Validation remains local
 R 4.6.0/macOS arm64; hosted CI and PDF manual generation remain unverified.
+
+
+## 2026-10-02 — Field access on expression results
+
+Added direct .field and ."header" access on constructor/function calls, updates,
+parenthesized expressions, and explicit @variables in version 0.0.9. Postfix
+operations compose left to right, retain complete source spans, and generate one
+receiver expression. Known record schemas inform analysis; dynamic lookups use
+the existing exact runtime field helper with source-located errors.
+
+Preserved explicit table.column lookup, filter scope rules, and grouped-summary
+input restrictions. Updated guides, decisions, architecture, roadmap, README,
+version references, and packaged records demo. Nested records, indexing, methods,
+field assignment, and callable field values remain unimplemented.
+
+Verification: the shared runner reinstalled the package and passed 211 checks with
+zero skips. Eight new cases cover constructor/function results, updates and
+conditionals, returned tables/quoted headers, filter scope, malformed or invalid
+access, lazy receivers/call errors, AST spans, and public/standalone execution.
+All eight demos and source build passed. After sandbox dependency-index failures,
+the network-enabled R CMD check --no-manual rerun reported Status: OK with zero
+errors, warnings, or notes. Documentation links, fences, and git diff whitespace
+checks passed. Validation remains local R 4.6.0/macOS arm64; hosted CI and PDF
+manual generation remain unverified.
