@@ -88,6 +88,9 @@ states exactly which checks and mutation guarantees apply.
 
 ## 6. Contributor-ready preview
 
+- [x] Configure package checks on pushes and pull requests with a shared local runner.
+- [ ] Verify hosted results for R release on three operating systems and R 4.1.0 on Linux.
+
 Refine the R package installation and API documentation, automate the established
 package checks, and document limitations and compatibility expectations. Choose
 a release channel separately; public CLI conventions are outside the plan.

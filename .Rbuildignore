@@ -7,3 +7,4 @@
 ^examples$
 ^.*\.Rcheck$
 ^.*\.tar\.gz$
+^\.github$

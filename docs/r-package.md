@@ -24,7 +24,8 @@ examples/ directory are developer demo runners, not a public interface.
 
 The package declares R >= 4.1.0, uses only R-bundled graphics/grDevices/utils
 packages, and is verified locally on R 4.6.0/macOS arm64. Wider compatibility is
-not yet tested. PNG chart execution needs Cairo support; compilation does not.
+not yet verified. CI targets R release on Linux/macOS/Windows and R 4.1.0 on
+Linux; see [automated checks](../CONTRIBUTING.md#automated-package-checks). PNG chart execution needs Cairo support; compilation does not.
 Choose a writable R library for installation. Release hosting is still undecided.
 
 ## Public API and file contract

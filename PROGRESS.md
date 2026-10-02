@@ -265,3 +265,32 @@ failed. Tests caught and resolved empty-result list attributes and two test-fixt
 issues before final validation. Validation used R 4.6.0/macOS arm64; other platforms
 and PDF manual generation remain unverified. Documentation links, code fences,
 and git diff whitespace checks passed.
+
+
+## 2026-10-02 — Contributor package-check automation
+
+Added a GitHub Actions workflow for pushes, pull requests, and manual dispatch.
+The configured matrix targets R release on Linux/macOS/Windows and exactly R 4.1.0
+on Ubuntu 22.04. Jobs use read-only repository permissions, cancel superseded runs,
+and retain available package-check logs for 14 days. No publication is performed.
+
+Added a shared base-R developer runner at .github/scripts/check.R. It installs
+into a temporary library before tests, runs the behavioral suite and all developer
+demos, builds the version read from DESCRIPTION, and requires R CMD check
+--no-manual to report Status: OK. Cairo-dependent demo execution explicitly skips
+without Cairo; behavioral tests retain their existing skip reporting. Temporary
+libraries/chart output are cleaned up. Excluded .github from the source package
+and updated contribution instructions, README, package guide, and roadmap.
+No public API, language rules, or package dependencies changed.
+
+Verification: the shared runner passed locally on R 4.6.0/macOS arm64 with 149
+checks, zero skips, all seven demos, and a successful build/check. After sandbox
+network restrictions blocked dependency indexes, an approved network-enabled
+R CMD check rerun finished Status: OK (zero errors, warnings, or notes). A temporary
+copy with an intentionally failing test verified a nonzero runner exit before
+building. Workflow YAML parsed with four matrix entries; documentation links,
+code fences, whitespace, and exclusion of .github from the archive were checked.
+Hosted jobs have not run; Linux, Windows, and R 4.1.0 compatibility remain
+unverified. actionlint was unavailable, so validation covered YAML parsing and
+local runner execution rather than full GitHub expression linting. PDF manuals
+remain outside these checks.

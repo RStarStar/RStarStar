@@ -73,9 +73,38 @@ installed namespace. It also runs under R CMD check. Chart-rendering tests repor
 skips when Cairo is unavailable; compiler and file-API checks remain available.
 --no-manual skips PDF manual generation; API help and examples are still checked.
 Only R-bundled packages are dependencies. Package metadata declares R >= 4.1.0;
-current validation is on R 4.6.0, and broader compatibility still needs CI coverage.
+local validation is on R 4.6.0. The configured CI matrix must run successfully
+before broader compatibility is claimed.
 
 Also check relative Markdown links and compare examples with the decision record.
 See the [implemented subset](docs/implemented-subset.md) for the API and supported
 syntax. Documentation-only changes need link and whitespace checks; code checks
 are appropriate when examples or language claims change.
+
+
+## Automated package checks
+
+[Package checks](.github/workflows/package-check.yaml) runs on pushes, pull requests,
+and manual dispatch. It targets R release on Linux, macOS, and Windows, and exactly
+R 4.1.0 on Ubuntu 22.04. A configured target is not evidence of a successful run;
+inspect the checks for your commit. No hosted results have been verified yet.
+
+Run the same dependency-free developer script locally from the repository root:
+
+```sh
+Rscript .github/scripts/check.R
+```
+
+It installs into a temporary library, runs the behavioral suite and developer
+demos, builds the current DESCRIPTION version, and runs R CMD check --no-manual.
+Errors, warnings, and notes fail the check. Charts explicitly skip when Cairo is
+unavailable; read the skip count before claiming chart coverage. Temporary library
+and demo chart files are cleaned up; the ignored archive and .Rcheck logs remain.
+CI uploads available .Rcheck logs for 14 days, including failed checks. Failures
+before package checking are visible in the job console. The runner needs network
+access for R's dependency-index checks. PDF manuals are not checked.
+
+The workflow uses read-only repository permissions, ordinary pull_request events,
+and no publication step. Its R setup follows the
+[official setup-r action documentation](https://github.com/r-lib/actions/tree/v2/setup-r).
+GitHub workflow infrastructure may change; review action upgrades separately.

@@ -1,0 +1,49 @@
+name: Package checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: ${{ matrix.os }} / R ${{ matrix.r }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            r: release
+          - os: macos-latest
+            r: release
+          - os: windows-latest
+            r: release
+          - os: ubuntu-22.04
+            r: '4.1.0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.r }}
+          use-public-rspm: false
+      - name: Install, test, demonstrate, build, and check
+        run: Rscript .github/scripts/check.R
+      - name: Preserve package check logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-check-${{ matrix.os }}-${{ matrix.r }}
+          path: '*.Rcheck/'
+          if-no-files-found: ignore
+          retention-days: 14

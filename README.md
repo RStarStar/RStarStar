@@ -42,7 +42,8 @@ results$adjusted
 
 This is a local source installation, not a CRAN release. The package uses only
 packages bundled with R. It declares R >= 4.1.0 and has been verified locally on
-R 4.6.0; a broader version/platform matrix remains pending. PNG execution needs
+R 4.6.0. Automated checks are configured for R release on Linux/macOS/Windows
+and R 4.1.0 on Linux; hosted results are still pending. PNG execution needs
 Cairo support. See the [implemented subset](docs/implemented-subset.md) for syntax
 and [Contributing](CONTRIBUTING.md) for package checks and developer demos.
 
