@@ -16,7 +16,8 @@ path <- system.file("examples", "basics.rsspps", package = "RStarStar")
 generated <- transpile(path)
 cat(generated)
 # Choose explicitly whether to execute:
-eval(parse(text = generated), envir = new.env(parent = baseenv()))
+results <- run_file(path)
+results$adjusted
 ```
 
 transpile(path) accepts one nonempty path to a regular local file with the exact
@@ -29,7 +30,7 @@ Compilation reads the source file only: it does not run the program, load datase
 print program output, or write charts. Each call uses a fresh binding scope and
 returns one R-source string. The internal rss_compile(source, filename) interface
 is not exported or supported as a public API. Arbitrary R calls from RStarStar
-and a dedicated execution API remain future work.
+remain future work; run_file(path) provides explicit execution and result transfer.
 
 Generated R includes its runtime helpers and runs independently of the compiler.
 Chart code uses the R-bundled graphics/grDevices packages. Compilation is not a
@@ -437,3 +438,13 @@ This first version excludes annotations, named/default arguments, nested functio
 closures, recursion, assignments or other statements inside bodies, and methods.
 A function definition need not be followed by a call. A bare call as a top-level
 statement is not yet supported: assign or print its result instead.
+
+
+## Explicit execution API
+
+run_file(path) uses the same file contract as transpile(path), compiles the whole
+file, then executes it in a fresh environment. It returns a named list of final
+variables and callable functions, excluding runtime helpers. Printing and file
+operations occur during execution; paths use the caller's working directory.
+Errors propagate without partial results or rollback of earlier effects. See the
+[package guide](r-package.md#explicit-execution-from-r) for result and scope rules.

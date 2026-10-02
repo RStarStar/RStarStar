@@ -16,8 +16,8 @@ transpile to readable R. Grouping supports multiple columns, such as region and
 product. Simple user-defined functions are supported; records, classes, and
 interfaces remain future work.
 The language and package API are experimental. RStarStar is now an installable
-**R package**, with no public CLI. Its only exported function, transpile(path),
-accepts local UTF-8 **.rsspps files only** and returns R code without running it.
+**R package**, with no public CLI. Its exported functions, transpile(path) and run_file(path),
+accept local UTF-8 **.rsspps files only** for compilation or explicit execution.
 The R-call bridge remains future work. See the [package guide](docs/r-package.md).
 
 ## Install locally and try it
@@ -36,8 +36,7 @@ To compile your own source, use transpile("analysis.rsspps"). Execution is a
 separate, explicit R operation:
 
 ```r
-results <- new.env(parent = baseenv())
-eval(parse(text = code), envir = results)
+results <- run_file(path)
 results$adjusted
 ```
 

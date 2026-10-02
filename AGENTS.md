@@ -18,7 +18,7 @@ CONTRIBUTING.md, and the relevant documents in docs/ before making changes.
 
 ## Current stage
 
-An installable R package and behavioral tests exist. Only transpile(path) is
+An installable R package and behavioral tests exist. transpile(path) and run_file(path) are
 exported. Packaged source examples live in inst/examples/; tests run against the
 installed namespace, with internal compiler cases kept under tests/cases/. Read docs/implemented-subset.md
 for executable syntax and limits. Do not describe proposals as implemented
@@ -34,7 +34,7 @@ do not silently promote an unresolved choice into a language guarantee.
 - Explain behavioral tradeoffs with small examples, including failure cases.
 - Do not introduce dependencies, an object-system backend, a source extension,
   or a public CLI merely to make the scaffold look complete.
-- Do not execute user source during parsing or semantic analysis. Future execution
+- Do not execute user source during parsing or semantic analysis. Execution
   must be an explicit step separate from transpilation.
 - Preserve source locations so future diagnostics can refer to RStarStar code.
 - Never promise deep immutability or safe interoperability with arbitrary R
@@ -47,7 +47,7 @@ do not silently promote an unresolved choice into a language guarantee.
 For documentation, check relative links, example consistency, and git diff
 whitespace. Reinstall the changed package before running Rscript tests/run.R from
 the repository root. Validate package changes with R CMD build . and
-R CMD check --no-manual RStarStar_0.0.1.tar.gz (use the current version).
+R CMD check --no-manual RStarStar_0.0.2.tar.gz (use the current version).
 Rscript examples/demo.R demonstrates explicit compilation and execution. Add
 focused semantic and integration checks for new behavior. Tests should verify
 behavior, diagnostics, and generated R results rather than only mirror

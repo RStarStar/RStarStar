@@ -10,7 +10,8 @@ input_error <- function(path, message) {
   error
 }
 check("installed package exports only the file API", {
-  stopifnot(identical(getNamespaceExports("RStarStar"), "transpile"),
+  stopifnot(setequal(getNamespaceExports("RStarStar"), c("transpile", "run_file")),
+            identical(names(formals(RStarStar::run_file)), "path"),
             identical(names(formals(RStarStar::transpile)), "path"))
 })
 check("public file API compiles and generated output runs independently", {

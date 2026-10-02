@@ -24,3 +24,13 @@ transpile <- function(path) {
   source <- sub("^\ufeff", "", source)
   rss_compile(source, filename = filename)
 }
+
+# Execution is opt-in and starts only after the entire file compiles.
+run_file <- function(path) {
+  code <- transpile(path)
+  environment <- new.env(parent = baseenv())
+  eval(parse(text = code), envir = environment)
+  bindings <- setdiff(ls(environment, all.names = TRUE), c(".rss", ".rss_read_csv"))
+  if (!length(bindings)) return(list())
+  mget(bindings, envir = environment, inherits = FALSE)
+}

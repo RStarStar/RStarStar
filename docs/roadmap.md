@@ -75,9 +75,12 @@ copying and nested mutation behave as documented.
 
 ## 5. Contracts and ecosystem access
 
+- [x] Explicit run_file(path) execution and result/function transfer to R callers.
+- [ ] External R calls, interfaces, and reference/mutation contracts.
+
 Specify interfaces and explicit interoperability between .rsspps programs,
-existing R functions/packages, and project APIs. Define how R callers receive
-results/functions through the package API. Prototype interop
+existing R functions/packages, and project APIs. R callers now receive
+results/functions through run_file(path). Prototype interop
 earlier if needed to avoid architectural dead ends.
 
 Done when the Predictor example works and a documented external-package example

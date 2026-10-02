@@ -1,6 +1,6 @@
 # Architecture
 
-R/api.R exposes the package's sole exported function, transpile(path). It validates
+R/api.R exports transpile(path) and run_file(path). The compiler entry point validates
 and reads local UTF-8 .rsspps files, then delegates to the internal rss_compile()
 in R/transpile.R. The compiler performs tokenization, parsing, semantic analysis,
 and R generation. Internal rss_* functions are not exported.
@@ -84,3 +84,10 @@ functions and a checked call helper that evaluates arguments eagerly and appends
 call locations to language errors. Function values and ambient variable capture
 are rejected before generation. Embedded helper closures are created in base-R
 parent environments, preventing user function names from shadowing dependencies.
+
+
+run_file(path) delegates validation and whole-file compilation to transpile(path),
+then evaluates generated R in a fresh environment parented by baseenv(). It returns
+final bindings through mget(), excluding reserved compiler helpers. Returned function
+closures retain that environment. Execution is explicit, with no caller injection,
+working-directory changes, effect rollback, or external-call bridge.

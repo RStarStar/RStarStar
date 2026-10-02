@@ -320,3 +320,20 @@ R 4.6.0/macOS arm64 only. Dependencies are bundled with R. Chart execution requi
 Cairo and chart tests explicitly skip on builds without it. PDF-manual generation,
 broader CI, release publication, an execution helper, and the R-call bridge remain
 outside this milestone. This supersedes prior documentation-only package status.
+
+
+## 2026-10-02 — Explicit execution and results for R callers
+
+Status: implemented in 0.0.2. run_file(path) accepts the same local UTF-8 .rsspps
+files as transpile(path). It compiles the entire file first, then evaluates generated
+R in a fresh environment parented by baseenv(). It returns a named list of final
+variables and functions, with default R name sorting and no compiler helpers.
+Empty/print-only programs return empty lists. Returned functions retain their checks
+and use ordinary R calling conventions when called from R.
+
+No caller bindings are injected and the working directory is unchanged. CSV/chart
+paths resolve from that working directory. Console/file effects happen explicitly;
+runtime failure returns no partial results and does not roll back earlier effects.
+Compile failure prevents all execution. This offers simple R result transfer without
+choosing an external-call syntax or promising deep immutability or sandboxing.
+The external R bridge and object model remain future work.

@@ -239,3 +239,29 @@ default R library. PDF manual generation and other R/platform versions were not
 tested. A final source-example comment correction does not change program behavior.
 Rebuilt the archive after that comment correction. All 11 Markdown files,
 33 local links, code fences, and git diff whitespace checks passed.
+
+
+## 2026-10-02 — Explicit file execution and R result transfer
+
+Added exported run_file(path) in version 0.0.2. It reuses the .rsspps-only UTF-8
+source contract, compiles the whole file before execution, and returns final
+variables/functions as a named list from a fresh base-parent environment. Compiler
+helpers are excluded; empty/print-only programs return empty lists. Returned
+functions retain runtime checks and can be called by R code. Added installed API
+help, an R caller demo, and updated the package guide, language guide, decisions,
+architecture, roadmap, and contributor/agent instructions.
+
+Execution preserves the caller's working directory; relative data/output paths
+resolve there. Console/file effects are explicit and are not rolled back after a
+runtime failure. Compilation remains execution-free. No caller-binding injection,
+external R-call bridge, object system, or deep-immutability guarantee was added.
+
+Verification: reinstalled into a temporary library; 149 behavioral checks passed
+with zero skips, including nine new execution cases and Cairo chart coverage.
+The basic demo and new returned-function/table demo passed. Source build succeeded;
+R CMD check --no-manual reported Status: OK, with zero errors, warnings, or notes.
+Reran dependency checking with approved network access after sandbox index access
+failed. Tests caught and resolved empty-result list attributes and two test-fixture
+issues before final validation. Validation used R 4.6.0/macOS arm64; other platforms
+and PDF manual generation remain unverified. Documentation links, code fences,
+and git diff whitespace checks passed.

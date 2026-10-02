@@ -1,8 +1,8 @@
 # R package guide
 
-RStarStar 0.0.1 is an experimental, locally installable R package. There is no
-public CLI and no published CRAN release. Its only exported function is
-transpile(path), which accepts .rsspps files and returns generated R text.
+RStarStar 0.0.2 is an experimental, locally installable R package. There is no
+public CLI and no published CRAN release. It exports transpile(path) to return generated R text and run_file(path) to
+execute a program and return its bindings. Both accept .rsspps files only.
 
 ## Install and compile
 
@@ -48,19 +48,31 @@ the execution working directory, not the .rsspps file's directory.
 
 ## Explicit execution from R
 
-Generated code embeds its runtime helpers and can run without an installed
-compiler. Execution remains an explicit R operation:
+Call run_file(path) when you want to execute a program:
 
 ```r
-results <- new.env(parent = baseenv())
-eval(parse(text = code), envir = results)
+results <- run_file(path)
 results$adjusted
 ```
 
-This allows an R caller to inspect values and call generated functions through
-the evaluation environment. That is ordinary R evaluation, not a new execution
-API or a sandbox. A beginner-oriented execution helper, its result contract, and
-its file-effect policy remain future design work.
+The entire file compiles before execution starts. Each run uses a fresh environment
+with base R as its parent and returns a named list of final variables and functions.
+Names follow R's default sorted order; runtime helpers are excluded. Empty and
+print-only programs return an empty list. Returned functions retain their checks
+and can be called by existing R code, using ordinary R argument semantics.
+
+Printing goes to normal R output. CSV reads and chart writes happen during execution;
+relative paths use the caller's working directory, which run_file() does not change.
+Charts still require Cairo and refuse to overwrite existing files. Runtime errors
+preserve source locations and return no partial result. Earlier output/file effects
+are not rolled back. For example, a print followed by a missing CSV still prints
+before raising an error; an invalid declaration later in the file prevents all execution.
+
+Caller variables are not injected. Results are ordinary R values and functions are
+ordinary closures; this is not a sandbox or a deep-immutability guarantee. Generated
+code still embeds its runtime helpers and can be saved and evaluated separately
+without an installed compiler. See ?run_file for installed help and
+examples/run-file.R for an R caller using a returned function and table.
 
 ## Package development
 
@@ -73,7 +85,7 @@ from the source-package payload using .Rbuildignore.
 
 Reinstall after changing R/ and run Rscript tests/run.R against that installation.
 Tests include internal compiler cases and public file-API cases. R CMD build .
-and R CMD check --no-manual RStarStar_0.0.1.tar.gz validate the package, installed
+and R CMD check --no-manual RStarStar_0.0.2.tar.gz validate the package, installed
 help, examples, and tests. Use the current version in the archive name. Chart
 rendering tests report skips when Cairo is unavailable. --no-manual omits PDF
 manual generation only. See [Contributing](../CONTRIBUTING.md) for commands.
@@ -86,8 +98,6 @@ runs with ordinary R tooling. Broader interoperability remains a goal:
 - An explicit bridge for .rsspps programs to call existing R functions, packages,
   and project APIs. Import/call syntax and supported conversions are undecided;
   arbitrary R calls are currently rejected by the language.
-- A documented execution/result-transfer API for R callers, including the
-  environment used and how functions/results are returned.
 - Tested contracts for references, mutation, ownership, and cross-language errors.
   No deep-immutability guarantee across arbitrary R objects is implied.
 

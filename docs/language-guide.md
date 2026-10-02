@@ -5,6 +5,10 @@ arithmetic, printing, CSV loading, column access, filtering, scalar/grouped summ
 PNG bar charts, and simple user-defined functions now work; OOP remains proposed.** See the [implemented subset](implemented-subset.md) for exact working
 syntax and [design decisions](design-decisions.md) for open proposals.
 
+The R package provides transpile(path) for compilation and run_file(path) for
+explicit execution with variables and functions returned to R. Both accept only
+local UTF-8 .rsspps files; see the [package guide](r-package.md).
+
 ## Read and transform data
 
 ```text

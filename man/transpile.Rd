@@ -31,8 +31,8 @@ working directory when generated code executes, not from the source-file folder.
 PNG chart execution requires an R installation with Cairo support; other
 compilation and language features do not require it.
 
-The language and package API are experimental. An R-call bridge and a dedicated
-execution API are not yet implemented.
+The language and package API are experimental. An R-call bridge is not yet implemented.
+Use \code{\link{run_file}} for explicit execution and result transfer.
 }
 \examples{
 path <- system.file("examples", "basics.rsspps", package = "RStarStar")
