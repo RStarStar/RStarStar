@@ -193,7 +193,7 @@ their original fields. An Integer field type is not implemented.
 Records use ordinary named R lists with an internal type attribute and base R
 printing. No class backend or dispatch system is selected. R callers can modify
 returned lists, so immutability is a source-language rule. Nested records, vector
-or table fields, equality, validation blocks, and defaults remain future work. See [records](implemented-subset.md#records)
+or table fields, validation blocks, and defaults remain future work. See [records](implemented-subset.md#records)
 for exact limits and failures.
 
 Use with to create an updated record without repeating every field:
@@ -207,6 +207,19 @@ print updated.mean  # 150
 Replacement expressions read the original scope; fields are not assigned in place.
 Unknown/duplicate fields and wrong field types are errors. See
 [record updates](implemented-subset.md#record-updates) for evaluation and syntax rules.
+
+Compare same-type records with == or !=:
+
+```text
+unchanged = result with { mean: result.mean }
+print result == unchanged  # true
+print result != updated    # true when at least one field differs
+```
+
+Equality compares every scalar field. A definite mismatch makes equality false;
+otherwise any missing field comparison makes it missing. Different record types
+are incompatible, and ordering is not defined. See
+[record equality](implemented-subset.md#record-equality) for the full contract.
 
 ## Classes: protect state and provide behavior
 

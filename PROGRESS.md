@@ -439,3 +439,32 @@ the network-enabled R CMD check --no-manual rerun reported Status: OK with zero
 errors, warnings, or notes. Documentation links, fences, and git diff whitespace
 passed. Validation remains local R 4.6.0/macOS arm64; hosted CI and PDF manuals
 remain unverified.
+
+
+## 2026-10-02 — Record equality
+
+Added == and != for records of the same declared type in version 0.0.8. Equality
+compares corresponding scalar fields and returns one Boolean: a definite mismatch
+wins over missing comparisons; otherwise any missing comparison yields missing;
+all matching comparisons yield true. Inequality negates that result. Different
+nominal types, record/scalar comparisons, and ordering remain errors. Numeric
+fields retain exact scalar equality, without a tolerance.
+
+Static analysis allows compatible record equality and preserves incompatible-type
+errors. The embedded runtime handles dynamic values, checks layouts/plain scalar
+fields, and retains comparison locations and function call chains. No R class
+operator methods or dependencies were added. Updated record examples, reference
+and language guides, design decisions, architecture, roadmap, README, and version
+references. Nested record equality and broader foreign-object guarantees remain
+outside the implemented subset.
+
+Verification: reinstalled through the shared runner; 203 behavioral checks passed
+with zero skips, including eight new equality cases. Coverage includes every field
+type, construction order, missing-value combinations, nominal incompatibility,
+ordering rejection, conditional use, source diagnostics, malformed R inputs, and
+public/standalone execution. Corrected a test's expected comparison column from 24
+to 26 during verification. All eight demos and source build passed. After sandbox
+dependency-index failures, the network-enabled R CMD check --no-manual rerun
+reported Status: OK with zero errors, warnings, or notes. Documentation links,
+fences, and git diff whitespace checks passed. Validation remains local
+R 4.6.0/macOS arm64; hosted CI and PDF manual generation remain unverified.

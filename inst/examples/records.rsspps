@@ -17,3 +17,8 @@ current = current with { label: "Revised", mean: 25 }
 # Replacing current does not change result.
 print result.mean
 print current.mean
+
+# Equality compares values, not construction identity.
+unchanged = result with { mean: result.mean }
+print result == unchanged
+print result != current

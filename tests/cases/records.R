@@ -64,13 +64,13 @@ check("mutable records retain nominal types even through dynamic functions", {
 check("records do not silently acquire vector comparison or summary semantics", {
   prefix <- 'record Point { x: Number }\np = Point(1)\n'
   fails(paste0(prefix, 'x = [p]'), "Records cannot be vector elements")
-  fails(paste0(prefix, 'x = p == p'), "Record comparisons are not supported")
+  fails(paste0(prefix, 'x = p < p'), "ordering is not defined")
   fails(paste0(prefix, 'x = p is missing'), "Test a record field")
   fails(paste0(prefix, 'x = count(p)'), "not a record")
   fails(paste0(prefix, 'x = p + 1'), "Arithmetic requires numbers")
-  for (expression in c('value == value', '[value]', 'value is missing', 'count(value)')) {
+  for (expression in c('value < value', '[value]', 'value is missing', 'count(value)')) {
     filter_error(paste0(prefix, 'fn bad(value) { return ', expression, ' }\nx = bad(p)'),
-                 switch(expression, 'value == value' = "Record comparisons", '[value]' = "Records cannot", 'value is missing' = "Test a record field", 'count(value)' = "vector or table"))
+                 switch(expression, 'value < value' = "ordering is not defined", '[value]' = "Records cannot", 'value is missing' = "Test a record field", 'count(value)' = "vector or table"))
   }
 })
 check("record fields support typed missing values and conditional record selection", {

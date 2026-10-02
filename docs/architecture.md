@@ -131,3 +131,11 @@ values in source order, and validates a copied candidate through the existing re
 constructor helper. No field of the original list is assigned. Internal type/order
 metadata and unchanged scalar fields are preserved; this is not a foreign-reference
 copying policy.
+
+
+Record equality is handled by the embedded binary-operation helper. Analysis permits
+==/!= for compatible nominal types; dynamic checks enforce same-type records and
+matching plain scalar field layouts. Corresponding field comparisons reduce to false
+on a definite mismatch, missing if otherwise uncertain, and true if all match.
+Inequality negates that scalar result. Ordering remains rejected; no R class/operator
+dispatch methods are registered.

@@ -629,7 +629,7 @@ rss_analyze <- function(statements, filename) {
       if (any(known != "Boolean")) rss_error("Logical operations require booleans.", value$operator_token, filename)
       result_type <- "Boolean"
     } else {
-      if (any(startsWith(known, "Record:"))) rss_error("Record comparisons are not supported yet; compare individual fields.", value$operator_token, filename)
+      if (any(startsWith(known, "Record:")) && !op %in% c("==", "!=")) rss_error("Records support == and != only; ordering is not defined.", value$operator_token, filename)
       if ("Table" %in% known || length(unique(known)) > 1L) rss_error("Comparisons require matching value types.", value$operator_token, filename)
       if (op %in% c("<", "<=", ">", ">=") && "Boolean" %in% known) rss_error("Ordered comparisons require numbers or text.", value$operator_token, filename)
       result_type <- "Boolean"
@@ -919,7 +919,23 @@ rss_runtime <- function() {
     } else if (op %in% c("and", "or")) {
       if (any(types != "Boolean")) error("Logical operations require booleans.")
     } else {
-      if (any(startsWith(types, "Record:"))) error("Record comparisons are not supported yet; compare individual fields.")
+      if (any(startsWith(types, "Record:"))) {
+        if (!op %in% c("==", "!=")) error("Records support == and != only; ordering is not defined.")
+        if (types[[1L]] != types[[2L]]) error("Record equality requires the same declared record type.")
+        if (!identical(names(left), names(right)) || !length(left)) error("Record equality requires matching field layouts.")
+        matches <- vapply(seq_along(left), function(i) {
+          a <- left[[i]]
+          b <- right[[i]]
+          if (length(a) != 1L || length(b) != 1L || !is.null(attributes(a)) || !is.null(attributes(b)) ||
+              !typeof(a) %in% c("double", "integer", "logical", "character") ||
+              !typeof(b) %in% c("double", "integer", "logical", "character") || type(a) != type(b)) {
+            error("Record equality requires matching plain scalar field types.")
+          }
+          a == b
+        }, logical(1))
+        equal <- if (any(!matches, na.rm = TRUE)) FALSE else if (anyNA(matches)) NA else TRUE
+        return(if (op == "==") equal else !equal)
+      }
       if (types[[1L]] != types[[2L]] || any(types %in% c("Table", "Unsupported"))) error("Comparisons require matching value types.")
       if (op %in% c("<", "<=", ">", ">=") && types[[1L]] == "Boolean") error("Ordered comparisons require numbers or text.")
     }

@@ -597,7 +597,7 @@ print result.mean  # Still 145.8
 
 A mutable record binding retains its declared record type, even if a different
 record has the same field layout. Replacing current does not modify result.
-Records have no equality, ordering, arithmetic, vector-element, or whole-record
+Records support == and !=, but have no ordering, arithmetic, vector-element, or whole-record
 missingness/summary behavior; operate on their fields instead. The with update expression creates a new validated value as described below.
 
 Generated records are named R lists in declaration order, with an internal
@@ -645,6 +645,47 @@ to with and retain function call chains. Unchosen conditional branches remain la
 
 For example, p with { unknown: 1 } fails for an unknown field, while p with
 { x: "text" } fails if x is Number. An update inside a function can accept a record
-parameter and returns a new record. No general table update, nested update, equality,
+parameter and returns a new record. No general table update, nested update,
 or foreign-object immutability policy is introduced. The existing experimental R
 representation and external-mutation limits still apply.
+
+
+## Record equality
+
+```text
+record Point {
+  x: Number
+  y: Number
+}
+a = Point(1, 2)
+b = Point(y: 2, x: 1)
+print a == b  # true
+print a != (b with { x: 3 })  # true
+```
+
+== and != compare records of the same declared type and return one Boolean result.
+Construction argument order and separate instances do not affect equality. Each
+corresponding scalar field uses the existing equality operation, including exact
+numeric comparison without a tolerance and ordinary text/boolean comparison.
+Comparisons do not modify either record.
+
+Missing values are not treated as matching values. If any field comparison is
+false, record equality is false, even when another field comparison is missing.
+If no field differs definitely but any comparison is missing, equality is missing.
+Otherwise equality is true. != is the boolean negation, so a missing equality also
+produces missing inequality. For example, Point(0 / 0, 1) == Point(0 / 0, 1) is
+missing, while Point(0 / 0, 1) == Point(0 / 0, 2) is false. Test (a == b) is missing
+explicitly when needed; an if condition still rejects a missing comparison result.
+
+Different declared record types are incompatible even with identical field layouts;
+comparison with a scalar or table is also an error. Ordering (<, <=, >, >=) remains
+undefined and is rejected. Known incompatible operands fail during analysis;
+dynamic operands fail at the comparison location with existing function call chains.
+Runtime comparison also rejects mismatched field layouts or non-plain/non-scalar
+fields in externally modified R values. This is defensive validation, not a complete
+foreign-object schema or immutability guarantee.
+
+These operators are implemented by generated runtime calls. Direct use of R's ==
+on returned raw lists is not this language feature; R callers can use a returned
+function such as fn same(a, b) { return a == b }. Nested record equality remains
+outside the scalar-field record subset.

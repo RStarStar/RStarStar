@@ -452,3 +452,27 @@ This supersedes the previous deferral of with updates. Alternatives deferred:
 in-place field mutation (requires mutable object semantics), implicit field scope
 (ambiguous with caller variables), and sequential field updates (order-sensitive).
 Nested fields, equality, classes, and the external R mutation boundary are unchanged.
+
+
+## 2026-10-02 — Scalar-field record equality
+
+Status: implemented, experimental in 0.0.8. Same-declared-type records support ==
+and != by comparing corresponding scalar fields. Numeric comparison is exact,
+following the existing scalar == behavior. Any definite field mismatch makes
+equality false; otherwise any missing comparison makes the result missing; all
+true comparisons make it true. != negates the result. Different nominal types,
+record/scalar comparisons, and all ordering comparisons are errors.
+
+This supersedes the earlier equality deferral for scalar-field records only.
+Treating two missing fields as equal was rejected because it would silently change
+the existing missing-data interpretation. Returning false for different record
+types was rejected in favor of existing incompatible-type diagnostics. No custom
+R comparison methods are added; generated helpers provide language behavior and
+source locations. Raw returned lists still follow ordinary R behavior outside the
+language, with defensive runtime checks for malformed inputs to returned functions.
+
+Verification covers all field types, construction order, missing comparisons with
+and without a definite mismatch, nominal incompatibility, forbidden ordering,
+conditional use, call-chain diagnostics, and public/standalone execution. Nested
+records, tolerance-based numeric comparison, and foreign-object equality remain
+outside this implementation.
