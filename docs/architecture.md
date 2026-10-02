@@ -6,7 +6,7 @@ in R/transpile.R. The compiler performs tokenization, parsing, semantic analysis
 and R generation. Internal rss_* functions are not exported.
 
 CSV programs embed a self-contained loader and checked expression helpers.
-Objects and the explicit R interoperability bridge are not implemented. The
+Basic scalar-field records are implemented; classes and the explicit R interoperability bridge are not. The
 package uses only R-bundled dependencies; see the [package guide](r-package.md).
 
 ## Compilation pipeline
@@ -106,3 +106,19 @@ The generator emits native R if with an embedded scalar, nonmissing-boolean
 validator; it never evaluates branches during compilation. Programs containing
 conditionals use checked operations so dynamically selected types and lengths
 cannot bypass vector, arithmetic, or reassignment rules.
+
+
+Call AST nodes preserve argument labels, source tokens, and source order. Semantic
+analysis matches exact labels to declared parameters and rejects duplicate bindings,
+unknown names, and incorrect arity. Emission builds a list in source order, with
+quoted exact argument names where supplied, and passes it to the existing eager
+call helper. R's partial argument matching is never used to accept source calls.
+
+
+Record declarations register a nominal type and scalar field schema. Their generated
+constructor functions call the embedded runtime validator and create ordinary named
+lists with an internal rss_record_type attribute; no class dispatch backend is used.
+Known field types participate in inference, and dynamic field lookup checks exact
+names. Runtime type tags distinguish mutable bindings of different record types.
+The scalar-only, attribute-free constructor boundary excludes nested references;
+external R mutation of returned values is outside the source-language guarantee.

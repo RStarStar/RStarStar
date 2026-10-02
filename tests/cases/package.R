@@ -83,5 +83,5 @@ check("package includes runnable source examples", {
   env <- new.env(parent = baseenv())
   invisible(capture.output(eval(parse(text = code), env)))
   stopifnot(identical(env$adjusted, c(77, 90, 96, 73)))
-  stopifnot(all(file.exists(file.path(dirname(path), paste0(c("basics", "read-csv", "filter", "workflow", "grouped", "functions"), ".rsspps")))))
+  stopifnot(all(file.exists(file.path(dirname(path), paste0(c("basics", "read-csv", "filter", "workflow", "grouped", "functions", "records"), ".rsspps")))))
 })

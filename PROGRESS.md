@@ -348,3 +348,66 @@ and source build passed. After sandbox dependency-index access failed, the
 network-enabled R CMD check --no-manual rerun reported Status: OK (zero errors,
 warnings, or notes). Documentation links, fences, and whitespace checks passed.
 Validation remains R 4.6.0/macOS arm64; hosted CI and PDF manuals remain unverified.
+
+
+## 2026-10-02 — Named function arguments
+
+Added name: value arguments for user-defined function calls in version 0.0.5.
+Names match exactly and case-sensitively. Positional arguments precede named ones;
+every declared parameter must be supplied exactly once. Compilation rejects
+unknown/partial names, duplicates, positional/named collisions, wrong arity, and
+positional arguments following named ones. Labels and source tokens are retained
+in the AST; generated named lists preserve eager source-order evaluation through
+the existing call helper.
+
+Updated the function guide/reference, design decisions, architecture, roadmap,
+README, package version references, and packaged functions example. Built-in
+summaries keep their existing syntax. Defaults, annotations, record constructors,
+and the R-call bridge remain unimplemented; returned R closures still use R's
+ordinary calling conventions when invoked directly from R.
+
+Verification: the shared runner reinstalled the changed package, passed 174 checks
+with zero skips, ran all seven demos, and built/checked the source archive. Nine
+new checks cover reordering, mixed calls, nested expressions, matching failures,
+source-order errors, table/filter scope, call chains, quoted R-keyword parameter
+names, and public/standalone execution. After sandbox dependency-index requests
+failed, a network-enabled R CMD check --no-manual rerun finished Status: OK with
+zero errors, warnings, or notes. Documentation links, fences, and git diff
+whitespace passed. Local validation used R 4.6.0/macOS arm64; hosted CI and PDF
+manual generation remain unverified.
+
+
+## 2026-10-02 — Initial records and generated constructors
+
+Added records with required scalar Number, Text, and Boolean fields in version
+0.0.6. The record keyword is reserved. Generated constructors reuse positional
+and exact named arguments; field names/types participate in semantic analysis and
+dynamic inputs are checked at construction. Fields support exact public reads but
+no assignment. Functions can construct, accept, and return records. Mutable bindings
+permit replacement only with the same declared record type; aliases retain their
+original values.
+
+Records are ordinary named R lists with an internal nominal-type attribute and
+base list printing, without a class dispatch backend or new dependencies. The
+constructor boundary rejects nested, attributed, and reference values. Missing
+scalars of the declared type remain valid. Returned R lists can be modified by R
+callers; no external deep-immutability guarantee is claimed. Equality, with updates,
+nesting, vector/table fields, Integer annotations, defaults, validation blocks,
+and classes remain deferred. Undefined whole-record operations fail explicitly.
+
+Added packaged records.rsspps and a records.R demo, included it in the shared check
+runner, and updated guides, decisions, architecture, roadmap, README, package help,
+and version references. Preserved the preceding named-argument changes already
+in the working tree.
+
+Verification: reinstalled through the shared runner; 187 behavioral checks passed
+with zero skips, including 13 record cases covering schemas, constructor arguments,
+dynamic checks, function scope, field lookup, aliases, nominal mutation, typed
+missing values, unsupported operations, and public/standalone/R boundaries. All
+eight demos passed and the source archive built successfully. Initial checking
+caught an unqualified setNames call; replacing it with base R name assignment
+removed the note without adding a dependency. The final network-enabled R CMD
+check --no-manual reported Status: OK (zero errors, warnings, or notes), following
+sandbox dependency-index failures. Documentation links, fences, and whitespace
+checks passed. Validation remains local R 4.6.0/macOS arm64; hosted CI and PDF
+manual generation remain unverified.

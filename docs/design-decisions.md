@@ -382,3 +382,51 @@ branch types (needs richer inference for unknown parameters). This does not sett
 records, mutable objects, or external R reference semantics. Verification covers
 syntax, nesting, lazy evaluation, static errors in unused branches, conditions,
 dynamic branch types, filter scope, mutable checks, and the public file API.
+
+
+## 2026-10-02 — Named function arguments
+
+Status: implemented, experimental in 0.0.5. User-defined calls accept name: value,
+matching the proposed record-constructor spelling without implementing records.
+Names match exactly and case-sensitively. Positional arguments precede named ones
+and bind in declaration order; named arguments can be reordered. Every parameter
+must be supplied once. Unknown names, duplicates, positional/named collisions,
+missing/excess arguments, and positional-after-named calls are compile errors.
+
+Arguments retain eager, once-only evaluation in source order, not parameter order.
+The compiler preserves labels/locations and emits a named list for the existing
+call helper. This leaves function bodies and filter expression scope unchanged.
+Returned R closures continue to use ordinary R calling conventions outside the
+source language. Built-in summary calls are unchanged.
+
+This supersedes the positional-only call restriction. Alternatives deferred:
+R-style partial matching (makes typos ambiguous), interspersed positional arguments
+(makes binding harder to explain), and default parameters (needs separate scope
+and evaluation rules). Parameter annotations, records, and the R bridge remain
+unimplemented. Verification covers matching failures, source evaluation order,
+R-keyword parameter names, nested calls, diagnostics, and file/standalone execution.
+
+
+## 2026-10-02 — Initial records with typed scalar fields
+
+Status: implemented, experimental in 0.0.6. Adopt record Name { field: Type }
+with newline-separated fields and required scalar Number/Text/Boolean annotations.
+Constructors use existing positional/named calls. Fields are readable and cannot
+be assigned; mut permits whole-value replacement only with the same nominal record
+type. Constructors and schemas must be declared before use. Missing scalar fields
+are allowed when correctly typed; numeric finiteness rules are unchanged.
+
+Use named R lists with an internal type attribute and base list printing, without
+choosing a class/dispatch backend. Constructor checks reject attributed or reference
+values from R. This limited boundary supports independent copies and replacement
+without claiming arbitrary-object deep immutability. Returned lists remain mutable
+from R, and direct R calls keep R argument semantics. Runtime constructor errors
+retain the declaration location plus language call sites.
+
+This implements only the construction/field-access portion of the record proposal.
+Integer annotations, nested/vector/table fields, equality, with updates, defaults,
+validation blocks, and classes remain deferred. Explicit field schemas avoid
+per-instance type guessing; scalar-only fields keep the initial copying contract
+small enough to verify. Tests cover schema/call errors, static and dynamic checks,
+function use, lookup, aliases, nominal reassignment, typed missing values, rejection
+of undefined record operations, and R/file/standalone boundaries.

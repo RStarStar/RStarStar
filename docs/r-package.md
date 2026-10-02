@@ -1,6 +1,6 @@
 # R package guide
 
-RStarStar 0.0.4 is an experimental, locally installable R package. There is no
+RStarStar 0.0.6 is an experimental, locally installable R package. There is no
 public CLI and no published CRAN release. It exports transpile(path) to return generated R text and run_file(path) to
 execute a program and return its bindings. Both accept .rsspps files only.
 
@@ -18,7 +18,7 @@ cat(code)
 
 For your own program, save RStarStar source in analysis.rsspps and call
 transpile("analysis.rsspps"). Use ?transpile for installed API help. The package
-includes six .rsspps examples and their small CSV fixtures under
+includes seven .rsspps examples and their small CSV fixtures under
 system.file("examples", package = "RStarStar"). Rscript files in the repository's
 examples/ directory are developer demo runners, not a public interface.
 
@@ -69,6 +69,11 @@ preserve source locations and return no partial result. Earlier output/file effe
 are not rolled back. For example, a print followed by a missing CSV still prints
 before raising an error; an invalid declaration later in the file prevents all execution.
 
+Records return as ordinary named R lists with an internal type attribute, and their
+constructors return as R functions. Field checks apply when constructors run; R
+callers can subsequently modify returned lists. This is not enforced immutability
+outside the source language. See [records](implemented-subset.md#records).
+
 Caller variables are not injected. Results are ordinary R values and functions are
 ordinary closures; this is not a sandbox or a deep-immutability guarantee. Generated
 code still embeds its runtime helpers and can be saved and evaluated separately
@@ -86,7 +91,7 @@ from the source-package payload using .Rbuildignore.
 
 Reinstall after changing R/ and run Rscript tests/run.R against that installation.
 Tests include internal compiler cases and public file-API cases. R CMD build .
-and R CMD check --no-manual RStarStar_0.0.4.tar.gz validate the package, installed
+and R CMD check --no-manual RStarStar_0.0.6.tar.gz validate the package, installed
 help, examples, and tests. Use the current version in the archive name. Chart
 rendering tests report skips when Cairo is unavailable. --no-manual omits PDF
 manual generation only. See [Contributing](../CONTRIBUTING.md) for commands.

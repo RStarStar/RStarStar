@@ -49,7 +49,7 @@ rss_tokenize <- function(source, filename) {
       begin <- i
       while (i <= n && grepl("^[A-Za-z0-9_]$", current())) advance()
       value <- paste0(chars[begin:(i - 1L)], collapse = "")
-      kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not", "plot", "summarize", "fn", "return", "write", "if", "then", "else")) value else "name"
+      kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not", "plot", "summarize", "fn", "return", "write", "if", "then", "else", "record")) value else "name"
       add(kind, value, start)
     } else if (grepl("^[0-9]$", ch)) {
       rest <- paste0(chars[i:n], collapse = "")
@@ -80,7 +80,7 @@ rss_tokenize <- function(source, filename) {
       advance()
       advance()
       add(paste0(ch, "="), paste0(ch, "="), start)
-    } else if (ch %in% c("{", "}", ".", "@", "<", ">", "=", "+", "-", "*", "/", "(", ")", "[", "]", ",")) {
+    } else if (ch %in% c("{", "}", ":", ".", "@", "<", ">", "=", "+", "-", "*", "/", "(", ")", "[", "]", ",")) {
       advance()
       if (ch %in% c("(", "[")) depth <- depth + 1L
       if (ch %in% c(")", "]")) depth <- max(0L, depth - 1L)
@@ -143,12 +143,30 @@ rss_parse <- function(tokens, filename) {
       if (token$kind == "name" && peek()$kind == "(") {
         take()
         arguments <- list()
+        labels <- character()
+        argument_tokens <- list()
+        named <- FALSE
         if (peek()$kind != ")") {
-          arguments <- list(expression())
-          while (peek()$kind == ",") { take(); arguments[[length(arguments) + 1L]] <- expression() }
+          repeat {
+            start <- peek()
+            label <- ""
+            if (peek()$kind == "name" && tokens[[position + 1L]]$kind == ":") {
+              label <- take()$value
+              take()
+              named <- TRUE
+            } else if (named) {
+              rss_error("Positional arguments must come before named arguments.", start, filename)
+            }
+            arguments[[length(arguments) + 1L]] <- expression()
+            labels <- c(labels, label)
+            argument_tokens[[length(argument_tokens) + 1L]] <- start
+            if (peek()$kind != ",") break
+            take()
+          }
         }
         expect(")", "Expected ')' after function arguments.")
-        return(node("call", token, name = token$value, arguments = arguments))
+        return(node("call", token, name = token$value, arguments = arguments,
+                    labels = labels, argument_tokens = argument_tokens))
       }
       if (token$kind == "name" && peek()$kind == ".") {
         take()
@@ -258,7 +276,31 @@ rss_parse <- function(tokens, filename) {
       next
     }
     token <- peek()
-    if (token$kind == "fn") {
+    if (token$kind == "record") {
+      take()
+      name <- expect("name", "Expected a record name after 'record'.")
+      if (name$value %in% c("average", "sum", "count")) rss_error("A record cannot replace a built-in summary.", name, filename)
+      expect("{", "Expected '{' before record fields.")
+      fields <- character()
+      types <- character()
+      while (peek()$kind == "newline") take()
+      while (peek()$kind != "}") {
+        if (peek()$kind == "eof") rss_error("Expected '}' to close the record.", peek(), filename)
+        field <- expect("name", "Expected a field name or '}' in the record.")
+        if (field$value %in% fields) rss_error("Record field names must be unique.", field, filename)
+        expect(":", "Expected ':' and a type after the field name.")
+        type <- expect("name", "Expected Number, Text, or Boolean after ':'.")
+        if (!type$value %in% c("Number", "Text", "Boolean")) rss_error("Record fields currently support Number, Text, or Boolean only.", type, filename)
+        fields <- c(fields, field$value)
+        types <- c(types, type$value)
+        if (peek()$kind == "eof") rss_error("Expected '}' to close the record.", peek(), filename)
+        if (!peek()$kind %in% c("newline", "}")) rss_error("Expected a new line between record fields.", peek(), filename)
+        while (peek()$kind == "newline") take()
+      }
+      take()
+      if (!length(fields)) rss_error("A record must declare at least one field.", name, filename)
+      statement <- node("record", token, name = name$value, name_token = name, fields = fields, types = types)
+    } else if (token$kind == "fn") {
       take()
       name <- expect("name", "Expected a function name after 'fn'.")
       if (name$value %in% c("average", "sum", "count")) rss_error("A function cannot replace a built-in summary.", name, filename)
@@ -415,6 +457,7 @@ rss_parse <- function(tokens, filename) {
 
 rss_analyze <- function(statements, filename) {
   bindings <- new.env(parent = emptyenv())
+  records <- new.env(parent = emptyenv())
   info <- function(type, size) list(type = type, size = size)
   lookup <- function(name, token) {
     if (!exists(name, bindings, inherits = FALSE)) {
@@ -441,7 +484,24 @@ rss_analyze <- function(statements, filename) {
       target <- lookup(value$name, value$token)
       if (target$type != "Function") rss_error(sprintf("'%s' is not a declared function.", value$name), value$token, filename)
       if (length(value$arguments) != length(target$parameters)) rss_error(sprintf("Function '%s' expects %d arguments; received %d.", value$name, length(target$parameters), length(value$arguments)), value$token, filename)
-      lapply(value$arguments, recurse)
+      matched <- integer()
+      for (i in seq_along(value$arguments)) {
+        label <- value$labels[[i]]
+        parameter <- if (nzchar(label)) match(label, target$parameters) else i
+        if (is.na(parameter)) rss_error(sprintf("Unknown parameter '%s' for function '%s'; names must match exactly.", label, value$name), value$argument_tokens[[i]], filename)
+        if (parameter %in% matched) rss_error(sprintf("Parameter '%s' was supplied more than once.", target$parameters[[parameter]]), value$argument_tokens[[i]], filename)
+        matched <- c(matched, parameter)
+      }
+      arguments <- lapply(value$arguments, recurse)
+      if (!is.null(target$field_types)) {
+        for (i in seq_along(arguments)) {
+          expected <- target$field_types[[matched[[i]]]]
+          actual <- arguments[[i]]
+          if (!actual$type %in% c(expected, "Unknown") || (!is.na(actual$size) && actual$size != 1L)) {
+            rss_error(sprintf("Field '%s' requires one %s value.", target$parameters[[matched[[i]]]], expected), value$argument_tokens[[i]], filename)
+          }
+        }
+      }
       return(target$result)
     }
     if (kind == "read") return(info("Table", 1L))
@@ -452,6 +512,7 @@ rss_analyze <- function(statements, filename) {
     if (kind == "summary") {
       operand <- recurse(value$value)
       if (value$operation != "count" && !operand$type %in% c("Number", "Unknown")) rss_error("Numeric summaries require numbers.", value$token, filename)
+      if (startsWith(operand$type, "Record:")) rss_error("Summaries require a vector or table, not a record.", value$token, filename)
       if (value$operation == "count" && operand$type == "Table" && value$skip) rss_error("count(table) counts rows; choose a column to skip missing values.", value$token, filename)
       return(info("Number", 1L))
     }
@@ -462,6 +523,12 @@ rss_analyze <- function(statements, filename) {
       return(info("Table", 1L))
     }
     if (kind == "column") {
+      receiver <- lookup(value$table, value$token)
+      if (startsWith(receiver$type, "Record:")) {
+        schema <- get(receiver$type, records, inherits = FALSE)
+        if (!value$column %in% names(schema)) rss_error(sprintf("Unknown record field '%s'.", value$column), value$token, filename)
+        return(info(schema[[value$column]], 1L))
+      }
       require_table(value$table, value$token)
       return(info("Unknown", NA_integer_))
     }
@@ -482,6 +549,7 @@ rss_analyze <- function(statements, filename) {
     if (kind == "group") return(recurse(value$value))
     if (kind == "missing") {
       operand <- recurse(value$value)
+      if (startsWith(operand$type, "Record:")) rss_error("Test a record field for missing values, not a record.", value$token, filename)
       if (operand$type == "Table") rss_error("Test a column or vector for missing values, not a table.", value$token, filename)
       return(info("Boolean", operand$size))
     }
@@ -491,6 +559,7 @@ rss_analyze <- function(statements, filename) {
         rss_error("Vector elements must each contain one value; nested vectors are not supported.", value$token, filename)
       }
       types <- vapply(elements, function(x) x$type, character(1))
+      if (any(startsWith(types, "Record:"))) rss_error("Records cannot be vector elements yet.", value$token, filename)
       if (any(types == "Table")) rss_error("Tables cannot be vector elements.", value$token, filename)
       known <- unique(types[types != "Unknown"])
       if (length(known) > 1L) rss_error("Vector elements must have the same type.", value$token, filename)
@@ -514,6 +583,7 @@ rss_analyze <- function(statements, filename) {
       if (any(known != "Boolean")) rss_error("Logical operations require booleans.", value$operator_token, filename)
       result_type <- "Boolean"
     } else {
+      if (any(startsWith(known, "Record:"))) rss_error("Record comparisons are not supported yet; compare individual fields.", value$operator_token, filename)
       if ("Table" %in% known || length(unique(known)) > 1L) rss_error("Comparisons require matching value types.", value$operator_token, filename)
       if (op %in% c("<", "<=", ">", ">=") && "Boolean" %in% known) rss_error("Ordered comparisons require numbers or text.", value$operator_token, filename)
       result_type <- "Boolean"
@@ -526,6 +596,19 @@ rss_analyze <- function(statements, filename) {
     info(result_type, size)
   }
   for (statement in statements) {
+    if (statement$kind == "record") {
+      if (exists(statement$name, bindings, inherits = FALSE)) rss_error("Record name is already declared.", statement$name_token, filename)
+      record_type <- paste0("Record:", statement$name)
+      schema <- statement$types
+      names(schema) <- statement$fields
+      assign(record_type, schema, records)
+      signature <- info("Function", 1L)
+      signature$parameters <- statement$fields
+      signature$field_types <- statement$types
+      signature$result <- info(record_type, 1L)
+      assign(statement$name, list(info = signature, mutable = FALSE), bindings)
+      next
+    }
     if (statement$kind == "function") {
       if (exists(statement$name, bindings, inherits = FALSE)) rss_error("Function name is already declared.", statement$name_token, filename)
       outer <- bindings
@@ -578,7 +661,7 @@ rss_generate <- function(statements, filename) {
     any(vapply(value, contains_conditional, logical(1)))
   }
   checked <- has_data || contains_conditional(statements) ||
-    any(vapply(statements, function(x) x$kind == "function", logical(1)))
+    any(vapply(statements, function(x) x$kind %in% c("function", "record"), logical(1)))
   needs_runtime <- FALSE
   call_runtime <- function(method, args, token) {
     needs_runtime <<- TRUE
@@ -590,7 +673,13 @@ rss_generate <- function(statements, filename) {
     switch(value$kind,
       conditional = paste0("(if (", call_runtime("condition", recurse(value$condition), value$condition$token),
                            ") ", recurse(value$yes), " else ", recurse(value$no), ")"),
-      call = call_runtime("call", c(name(value$name), paste0("base::list(", paste(vapply(value$arguments, recurse, character(1)), collapse = ", "), ")")), value$token),
+      call = {
+        arguments <- vapply(seq_along(value$arguments), function(i) {
+          prefix <- if (nzchar(value$labels[[i]])) paste0(name(value$labels[[i]]), " = ") else ""
+          paste0(prefix, recurse(value$arguments[[i]]))
+        }, character(1))
+        call_runtime("call", c(name(value$name), paste0("base::list(", paste(arguments, collapse = ", "), ")")), value$token)
+      },
       summarize = {
         specs <- vapply(value$summaries, function(spec) {
           input <- spec$value$value
@@ -626,6 +715,13 @@ rss_generate <- function(statements, filename) {
   }
   declared <- character()
   lines <- vapply(statements, function(statement) {
+    if (statement$kind == "record") {
+      declared <<- c(declared, statement$name)
+      vector <- function(values) paste0("base::c(", paste(vapply(values, quote_text, character(1)), collapse = ", "), ")")
+      values <- paste0("base::list(", paste(vapply(statement$fields, name, character(1)), collapse = ", "), ")")
+      body <- call_runtime("record", c(quote_text(statement$name), vector(statement$fields), vector(statement$types), values), statement$token)
+      return(paste0(name(statement$name), " <- function(", paste(vapply(statement$fields, name, character(1)), collapse = ", "), ") {\n  return(", body, ")\n}"))
+    }
     if (statement$kind == "function") {
       declared <<- c(declared, statement$name)
       return(paste0(name(statement$name), " <- function(", paste(vapply(statement$parameters, name, character(1)), collapse = ", "), ") {\n  return(", emit(statement$body), ")\n}"))
@@ -758,6 +854,8 @@ rss_runtime <- function() {
                    class = c("rstarstar_error", "error", "condition")))
   }
   type <- function(value) {
+    record <- attr(value, "rss_record_type", exact = TRUE)
+    if (is.list(value) && is.character(record) && length(record) == 1L && !is.na(record)) return(paste0("Record:", record))
     if (is.data.frame(value)) return("Table")
     if (is.numeric(value)) return("Number")
     if (is.character(value)) return("Text")
@@ -772,6 +870,7 @@ rss_runtime <- function() {
     } else if (op %in% c("and", "or")) {
       if (any(types != "Boolean")) error("Logical operations require booleans.")
     } else {
+      if (any(startsWith(types, "Record:"))) error("Record comparisons are not supported yet; compare individual fields.")
       if (types[[1L]] != types[[2L]] || any(types %in% c("Table", "Unsupported"))) error("Comparisons require matching value types.")
       if (op %in% c("<", "<=", ">", ">=") && types[[1L]] == "Boolean") error("Ordered comparisons require numbers or text.")
     }
@@ -783,6 +882,17 @@ rss_runtime <- function() {
            ">" = left > right, ">=" = left >= right, "and" = left & right, "or" = left | right)
   }
   runtime <- list(
+    record = function(record_name, fields, types, values, filename, line, column) {
+      for (i in seq_along(fields)) {
+        value <- values[[i]]
+        if (type(value) != types[[i]] || length(value) != 1L ||
+            !is.null(attributes(value)) || !typeof(value) %in% c("double", "integer", "logical", "character")) {
+          fail(sprintf("Field '%s' requires one plain %s value.", fields[[i]], types[[i]]), filename, line, column)
+        }
+      }
+      names(values) <- fields
+      structure(values, rss_record_type = record_name)
+    },
     condition = function(value, filename, line, column) {
       if (!is.logical(value) || !is.null(dim(value)) || length(value) != 1L || is.na(value)) {
         fail("An if condition must be exactly one nonmissing boolean.", filename, line, column)
@@ -889,15 +999,21 @@ rss_runtime <- function() {
     vector = function(values, filename, line, column) {
       if (any(lengths(values) != 1L)) fail("Vector elements must each contain one value.", filename, line, column)
       types <- vapply(values, type, character(1))
+      if (any(startsWith(types, "Record:"))) fail("Records cannot be vector elements yet.", filename, line, column)
       if (any(types %in% c("Table", "Unsupported")) || length(unique(types)) != 1L) fail("Vector elements must have the same non-table type.", filename, line, column)
       do.call(base::c, values)
     },
     column = function(table, name, filename, line, column) {
+      if (startsWith(type(table), "Record:")) {
+        if (!name %in% names(table)) fail(sprintf("Unknown record field '%s'.", name), filename, line, column)
+        return(table[[name, exact = TRUE]])
+      }
       if (!is.data.frame(table)) fail("Column access requires a table.", filename, line, column)
       if (!(name %in% names(table))) fail(sprintf("Unknown column '%s'. Check the table's column names.", name), filename, line, column)
       table[[name, exact = TRUE]]
     },
     missing = function(value, negate, filename, line, column) {
+      if (startsWith(type(value), "Record:")) fail("Test a record field for missing values, not a record.", filename, line, column)
       if (type(value) %in% c("Table", "Unsupported")) fail("Test a column or vector for missing values, not a table.", filename, line, column)
       result <- is.na(value)
       if (negate) !result else result

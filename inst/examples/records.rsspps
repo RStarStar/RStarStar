@@ -1,0 +1,19 @@
+record AnalysisResult {
+  label: Text
+  mean: Number
+  sample_size: Number
+}
+
+fn describe(values, label) {
+  return AnalysisResult(label: label, mean: average(values), sample_size: count(values))
+}
+
+result = describe([10, 20, 30], label: "Sales")
+print result
+print result.mean
+
+mut current = result
+current = AnalysisResult(label: "Revised", mean: 25, sample_size: 3)
+# Replacing current does not change result.
+print result.mean
+print current.mean

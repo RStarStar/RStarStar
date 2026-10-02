@@ -2,7 +2,7 @@
 
 This guide explores the intended experience. **Bindings, mut, literals, vectors,
 arithmetic, printing, CSV loading/export, column access, filtering, scalar/grouped summaries,
-PNG bar charts, simple user-defined functions, and conditional expressions now work; OOP remains proposed.** See the [implemented subset](implemented-subset.md) for exact working
+PNG bar charts, simple user-defined functions, conditional expressions, and basic records now work; classes remain proposed.** See the [implemented subset](implemented-subset.md) for exact working
 syntax and [design decisions](design-decisions.md) for open proposals.
 
 The R package provides transpile(path) for compilation and run_file(path) for
@@ -138,7 +138,12 @@ fn add_tax(amount, rate) {
   return amount * (1 + rate)
 }
 print add_tax([10, 20], 0.1)
+print add_tax(rate: 0.1, amount: 100)
 ```
+
+Calls may name parameters with name: value, using exact names. Positional arguments
+come first; named arguments can then appear in any order. Each parameter is required
+exactly once. See [named arguments](implemented-subset.md#named-function-arguments).
 
 The initial function form has parameters and a single return expression. Pass
 needed data explicitly; functions do not capture outer variables. Functions may
@@ -168,7 +173,7 @@ full rules and failure examples. Statement blocks and loops remain future work.
 record AnalysisResult {
   label: Text
   mean: Number
-  sample_size: Integer
+  sample_size: Number
 }
 
 result = AnalysisResult(
@@ -176,18 +181,21 @@ result = AnalysisResult(
   mean: 145.8,
   sample_size: 120
 )
-
 print result.mean
-
-updated = result with {
-  label: "Corrected October sales"
-}
 ```
 
-Proposed records provide generated constructors, readable printing, and value
-equality. Fields are public to read and immutable by default. The with expression
-creates a new value and validates its field names and types. Equality involving
-missing values or nested objects still needs a specification.
+This initial record form is implemented. Fields require one plain Number, Text,
+or Boolean value each. Constructors use the same positional/named argument rules
+as functions. Fields are public to read and cannot be assigned. A mut binding may
+be replaced with another value of the same declared record type; copies retain
+their original fields. An Integer field type is not implemented.
+
+Records use ordinary named R lists with an internal type attribute and base R
+printing. No class backend or dispatch system is selected. R callers can modify
+returned lists, so immutability is a source-language rule. Nested records, vector
+or table fields, equality, validation blocks, defaults, and the proposed with
+update expression remain future work. See [records](implemented-subset.md#records)
+for exact limits and failures.
 
 ## Classes: protect state and provide behavior
 

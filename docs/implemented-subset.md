@@ -90,7 +90,7 @@ then not, then and, then or. Comparisons cannot be chained; write x > 0 and x < 
 
 Names match [A-Za-z_][A-Za-z0-9_]* and are case-sensitive. The keywords mut, print,
 true, false, read, into, with, delimiter, filter, where, skipping, missing, is,
-and, or, not, plot, summarize, fn, return, write, if, then, and else cannot be names. Other R keywords may be names; generated identifiers
+and, or, not, plot, summarize, fn, return, write, if, then, else, and record cannot be names. Other R keywords may be names; generated identifiers
 are quoted, and generated function calls explicitly use the base namespace.
 
 Numbers start with a digit, have optional fractional digits (such as 1.25), and
@@ -401,8 +401,8 @@ contains exactly one return expression. Braces may share a line with the express
 or enclose it on separate lines; comments and blank lines around return are allowed.
 Multiline return expressions must use parentheses/brackets, as elsewhere.
 
-Calls use positional arguments with exactly the declared count, including zero
-arguments. Arguments are evaluated once, left to right, before entering the body,
+Calls use positional or named arguments with exactly the declared count, including
+zero arguments. Named arguments use parameter: value; see the rules below. Arguments are evaluated once, left to right, before entering the body,
 even when unused. Parameters are immutable local bindings; they can shadow outer
 variable names without changing them. Functions accept scalar/vector/table values,
 and may return those values. Types and lengths that are unknown from source are
@@ -434,7 +434,7 @@ and append call locations as they propagate. Argument errors retain their origin
 expression location. Runtime helpers are isolated from user functions so names
 such as mean or c cannot replace implementation dependencies.
 
-This first version excludes annotations, named/default arguments, nested functions,
+This first version excludes annotations, default arguments, nested functions,
 closures, recursion, assignments or other statements inside bodies, and methods.
 A function definition need not be followed by a call. A bare call as a top-level
 statement is not yet supported: assign or print its result instead.
@@ -520,3 +520,93 @@ Number binding to a selected Text value fails rather than coercing it.
 Generated code uses R's lazy if expression plus a source-located condition check,
 not vectorized ifelse(). Compilation never evaluates either branch. Function
 condition errors retain their source location and language call-chain context.
+
+
+## Named function arguments
+
+```text
+fn add_tax(amount, rate) {
+  return amount * (1 + rate)
+}
+a = add_tax(rate: 0.1, amount: 100)
+b = add_tax(100, rate: 0.1)
+```
+
+User-defined functions accept parameter: expression in calls. Names are exact and
+case-sensitive, with no partial matching. Named arguments may appear in any order;
+all positional arguments must precede them. Each positional argument supplies its
+corresponding parameter in declaration order, and every parameter must be supplied
+exactly once. There are no defaults or omitted parameters.
+
+For example, add_tax(100, amount: 0.1) fails because amount was supplied twice;
+add_tax(rate: 0.1, 100) fails because a positional argument follows a named one.
+add_tax(amt: 100, rate: 0.1) fails rather than guessing that amt means amount.
+The equals sign is still assignment syntax, not a named-argument separator.
+
+Arguments evaluate once, from left to right in source order, before the function
+body, including arguments the body does not use. Reordering names does not reorder
+evaluation. Argument labels do not introduce variables or affect expression scope:
+inside filters, use @variable for caller bindings as before. Body failures retain
+source locations and language call-chain context.
+
+This syntax applies to user-defined functions and record constructors. Built-in average, sum, and
+count retain their single-input syntax and optional skipping missing modifier.
+Function parameter declarations remain plain names; function annotations, default
+values, nested record fields, and the external R-call bridge are still future work. Functions
+returned to R callers remain ordinary R closures with ordinary R call syntax.
+
+
+## Records
+
+```text
+record AnalysisResult {
+  label: Text
+  mean: Number
+}
+result = AnalysisResult(mean: 145.8, label: "Sales")
+print result.mean
+```
+
+record is reserved. A top-level declaration defines at least one uniquely named
+field, one per line inside braces (a single field may share a line with the braces).
+Fields require explicit Number, Text, or Boolean annotations and hold exactly one
+plain scalar of that type. Integer, nested records, vectors, tables, defaults, and
+methods are not supported as field declarations. A scalar missing value is allowed
+when it has the required type; no nonmissing or finite-number constraint is added.
+
+The generated constructor takes every field exactly once, using ordinary source
+positional/named call rules. Constructors share the function/binding namespace,
+cannot replace built-in summaries, and must be declared before use. Known wrong
+types and lengths fail during analysis; unknown inputs are checked when constructed.
+Constructor runtime errors point to the declaration and include the language call
+location. For example, AnalysisResult(label: "Sales", mean: [1, 2]) fails because
+mean requires one Number value. Both labels and values are checked without executing
+source during compilation.
+
+Read a field through variable.field or variable."field". Unknown fields fail rather
+than partially matching. Functions can construct, accept, and return records, and
+can use previously declared constructors without capturing ambient variables.
+Field types inform inference when the record type is known. Direct field assignment
+is unsupported. Reconstruct the value to change it:
+
+```text
+mut current = result
+current = AnalysisResult(label: "Revised", mean: 150)
+print result.mean  # Still 145.8
+```
+
+A mutable record binding retains its declared record type, even if a different
+record has the same field layout. Replacing current does not modify result.
+Records have no equality, ordering, arithmetic, vector-element, or whole-record
+missingness/summary behavior; operate on their fields instead. The proposed with
+update expression remains unimplemented.
+
+Generated records are named R lists in declaration order, with an internal
+rss_record_type attribute used by runtime checks. No S3/S4/R6 class backend is
+selected; print uses base R list display. run_file() returns both records and
+constructor functions. R callers use ordinary R calls and may modify those lists;
+this representation is experimental and offers no deep-immutability or validation
+guarantee after external modification. Direct R constructor calls require plain
+attribute-free scalar fields (including no Date, factor, matrix, environment,
+list, complex, or attributed scalar values). See the packaged records.rsspps and
+examples/records.R demonstration.

@@ -6,12 +6,12 @@
 \description{
 An R package that compiles local \code{.rsspps} source files to ordinary R.
 The initial language includes immutable bindings, explicit mutation, vectors,
-CSV loading and export, filtering, grouped summaries, PNG charts, simple functions, and conditional expressions.
+CSV loading and export, filtering, grouped summaries, PNG charts, simple functions, conditional expressions, and records with typed scalar fields.
 }
 \details{
 Use \code{transpile(path)} to compile a file without running it. Packaged source
 examples are available with \code{system.file("examples", package = "RStarStar")}.
-There is no public command-line interface. Records, classes, general R calls,
+There is no public command-line interface. Classes and general R calls
 remain future work. Use \code{run_file(path)} to execute a file and return its
 variables and functions to R.
 }
