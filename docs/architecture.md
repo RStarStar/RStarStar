@@ -122,3 +122,12 @@ Known field types participate in inference, and dynamic field lookup checks exac
 names. Runtime type tags distinguish mutable bindings of different record types.
 The scalar-only, attribute-free constructor boundary excludes nested references;
 external R mutation of returned values is outside the source-language guarantee.
+
+
+Record updates are postfix AST nodes carrying receiver, field labels, replacement
+expressions, and source spans. Analysis validates known schemas and defers unknown
+receivers to runtime. The runtime checks receiver/name validity, evaluates replacement
+values in source order, and validates a copied candidate through the existing record
+constructor helper. No field of the original list is assigned. Internal type/order
+metadata and unchanged scalar fields are preserved; this is not a foreign-reference
+copying policy.

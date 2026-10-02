@@ -430,3 +430,25 @@ per-instance type guessing; scalar-only fields keep the initial copying contract
 small enough to verify. Tests cover schema/call errors, static and dynamic checks,
 function use, lookup, aliases, nominal reassignment, typed missing values, rejection
 of undefined record operations, and R/file/standalone boundaries.
+
+
+## 2026-10-02 — Copy updates for records
+
+Status: implemented, experimental in 0.0.7. Adopt the proposed with expression as
+receiver with { field: value, ... }, creating a new record of the same nominal type.
+Require at least one unique, exact field name and preserve scalar field types.
+Commas separate fields, with optional boundary newlines and no trailing comma.
+Updates attach to primary expressions and may chain; parentheses select a whole
+conditional receiver. General chained field access remains deferred.
+
+The receiver and field names are validated before replacement evaluation. Values
+then evaluate once in source order, using surrounding scope, before construction
+of the validated copy. Updates are simultaneous with respect to the original
+record: swapping fields reads their original values. Failures leave the original
+and aliases unchanged; rebinding still follows ordinary mut rules. Both known
+schemas and dynamic function inputs receive checks and source-located errors.
+
+This supersedes the previous deferral of with updates. Alternatives deferred:
+in-place field mutation (requires mutable object semantics), implicit field scope
+(ambiguous with caller variables), and sequential field updates (order-sensitive).
+Nested fields, equality, classes, and the external R mutation boundary are unchanged.

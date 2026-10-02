@@ -193,9 +193,20 @@ their original fields. An Integer field type is not implemented.
 Records use ordinary named R lists with an internal type attribute and base R
 printing. No class backend or dispatch system is selected. R callers can modify
 returned lists, so immutability is a source-language rule. Nested records, vector
-or table fields, equality, validation blocks, defaults, and the proposed with
-update expression remain future work. See [records](implemented-subset.md#records)
+or table fields, equality, validation blocks, and defaults remain future work. See [records](implemented-subset.md#records)
 for exact limits and failures.
+
+Use with to create an updated record without repeating every field:
+
+```text
+updated = result with { label: "Corrected sales", mean: 150 }
+print result.mean   # Still 145.8
+print updated.mean  # 150
+```
+
+Replacement expressions read the original scope; fields are not assigned in place.
+Unknown/duplicate fields and wrong field types are errors. See
+[record updates](implemented-subset.md#record-updates) for evaluation and syntax rules.
 
 ## Classes: protect state and provide behavior
 

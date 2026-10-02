@@ -68,7 +68,8 @@ R 4.6.0 remains pending. No public CLI is planned. See the
 - [x] Lazy conditional expressions with one nonmissing boolean condition.
 - [x] Exact named function arguments with explicit source evaluation order.
 - [x] Basic records with typed scalar fields, generated constructors, and field access.
-- [ ] Record updates/equality/nesting, classes, and methods.
+- [x] Validated record copy updates with with expressions.
+- [ ] Record equality/nesting, classes, and methods.
 
 Implement records, classes, constructors, methods, and explicit mutation after
 settling the object backend and value-semantics boundary. Define functions and

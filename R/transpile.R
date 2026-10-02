@@ -114,7 +114,7 @@ rss_parse <- function(tokens, filename) {
            span = list(line = token$line, column = token$column,
                        end_line = end$end_line, end_column = end$end_column)), fields)
   }
-  primary <- function() {
+  atom <- function() {
     token <- peek()
     if (token$kind == "if") {
       take()
@@ -200,6 +200,37 @@ rss_parse <- function(tokens, filename) {
       return(node("vector", token, values = values))
     }
     rss_error("Expected a value, variable, vector, or parenthesized expression.", token, filename)
+  }
+  primary <- function() {
+    value <- atom()
+    while (peek()$kind == "with") {
+      token <- take()
+      expect("{", "Expected '{' after 'with' for a record update.")
+      while (peek()$kind == "newline") take()
+      fields <- character()
+      values <- list()
+      field_tokens <- list()
+      if (peek()$kind == "}") rss_error("A record update must name at least one field.", peek(), filename)
+      repeat {
+        field <- expect("name", "Expected a field name in the record update.")
+        if (field$value %in% fields) rss_error("Record update field names must be unique.", field, filename)
+        expect(":", "Expected ':' before the replacement value.")
+        fields <- c(fields, field$value)
+        field_tokens[[length(field_tokens) + 1L]] <- field
+        values[[length(values) + 1L]] <- expression()
+        while (peek()$kind == "newline") take()
+        if (peek()$kind != ",") break
+        take()
+        while (peek()$kind == "newline") take()
+      }
+      expect("}", "Expected '}' after the record update; separate fields with commas.")
+      updated <- node("record_update", token, value = value, fields = fields,
+                      values = values, field_tokens = field_tokens)
+      updated$span$line <- value$span$line
+      updated$span$column <- value$span$column
+      value <- updated
+    }
+    value
   }
   unary <- function() {
     if (peek()$kind %in% c("+", "-")) {
@@ -471,6 +502,21 @@ rss_analyze <- function(statements, filename) {
   infer <- function(value, in_filter = FALSE) {
     kind <- value$kind
     recurse <- function(x) infer(x, in_filter)
+    if (kind == "record_update") {
+      receiver <- recurse(value$value)
+      if (receiver$type != "Unknown" && !startsWith(receiver$type, "Record:")) rss_error("A with update requires a record.", value$token, filename)
+      schema <- if (receiver$type == "Unknown") NULL else get(receiver$type, records, inherits = FALSE)
+      for (i in seq_along(value$fields)) {
+        field <- value$fields[[i]]
+        if (!is.null(schema) && !field %in% names(schema)) rss_error(sprintf("Unknown record field '%s'.", field), value$field_tokens[[i]], filename)
+        replacement <- recurse(value$values[[i]])
+        if (!is.null(schema) && (!replacement$type %in% c(schema[[field]], "Unknown") ||
+            (!is.na(replacement$size) && replacement$size != 1L))) {
+          rss_error(sprintf("Field '%s' requires one %s value.", field, schema[[field]]), value$field_tokens[[i]], filename)
+        }
+      }
+      return(info(receiver$type, 1L))
+    }
     if (kind == "conditional") {
       condition <- recurse(value$condition)
       if (!condition$type %in% c("Boolean", "Unknown")) rss_error("An if condition must be boolean.", value$condition$token, filename)
@@ -671,6 +717,9 @@ rss_generate <- function(statements, filename) {
   emit <- function(value, table = NULL) {
     recurse <- function(x) emit(x, table)
     switch(value$kind,
+      record_update = call_runtime("record_update", c(recurse(value$value),
+        paste0("base::c(", paste(vapply(value$fields, quote_text, character(1)), collapse = ", "), ")"),
+        paste0("base::list(", paste(vapply(value$values, recurse, character(1)), collapse = ", "), ")")), value$token),
       conditional = paste0("(if (", call_runtime("condition", recurse(value$condition), value$condition$token),
                            ") ", recurse(value$yes), " else ", recurse(value$no), ")"),
       call = {
@@ -1034,6 +1083,18 @@ rss_runtime <- function() {
       value
     }
   )
+  runtime$record_update <- function(value, fields, replacements, filename, line, column) {
+    if (!startsWith(type(value), "Record:")) fail("A with update requires a record.", filename, line, column)
+    absent <- fields[!fields %in% names(value)]
+    if (length(absent)) fail(sprintf("Unknown record field '%s'.", absent[[1L]]), filename, line, column)
+    # Force replacements in source order, before constructing the new value.
+    replacements <- lapply(replacements, identity)
+    types <- vapply(value, type, character(1))
+    result <- value
+    for (i in seq_along(fields)) result[fields[[i]]] <- replacements[i]
+    runtime$record(attr(value, "rss_record_type", exact = TRUE), names(value), types,
+                   result, filename, line, column)
+  }
   runtime$summarize <- function(table, keys, specs, filename, line, column) {
     error <- function(message) fail(message, filename, line, column)
     if (!is.data.frame(table)) error("Grouped summaries require a table.")

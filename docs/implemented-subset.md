@@ -156,7 +156,7 @@ line 2. Undefined names, mixed vector types, nonnumeric arithmetic, and mismatch
 vector lengths also fail before R generation.
 
 Not implemented: other chart types, general indexing, conditional statements, multi-statement functions,
-annotations, explicit conversions, records, classes, interfaces, and arbitrary
+function annotations, explicit conversions, nested records, classes, interfaces, and arbitrary
 R calls. Input is parsed as RStarStar, never evaluated as R during compilation.
 
 
@@ -587,7 +587,7 @@ Read a field through variable.field or variable."field". Unknown fields fail rat
 than partially matching. Functions can construct, accept, and return records, and
 can use previously declared constructors without capturing ambient variables.
 Field types inform inference when the record type is known. Direct field assignment
-is unsupported. Reconstruct the value to change it:
+is unsupported. Reconstruct the value or use with to change it:
 
 ```text
 mut current = result
@@ -598,8 +598,7 @@ print result.mean  # Still 145.8
 A mutable record binding retains its declared record type, even if a different
 record has the same field layout. Replacing current does not modify result.
 Records have no equality, ordering, arithmetic, vector-element, or whole-record
-missingness/summary behavior; operate on their fields instead. The proposed with
-update expression remains unimplemented.
+missingness/summary behavior; operate on their fields instead. The with update expression creates a new validated value as described below.
 
 Generated records are named R lists in declaration order, with an internal
 rss_record_type attribute used by runtime checks. No S3/S4/R6 class backend is
@@ -610,3 +609,42 @@ guarantee after external modification. Direct R constructor calls require plain
 attribute-free scalar fields (including no Date, factor, matrix, environment,
 list, complex, or attributed scalar values). See the packaged records.rsspps and
 examples/records.R demonstration.
+
+
+## Record updates
+
+```text
+updated = result with { mean: 150, label: "Corrected" }
+mut current = result
+current = current with { mean: current.mean + 1 }
+```
+
+A with { field: expression, ... } expression copies a record and replaces selected
+fields. At least one field is required. Field names must be unique and match exactly;
+values must retain the field's scalar type. Unspecified fields, declaration order,
+and the nominal record type are preserved. The source record and any aliases stay
+unchanged, including on failure. Rebinding an immutable variable still fails.
+
+Separate fields with commas. Newlines are allowed after the opening brace, around
+commas, and before the closing brace; multiline replacement expressions themselves
+need parentheses as usual. Trailing commas are not supported. Updates bind to the
+preceding primary expression, including a constructor call, function call, or a
+parenthesized expression. They can chain: p with { x: 2 } with { x: 3 }. To update
+an entire conditional result, use (if flag then a else b) with { x: 3 }.
+Assign the result to a variable before reading its fields; general chained field
+access is not added by this change.
+
+All expressions are analyzed during compilation. At runtime the receiver is
+evaluated first and must be a record; update names are then checked. Replacement
+expressions evaluate once in written order before field validation and construction.
+They use ordinary surrounding scope, with no implicit field variables and no view
+of earlier replacements. Thus p with { x: p.y, y: p.x } swaps the original values.
+An invalid dynamic field name fails before replacement expressions run. Replacement
+expression errors keep their own locations; dynamic update validation errors point
+to with and retain function call chains. Unchosen conditional branches remain lazy.
+
+For example, p with { unknown: 1 } fails for an unknown field, while p with
+{ x: "text" } fails if x is Number. An update inside a function can accept a record
+parameter and returns a new record. No general table update, nested update, equality,
+or foreign-object immutability policy is introduced. The existing experimental R
+representation and external-mutation limits still apply.

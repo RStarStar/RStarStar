@@ -411,3 +411,31 @@ check --no-manual reported Status: OK (zero errors, warnings, or notes), followi
 sandbox dependency-index failures. Documentation links, fences, and whitespace
 checks passed. Validation remains local R 4.6.0/macOS arm64; hosted CI and PDF
 manual generation remain unverified.
+
+
+## 2026-10-02 — Record copy updates
+
+Added receiver with { field: value, ... } in version 0.0.7. The expression creates
+a validated record of the same nominal type, preserving unspecified fields and
+declaration order without changing the original or aliases. Known schemas are
+checked during analysis; dynamic receivers and replacements receive runtime checks.
+Field names must be unique and exact. Receiver/name validation precedes replacement
+evaluation, which follows source order and reads the original surrounding scope.
+Ordinary mut rules still govern rebinding.
+
+Updates attach to primary expressions, can chain, and support comma-separated
+fields with boundary newlines. AST spans cover the receiver and full update while
+diagnostics retain update/field locations. Updated the record demo, guide/reference,
+decisions, architecture, roadmap, README, and version references. Corrected a stale
+reference-page list that still described all records as unimplemented. Nested
+updates, record equality, classes, and foreign-reference guarantees remain deferred.
+
+Verification: the shared runner reinstalled the package and passed 195 checks with
+zero skips. Eight new cases cover original/alias preservation, simultaneous swaps,
+chained and computed receivers, malformed and invalid updates, dynamic errors/call
+chains, replacement order/lazy branches, public/standalone execution, and AST spans.
+All eight demos and source build passed. Following sandbox dependency-index failures,
+the network-enabled R CMD check --no-manual rerun reported Status: OK with zero
+errors, warnings, or notes. Documentation links, fences, and git diff whitespace
+passed. Validation remains local R 4.6.0/macOS arm64; hosted CI and PDF manuals
+remain unverified.

@@ -13,7 +13,7 @@ print result
 print result.mean
 
 mut current = result
-current = AnalysisResult(label: "Revised", mean: 25, sample_size: 3)
+current = current with { label: "Revised", mean: 25 }
 # Replacing current does not change result.
 print result.mean
 print current.mean
