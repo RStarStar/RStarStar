@@ -91,3 +91,10 @@ then evaluates generated R in a fresh environment parented by baseenv(). It retu
 final bindings through mget(), excluding reserved compiler helpers. Returned function
 closures retain that environment. Execution is explicit, with no caller injection,
 working-directory changes, effect rollback, or external-call bridge.
+
+
+CSV write statements validate a table binding during analysis and emit an embedded
+runtime call. The writer uses utils::write.table on a temporary UTF-8 file, then
+file.copy(overwrite = FALSE) to publish it. It checks column types, reports I/O
+errors at the source statement, and cleans up the temporary file. Compilation
+never inspects the destination; publication is not guaranteed atomic.

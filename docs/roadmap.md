@@ -37,6 +37,7 @@ file-only public API and installed-namespace behavioral tests.
 - [x] CSV loading, optional delimiter, mutable targets, and source-located errors.
 - [x] Column access, comparisons, compound predicates, and explicit missing-value filtering.
 - [x] Scalar average/sum/count summaries and a saved PNG bar chart.
+- [x] Explicit CSV export of analysis tables with overwrite protection.
 
 The workflow example now reads, filters, computes scalar summaries, and saves a
 bar chart. The grouped-summary extension now combines repeated categories with

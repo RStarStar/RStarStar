@@ -1,7 +1,7 @@
 # Initial language guide
 
 This guide explores the intended experience. **Bindings, mut, literals, vectors,
-arithmetic, printing, CSV loading, column access, filtering, scalar/grouped summaries,
+arithmetic, printing, CSV loading/export, column access, filtering, scalar/grouped summaries,
 PNG bar charts, and simple user-defined functions now work; OOP remains proposed.** See the [implemented subset](implemented-subset.md) for exact working
 syntax and [design decisions](design-decisions.md) for open proposals.
 
@@ -34,6 +34,17 @@ The loader reads local UTF-8 CSV files with headers. It infers numeric, boolean,
 or text columns, preserves missing values, and rejects malformed rows. See the
 [implemented subset](implemented-subset.md#csv-loading) for exact inference and
 missing-value rules. Schemas and other file formats remain future work.
+
+Save a table after analysis with an explicit write statement:
+
+```text
+write profitable_sales to "profitable-sales.csv"
+```
+
+This executes only when the program runs. The destination directory must exist;
+existing files are refused. CSV export uses UTF-8, comma separators, and empty
+fields for missing values. Re-reading infers types again, so it is not exact typed
+serialization. See [CSV export](implemented-subset.md#csv-export) for details.
 
 ## Bindings and mutation
 

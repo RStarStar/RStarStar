@@ -49,7 +49,7 @@ rss_tokenize <- function(source, filename) {
       begin <- i
       while (i <= n && grepl("^[A-Za-z0-9_]$", current())) advance()
       value <- paste0(chars[begin:(i - 1L)], collapse = "")
-      kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not", "plot", "summarize", "fn", "return")) value else "name"
+      kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not", "plot", "summarize", "fn", "return", "write")) value else "name"
       add(kind, value, start)
     } else if (grepl("^[0-9]$", ch)) {
       rest <- paste0(chars[i:n], collapse = "")
@@ -314,6 +314,14 @@ rss_parse <- function(tokens, filename) {
       statement <- node("assign", token, name = target$value, name_token = target,
                         mutable = mutable, value = node("summarize", token,
                         table = table$value, table_token = table, keys = keys, summaries = summaries))
+    } else if (token$kind == "write") {
+      take()
+      table <- expect("name", "Expected a table variable after 'write'.")
+      if (peek()$kind != "name" || peek()$value != "to") rss_error("Expected 'to' before the CSV output path.", peek(), filename)
+      take()
+      path <- expect("text", "Expected a quoted CSV output path.")
+      if (!grepl("\\.csv$", path$value, ignore.case = TRUE)) rss_error("Table export requires a .csv output path.", path, filename)
+      statement <- node("write", token, table = table$value, table_token = table, path = path$value)
     } else if (token$kind == "plot") {
       take()
       table <- expect("name", "Expected a table variable after 'plot'.")
@@ -518,7 +526,7 @@ rss_analyze <- function(statements, filename) {
       assign(statement$name, list(info = signature, mutable = FALSE), bindings)
       next
     }
-    if (statement$kind == "plot") {
+    if (statement$kind %in% c("plot", "write")) {
       require_table(statement$table, statement$table_token)
       next
     }
@@ -596,6 +604,7 @@ rss_generate <- function(statements, filename) {
       declared <<- c(declared, statement$name)
       return(paste0(name(statement$name), " <- function(", paste(vapply(statement$parameters, name, character(1)), collapse = ", "), ") {\n  return(", emit(statement$body), ")\n}"))
     }
+    if (statement$kind == "write") return(call_runtime("write", c(name(statement$table), quote_text(statement$path)), statement$token))
     if (statement$kind == "plot") return(call_runtime("plot", c(name(statement$table), quote_text(statement$x), quote_text(statement$y), quote_text(statement$path)), statement$token))
     if (statement$kind == "print") return(paste0("base::print(", emit(statement$value), ")"))
     rhs <- emit(statement$value)
@@ -774,6 +783,34 @@ rss_runtime <- function() {
       result <- if (operation == "average") mean(value) else sum(value)
       if (!is.finite(result)) error("Summary result is outside the finite numeric range.")
       as.double(result)
+    },
+    write = function(table, path, filename, line, column) {
+      error <- function(message) fail(message, filename, line, column)
+      if (!is.data.frame(table)) error("CSV export requires a table.")
+      if (!ncol(table) || anyNA(names(table)) || any(!nzchar(trimws(names(table)))) || anyDuplicated(names(table))) {
+        error("CSV column names must be nonempty and unique.")
+      }
+      for (value in table) {
+        if (!is.null(dim(value)) || is.object(value) ||
+            !typeof(value) %in% c("double", "integer", "logical", "character")) {
+          error("CSV export supports only plain number, boolean, and text columns.")
+        }
+        if (is.numeric(value) && any(!is.finite(value) & !is.na(value))) error("CSV numbers must be finite or missing.")
+      }
+      if (file.exists(path)) error("CSV output already exists; choose a new path.")
+      if (!dir.exists(dirname(path))) error("CSV output directory does not exist.")
+      temporary <- tempfile(pattern = ".rstarstar-csv-", tmpdir = dirname(path), fileext = ".csv")
+      on.exit(unlink(temporary), add = TRUE)
+      tryCatch(withCallingHandlers({
+        utils::write.table(table, file = temporary, sep = ",", dec = ".", quote = TRUE,
+                           row.names = FALSE, col.names = TRUE, na = "", eol = "\n",
+                           qmethod = "double", fileEncoding = "UTF-8")
+        if (!file.copy(temporary, path, overwrite = FALSE)) error("Could not save CSV; check the output path and permissions.")
+      }, warning = function(w) stop(conditionMessage(w), call. = FALSE)), error = function(e) {
+        if (inherits(e, "rstarstar_error")) stop(e)
+        error(paste("Could not write CSV:", conditionMessage(e)))
+      })
+      invisible(path)
     },
     plot = function(table, x, y, path, filename, line, column) {
       error <- function(message) fail(message, filename, line, column)

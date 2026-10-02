@@ -337,3 +337,24 @@ runtime failure returns no partial results and does not roll back earlier effect
 Compile failure prevents all execution. This offers simple R result transfer without
 choosing an external-call syntax or promising deep immutability or sandboxing.
 The external R bridge and object model remain future work.
+
+
+## 2026-10-02 — CSV result export
+
+Status: implemented in 0.0.3. Add write table to "output.csv" to save analysis
+results. write becomes reserved. Input is a table variable and destination is a
+quoted .csv path (case-insensitive suffix). This intentionally starts with one
+format and no append, overwrite, or custom-delimiter options.
+
+Execution writes UTF-8 comma-separated data with quoted headers/text, doubled
+embedded quotes, LF endings, no row names, TRUE/FALSE booleans, and empty missing
+fields. Header-only tables work. Numeric formatting follows utils::write.table;
+CSV does not preserve every type or numeric bit. Re-reading follows existing
+inference, including empty/NA text becoming missing. Use returned R values for
+exact in-session results instead.
+
+Compilation does no output I/O. Execution requires an existing directory and
+refuses existing destinations. A temporary file is cleaned up after publication
+or failure; publication is not promised atomic. Runtime failures preserve source
+locations. This extends ordinary analysis without changing the unresolved object
+model or external-call bridge.

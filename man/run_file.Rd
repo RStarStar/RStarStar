@@ -21,7 +21,7 @@ Compilation errors prevent execution. Runtime errors propagate without returning
 partial results; earlier console and file effects are not rolled back. Language
 errors retain their original source locations.
 
-Printing goes to normal R output. Data and chart paths resolve from the caller's
+Printing goes to normal R output. CSV exports refuse to overwrite existing files. Data and chart paths resolve from the caller's
 working directory; this function does not change it. Charts retain their existing
 Cairo requirement and refusal to overwrite files.
 

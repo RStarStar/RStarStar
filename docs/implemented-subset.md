@@ -90,7 +90,7 @@ then not, then and, then or. Comparisons cannot be chained; write x > 0 and x < 
 
 Names match [A-Za-z_][A-Za-z0-9_]* and are case-sensitive. The keywords mut, print,
 true, false, read, into, with, delimiter, filter, where, skipping, missing, is,
-and, or, not, plot, summarize, fn, and return cannot be names. R keywords may be names; generated identifiers
+and, or, not, plot, summarize, fn, return, and write cannot be names. R keywords may be names; generated identifiers
 are quoted, and generated function calls explicitly use the base namespace.
 
 Numbers start with a digit, have optional fractional digits (such as 1.25), and
@@ -448,3 +448,35 @@ variables and callable functions, excluding runtime helpers. Printing and file
 operations occur during execution; paths use the caller's working directory.
 Errors propagate without partial results or rollback of earlier effects. See the
 [package guide](r-package.md#explicit-execution-from-r) for result and scope rules.
+
+
+## CSV export
+
+```text
+read "sales.csv" into sales
+summarize sales by region with total = sum(revenue) skipping missing into totals
+write totals to "totals.csv"
+```
+
+write is a reserved keyword. The input must be a declared table variable; the
+output must be a quoted literal ending in .csv (case-insensitive). Export writes
+UTF-8 comma-separated data with headers, LF line endings, no row names, and doubled
+quotes inside quoted text. Numbers use R's standard write.table formatting with a
+decimal point, booleans use TRUE/FALSE, and missing entries become empty fields.
+Header-only output is supported. Custom delimiters and append/overwrite modes are
+not implemented.
+
+Compilation checks syntax and known types but does not inspect or create the
+output. Execution checks runtime table types and writes via a temporary file in
+the destination directory. The directory must exist and an existing destination
+is refused, including when it is also the input file. Errors point to the write
+statement. Temporary files are cleaned up; publishing is not an atomic transaction
+or a promise of crash recovery. Relative paths use the execution working directory.
+For example, running the program twice reports an existing-output error on the
+second run; choose a new filename explicitly.
+
+CSV is a data-exchange format, not exact typed serialization. Re-reading applies
+the existing inference rules: empty text and the literal text NA become missing,
+numeric-looking text can become numbers, and empty/all-missing columns become
+Text. Standard numeric formatting can lose precision. Use the R values returned
+by run_file() when preserving R types and precision matters.

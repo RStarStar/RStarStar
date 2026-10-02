@@ -11,7 +11,7 @@ syntax difficult to approach. Prior programming experience is not required.
 ## Project status
 
 **Compiler prototype.** Bindings, `mut`, literals, vectors, arithmetic, printing,
-CSV loading, column access, filtering, scalar/grouped summaries, and PNG bar charts
+CSV loading/export, column access, filtering, scalar/grouped summaries, and PNG bar charts
 transpile to readable R. Grouping supports multiple columns, such as region and
 product. Simple user-defined functions are supported; records, classes, and
 interfaces remain future work.
@@ -59,6 +59,7 @@ filter sales where revenue > 0 skipping missing into profitable_sales
 print average(profitable_sales.revenue)
 print sum(profitable_sales.revenue)
 summarize profitable_sales by region with total = sum(revenue) into totals
+write totals to "totals.csv"
 plot totals x region y total as bar to "revenue.png"
 
 scores = [72, 85, 91, 68]

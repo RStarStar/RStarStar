@@ -294,3 +294,31 @@ Hosted jobs have not run; Linux, Windows, and R 4.1.0 compatibility remain
 unverified. actionlint was unavailable, so validation covered YAML parsing and
 local runner execution rather than full GitHub expression linting. PDF manuals
 remain outside these checks.
+
+
+## 2026-10-02 — CSV export of analysis results
+
+Added write table to "output.csv" in version 0.0.3, reserving the write keyword.
+Parsing checks the table/path syntax, analysis checks known table types, and
+standalone generated R embeds runtime export checks. Execution uses UTF-8 CSV
+with quoted text/headers, doubled quotes, LF endings, no row names, and empty
+missing fields. Header-only tables are supported. Existing destinations and
+missing parent directories are rejected with source-located errors. A temporary
+file is cleaned up after writing; compilation performs no destination I/O.
+
+Updated the language/package guides, README workflow, architecture, decision
+record, roadmap, and installed help. Export deliberately has no append, overwrite,
+or delimiter options. CSV inference can change types on re-read, and standard
+numeric formatting is not exact serialization. Publication is not guaranteed
+atomic; no rollback or crash-recovery guarantee was added.
+
+Verification: the shared check runner reinstalled the package in a temporary
+library, passed 156 behavioral checks with zero skips, ran all seven demos, and
+built/checked version 0.0.3. Seven new checks cover values/missing data, Unicode
+and escaping, grouped/header-only output, source failures, overwrite and path
+errors, execution-only effects, and dynamic type failures. A test expectation
+was adjusted for base R read.csv inferring integer output, without changing the
+compiler's numeric behavior. The network-enabled check rerun after sandbox index
+failures finished Status: OK (zero errors, warnings, or notes). Documentation
+links, fences, and git diff whitespace checks passed. Validation remains local
+R 4.6.0/macOS arm64; the hosted matrix and PDF manual remain unverified.

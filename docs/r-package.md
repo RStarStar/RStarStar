@@ -1,6 +1,6 @@
 # R package guide
 
-RStarStar 0.0.2 is an experimental, locally installable R package. There is no
+RStarStar 0.0.3 is an experimental, locally installable R package. There is no
 public CLI and no published CRAN release. It exports transpile(path) to return generated R text and run_file(path) to
 execute a program and return its bindings. Both accept .rsspps files only.
 
@@ -62,9 +62,9 @@ Names follow R's default sorted order; runtime helpers are excluded. Empty and
 print-only programs return an empty list. Returned functions retain their checks
 and can be called by existing R code, using ordinary R argument semantics.
 
-Printing goes to normal R output. CSV reads and chart writes happen during execution;
+Printing goes to normal R output. CSV reads/exports and chart writes happen during execution;
 relative paths use the caller's working directory, which run_file() does not change.
-Charts still require Cairo and refuse to overwrite existing files. Runtime errors
+CSV exports and charts refuse to overwrite existing files. Charts still require Cairo. Runtime errors
 preserve source locations and return no partial result. Earlier output/file effects
 are not rolled back. For example, a print followed by a missing CSV still prints
 before raising an error; an invalid declaration later in the file prevents all execution.
@@ -86,7 +86,7 @@ from the source-package payload using .Rbuildignore.
 
 Reinstall after changing R/ and run Rscript tests/run.R against that installation.
 Tests include internal compiler cases and public file-API cases. R CMD build .
-and R CMD check --no-manual RStarStar_0.0.2.tar.gz validate the package, installed
+and R CMD check --no-manual RStarStar_0.0.3.tar.gz validate the package, installed
 help, examples, and tests. Use the current version in the archive name. Chart
 rendering tests report skips when Cairo is unavailable. --no-manual omits PDF
 manual generation only. See [Contributing](../CONTRIBUTING.md) for commands.
