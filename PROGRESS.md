@@ -322,3 +322,29 @@ compiler's numeric behavior. The network-enabled check rerun after sandbox index
 failures finished Status: OK (zero errors, warnings, or notes). Documentation
 links, fences, and git diff whitespace checks passed. Validation remains local
 R 4.6.0/macOS arm64; the hosted matrix and PDF manual remain unverified.
+
+
+## 2026-10-02 — Lazy conditional expressions
+
+Added if condition then value else fallback in version 0.0.4. Conditions require
+one nonmissing boolean, checked statically where possible and at runtime otherwise.
+Both branches are analyzed, but only the chosen branch executes. Branches can
+return different types/lengths; inference retains matching information and runtime
+checks protect surrounding operations and mutable bindings. Generated R uses
+native if and an embedded source-located condition validator.
+
+Updated language/reference guides, decisions, architecture, roadmap, README,
+installed package help, and the packaged functions example with safe_average().
+if, then, and else are newly reserved; the earlier R-keyword binding test now uses
+repeat instead of if. This is an intentional syntax compatibility change. Statement
+blocks, loops, records, classes, and the external R bridge remain unimplemented.
+
+Verification: reinstalled through the shared runner and passed 165 behavioral
+checks with zero skips, including nine new conditional cases. Coverage includes
+nesting, precedence, lazy branches, static errors in unused branches, invalid
+conditions, safe empty-input handling, dynamic types/lengths, mutable updates,
+filter scope, and callable functions returned by the file API. All seven demos
+and source build passed. After sandbox dependency-index access failed, the
+network-enabled R CMD check --no-manual rerun reported Status: OK (zero errors,
+warnings, or notes). Documentation links, fences, and whitespace checks passed.
+Validation remains R 4.6.0/macOS arm64; hosted CI and PDF manuals remain unverified.

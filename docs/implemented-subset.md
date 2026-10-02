@@ -90,7 +90,7 @@ then not, then and, then or. Comparisons cannot be chained; write x > 0 and x < 
 
 Names match [A-Za-z_][A-Za-z0-9_]* and are case-sensitive. The keywords mut, print,
 true, false, read, into, with, delimiter, filter, where, skipping, missing, is,
-and, or, not, plot, summarize, fn, return, and write cannot be names. R keywords may be names; generated identifiers
+and, or, not, plot, summarize, fn, return, write, if, then, and else cannot be names. Other R keywords may be names; generated identifiers
 are quoted, and generated function calls explicitly use the base namespace.
 
 Numbers start with a digit, have optional fractional digits (such as 1.25), and
@@ -480,3 +480,43 @@ the existing inference rules: empty text and the literal text NA become missing,
 numeric-looking text can become numbers, and empty/all-missing columns become
 Text. Standard numeric formatting can lose precision. Use the R values returned
 by run_file() when preserving R types and precision matters.
+
+
+## Conditional expressions
+
+```text
+fn safe_average(values) {
+  return if count(values) == 0 then 0 else average(values)
+}
+answer = if true then 10 else 20
+```
+
+if condition then value else fallback is an expression, usable in assignments,
+returns, arguments, vectors, and filter predicates. All three keywords are reserved;
+programs that used them as identifiers must rename those bindings. Both branches
+are required. Use parentheses to place a conditional inside a larger arithmetic
+expression: 2 * (if flag then 10 else 20). Conditions and branch values accept
+full expressions, and nested conditionals associate each else with its nearest
+unfinished if. Wrap multiline conditionals in parentheses as with other multiline
+expressions. There are no conditional statement blocks or loops yet.
+
+Conditions must be exactly one nonmissing boolean. Known nonbooleans and known
+vector conditions fail at compile time; runtime checks reject missing booleans,
+empty vectors, and other dynamic invalid conditions. For example, if [true, false]
+then 1 else 2 is an error. No truthiness conversion or per-element selection occurs.
+In filters, ordinary bare-column and @variable lookup rules still apply; a table
+column with multiple rows is therefore not a valid if condition.
+
+The condition is evaluated once and only the chosen branch executes. Thus an
+unchosen average of empty data cannot raise an execution error. Both branches are
+parsed and analyzed, however: if true then 1 else unknown still reports the unknown
+name. Branch expressions can return scalars, vectors, or tables, and may have
+different types or lengths. Matching known branch types/lengths are retained by
+inference; differing ones remain unknown until execution. Surrounding arithmetic,
+vector construction, table operations, and mutable updates retain their runtime
+checks. For example, adding 1 to a selected Text value or changing a mutable
+Number binding to a selected Text value fails rather than coercing it.
+
+Generated code uses R's lazy if expression plus a source-located condition check,
+not vectorized ifelse(). Compilation never evaluates either branch. Function
+condition errors retain their source location and language call-chain context.

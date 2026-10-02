@@ -2,7 +2,7 @@
 
 This guide explores the intended experience. **Bindings, mut, literals, vectors,
 arithmetic, printing, CSV loading/export, column access, filtering, scalar/grouped summaries,
-PNG bar charts, and simple user-defined functions now work; OOP remains proposed.** See the [implemented subset](implemented-subset.md) for exact working
+PNG bar charts, simple user-defined functions, and conditional expressions now work; OOP remains proposed.** See the [implemented subset](implemented-subset.md) for exact working
 syntax and [design decisions](design-decisions.md) for open proposals.
 
 The R package provides transpile(path) for compilation and run_file(path) for
@@ -145,6 +145,22 @@ needed data explicitly; functions do not capture outer variables. Functions may
 call previously declared functions. Annotations, multi-statement bodies, recursion,
 and methods are still proposals. The typed functions in the OOP examples below
 are therefore not executable yet.
+
+## Choose a result
+
+```text
+fn safe_average(values) {
+  return if count(values) == 0 then 0 else average(values)
+}
+```
+
+The condition must be exactly one nonmissing boolean. Only the chosen branch
+runs, so empty inputs above never reach average(). Both branches are still checked
+for syntax and names during compilation. This chooses one whole value; it does
+not make a separate choice for every vector element. Use filter for row selection.
+if, then, and else are reserved words. See
+[conditional expressions](implemented-subset.md#conditional-expressions) for the
+full rules and failure examples. Statement blocks and loops remain future work.
 
 ## Records: describe data
 

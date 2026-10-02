@@ -49,7 +49,7 @@ rss_tokenize <- function(source, filename) {
       begin <- i
       while (i <= n && grepl("^[A-Za-z0-9_]$", current())) advance()
       value <- paste0(chars[begin:(i - 1L)], collapse = "")
-      kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not", "plot", "summarize", "fn", "return", "write")) value else "name"
+      kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not", "plot", "summarize", "fn", "return", "write", "if", "then", "else")) value else "name"
       add(kind, value, start)
     } else if (grepl("^[0-9]$", ch)) {
       rest <- paste0(chars[i:n], collapse = "")
@@ -116,6 +116,15 @@ rss_parse <- function(tokens, filename) {
   }
   primary <- function() {
     token <- peek()
+    if (token$kind == "if") {
+      take()
+      condition <- expression()
+      expect("then", "Expected 'then' after the condition.")
+      yes <- expression()
+      expect("else", "Expected 'else' and a fallback value.")
+      no <- expression()
+      return(node("conditional", token, condition = condition, yes = yes, no = no))
+    }
     if (token$kind == "name" && token$value %in% c("average", "sum", "count") && tokens[[position + 1L]]$kind == "(") {
       take()
       take()
@@ -419,6 +428,15 @@ rss_analyze <- function(statements, filename) {
   infer <- function(value, in_filter = FALSE) {
     kind <- value$kind
     recurse <- function(x) infer(x, in_filter)
+    if (kind == "conditional") {
+      condition <- recurse(value$condition)
+      if (!condition$type %in% c("Boolean", "Unknown")) rss_error("An if condition must be boolean.", value$condition$token, filename)
+      if (!is.na(condition$size) && condition$size != 1L) rss_error("An if condition must contain exactly one boolean.", value$condition$token, filename)
+      yes <- recurse(value$yes)
+      no <- recurse(value$no)
+      return(info(if (yes$type == no$type) yes$type else "Unknown",
+                  if (!is.na(yes$size) && !is.na(no$size) && yes$size == no$size) yes$size else NA_integer_))
+    }
     if (kind == "call") {
       target <- lookup(value$name, value$token)
       if (target$type != "Function") rss_error(sprintf("'%s' is not a declared function.", value$name), value$token, filename)
@@ -554,7 +572,13 @@ rss_generate <- function(statements, filename) {
   name <- function(value) paste0("`", value, "`")
   quote_text <- function(value) encodeString(value, quote = '"')
   has_data <- any(vapply(statements, function(x) x$kind == "assign" && x$value$kind == "read", logical(1)))
-  checked <- has_data || any(vapply(statements, function(x) x$kind == "function", logical(1)))
+  contains_conditional <- function(value) {
+    if (!is.list(value)) return(FALSE)
+    if (identical(value$kind, "conditional")) return(TRUE)
+    any(vapply(value, contains_conditional, logical(1)))
+  }
+  checked <- has_data || contains_conditional(statements) ||
+    any(vapply(statements, function(x) x$kind == "function", logical(1)))
   needs_runtime <- FALSE
   call_runtime <- function(method, args, token) {
     needs_runtime <<- TRUE
@@ -564,6 +588,8 @@ rss_generate <- function(statements, filename) {
   emit <- function(value, table = NULL) {
     recurse <- function(x) emit(x, table)
     switch(value$kind,
+      conditional = paste0("(if (", call_runtime("condition", recurse(value$condition), value$condition$token),
+                           ") ", recurse(value$yes), " else ", recurse(value$no), ")"),
       call = call_runtime("call", c(name(value$name), paste0("base::list(", paste(vapply(value$arguments, recurse, character(1)), collapse = ", "), ")")), value$token),
       summarize = {
         specs <- vapply(value$summaries, function(spec) {
@@ -757,6 +783,12 @@ rss_runtime <- function() {
            ">" = left > right, ">=" = left >= right, "and" = left & right, "or" = left | right)
   }
   runtime <- list(
+    condition = function(value, filename, line, column) {
+      if (!is.logical(value) || !is.null(dim(value)) || length(value) != 1L || is.na(value)) {
+        fail("An if condition must be exactly one nonmissing boolean.", filename, line, column)
+      }
+      value
+    },
     call = function(target, arguments, filename, line, column) {
       # Force each argument once before entering the function, including unused ones.
       arguments <- lapply(arguments, identity)

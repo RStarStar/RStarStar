@@ -73,8 +73,8 @@ check("comments, blank lines, multiline delimiters and CRLF", {
 check("empty and comment-only programs", {
   stopifnot(identical(transpile(""), ""), identical(transpile("# comment\n"), ""))
 })
-check("R keywords and builtin names are safe bindings", {
-  result <- run("if = 2\nc = 3\nTRUE = 4\n_thing = [if, c, TRUE]\nprint _thing")
+check("Unreserved R keywords and builtin names are safe bindings", {
+  result <- run("repeat = 2\nc = 3\nTRUE = 4\n_thing = [repeat, c, TRUE]\nprint _thing")
   stopifnot(identical(result$env$`_thing`, c(2, 3, 4)))
 })
 check("compiler does not evaluate input or leak bindings", {
@@ -128,4 +128,5 @@ source(file.path(test_directory, "cases", "functions.R"))
 source(file.path(test_directory, "cases", "package.R"))
 source(file.path(test_directory, "cases", "execution.R"))
 source(file.path(test_directory, "cases", "write-csv.R"))
+source(file.path(test_directory, "cases", "conditionals.R"))
 cat(sprintf("\n%d checks passed; %d skipped.\n", checks, skipped))

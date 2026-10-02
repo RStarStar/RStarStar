@@ -358,3 +358,27 @@ refuses existing destinations. A temporary file is cleaned up after publication
 or failure; publication is not promised atomic. Runtime failures preserve source
 locations. This extends ordinary analysis without changing the unresolved object
 model or external-call bridge.
+
+
+## 2026-10-02 — Conditional expressions for reusable calculations
+
+Status: implemented, experimental in 0.0.4. Adopt the proposed single nonmissing
+boolean condition rule through if condition then value else fallback. This allows
+functions to avoid invalid calculations (such as averaging empty inputs) while
+retaining their single-return-expression bodies. if, then, and else become reserved.
+This supersedes earlier allowance of if as an ordinary R-keyword binding.
+
+Both branches are analyzed, but only the chosen branch executes after one condition
+evaluation. Branches may differ in type or length; conflicting inference becomes
+Unknown and surrounding operations retain runtime type/shape checks. This avoids
+forcing evaluation of unused branches to compare values or types. Conditions are
+never implicitly coerced or vectorized. Generated R uses native lazy if plus the
+embedded condition validator. Diagnostics point to the condition and retain
+function call chains.
+
+Alternatives deferred: statement blocks (need scope/assignment rules), vectorized
+selection (needs its own missingness and length contract), and required matching
+branch types (needs richer inference for unknown parameters). This does not settle
+records, mutable objects, or external R reference semantics. Verification covers
+syntax, nesting, lazy evaluation, static errors in unused branches, conditions,
+dynamic branch types, filter scope, mutable checks, and the public file API.

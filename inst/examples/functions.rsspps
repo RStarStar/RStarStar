@@ -16,3 +16,10 @@ print mean_revenue(sales)
 minimum = 100
 filter sales where above(revenue, @minimum) skipping missing into selected
 print selected
+
+
+# Only the chosen branch executes.
+fn safe_average(values) {
+  return if count(values) == 0 then 0 else average(values)
+}
+print safe_average([2, 4])

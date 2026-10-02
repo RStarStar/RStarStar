@@ -98,3 +98,11 @@ runtime call. The writer uses utils::write.table on a temporary UTF-8 file, then
 file.copy(overwrite = FALSE) to publish it. It checks column types, reports I/O
 errors at the source statement, and cleans up the temporary file. Compilation
 never inspects the destination; publication is not guaranteed atomic.
+
+
+Conditional expressions retain both branches in the AST for semantic analysis.
+Inference preserves matching branch types/sizes and otherwise records unknowns.
+The generator emits native R if with an embedded scalar, nonmissing-boolean
+validator; it never evaluates branches during compilation. Programs containing
+conditionals use checked operations so dynamically selected types and lengths
+cannot bypass vector, arithmetic, or reassignment rules.

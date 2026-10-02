@@ -65,6 +65,7 @@ R 4.6.0 remains pending. No public CLI is planned. See the
 ## 4. Approachable objects — foundations in progress
 
 - [x] Basic functions with parameters, a single return expression, and checked calls.
+- [x] Lazy conditional expressions with one nonmissing boolean condition.
 - [ ] Records, classes, constructors, and methods.
 
 Implement records, classes, constructors, methods, and explicit mutation after
