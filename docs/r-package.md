@@ -80,6 +80,23 @@ code still embeds its runtime helpers and can be saved and evaluated separately
 without an installed compiler. See ?run_file for installed help and
 examples/run-file.R for an R caller using a returned function and table.
 
+## Planned bundled standard library
+
+RStarStar will eventually include a standard library in the same R package as the
+toolchain. Installing the package will include that library; users will not need
+a separate standard-library package. This is an accepted direction, not an
+implemented library or a promise of particular functions in the current version.
+
+The library should offer reusable operations for RStarStar programs while preserving
+access to R's ecosystem. Its initial contents, naming/import syntax, implementation
+format, and compatibility policy still need design. Whether any library operations
+also become public R exports is a separate decision; compiler internals remain private.
+
+Design must preserve the .rsspps-only public source API, explicit execution boundary,
+and current dependency policy. Decide how generated R uses library operations before
+changing the current standalone-output behavior. Existing language built-ins and
+embedded runtime helpers are not automatically a stable standard-library API.
+
 ## Package development
 
 DESCRIPTION, NAMESPACE, and man/ provide package metadata, exports, and API help.

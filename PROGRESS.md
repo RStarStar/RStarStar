@@ -521,3 +521,17 @@ network-enabled R CMD check --no-manual rerun reported Status: OK with zero erro
 warnings, or notes. Documentation links, fences, and git diff whitespace checks
 passed. Validation remains local R 4.6.0/macOS arm64; hosted CI and PDF manual
 generation remain unverified.
+
+
+## 2026-10-02 — Bundled standard-library direction
+
+Recorded the user's plan to eventually ship a standard library inside the RStarStar
+R package. Updated README, package guide, language guide, roadmap, and decision
+record. Library contents, access syntax, implementation format, compatibility, and
+generated-R integration remain future design work. Existing built-ins and internal
+runtime helpers are not declared a stable standard-library API.
+
+Documentation only: no implementation, exports, dependencies, version, or execution
+behavior changed. Verified relative Markdown links, balanced code fences, example
+consistency, and git diff whitespace. Package tests/build/check were not rerun for
+this documentation-only change.

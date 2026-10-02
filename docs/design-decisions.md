@@ -522,3 +522,19 @@ and classes remain deferred. Requiring earlier types avoids cycle handling befor
 there is a motivating recursive-data workflow. Verification covers declaration
 order, type mismatches, multi-level field inference, copy independence, failed
 updates, nested missing equality, and public/standalone/R boundaries.
+
+
+## 2026-10-02 — Standard library bundled with the R package
+
+Status: accepted direction, not implemented. At the user's request, RStarStar will
+eventually include a standard library distributed within the same R package as the
+toolchain. Users installing RStarStar will receive the library without a separate
+standard-library package installation.
+
+The initial operations, naming/import syntax, implementation format, compatibility
+policy, and relationship to public R exports remain open. Existing compiler helpers
+and built-ins are not automatically promoted to a stable library API. Define the
+library's use by generated R before revisiting current standalone-output behavior.
+Preserve the .rsspps-only public source API, compilation/execution separation, and
+R-bundled dependency policy. No library code, imports, exports, dependencies, or
+runtime behavior change in this documentation update.

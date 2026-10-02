@@ -9,6 +9,13 @@ The R package provides transpile(path) for compilation and run_file(path) for
 explicit execution with variables and functions returned to R. Both accept only
 local UTF-8 .rsspps files; see the [package guide](r-package.md).
 
+## Planned standard library
+
+A future standard library will be included with the RStarStar R package and provide
+reusable operations for programs written in this language. Library contents and
+access syntax are not defined yet; the examples below use the currently implemented
+language features. See the [package plan](r-package.md#planned-bundled-standard-library).
+
 ## Read and transform data
 
 ```text

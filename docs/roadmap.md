@@ -94,6 +94,17 @@ earlier if needed to avoid architectural dead ends.
 Done when the Predictor example works and a documented external-package example
 states exactly which checks and mutation guarantees apply.
 
+## 5a. Bundled standard library — planned
+
+- [ ] Define the first library operations from practical beginner workflows.
+- [ ] Specify naming/access syntax, compatibility, and use from generated R.
+- [ ] Implement, document, and test the library within the RStarStar R package.
+
+Done when installing the toolchain also supplies a documented standard library
+usable by .rsspps programs, with tested diagnostics and an explicit execution
+boundary. Contents and APIs remain undecided; no separate standard-library package
+is planned. See the [package plan](r-package.md#planned-bundled-standard-library).
+
 ## 6. Contributor-ready preview
 
 - [x] Configure package checks on pushes and pull requests with a shared local runner.
