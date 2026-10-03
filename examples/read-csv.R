@@ -7,5 +7,8 @@ local({
   # Dataset paths in the packaged examples are relative to their examples folder.
   setwd(dirname(path))
   generated <- transpile(path)
-  eval(parse(text = generated), envir = new.env(parent = baseenv()))
+  environment <- new.env(parent = baseenv())
+  eval(parse(text = generated), envir = environment)
+  stopifnot(identical(environment$codes$code, c("0012", "0007")),
+            identical(environment$codes$amount, c(3, 4)))
 })

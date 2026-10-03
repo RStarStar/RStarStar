@@ -1,3 +1,6 @@
 # Execute from the packaged examples folder; data paths use the working directory.
 read "data/sales.csv" into sales
 print sales
+
+read "data/codes.csv" into codes with columns {code: Text, amount: Number}
+print std::text_length(codes.code)

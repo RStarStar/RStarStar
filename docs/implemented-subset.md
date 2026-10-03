@@ -54,7 +54,8 @@ statement  = "fn", name, "(", [ name, { ",", name } ], ")", "{",
            | [ "mut" ], name, "=", expression
            | "print", expression
            | "read", text, "into", [ "mut" ], name,
-             [ "with", "delimiter", text ]
+             { "with", ( "delimiter", text | "columns", "{", (name | text), ":", name,
+               { ",", (name | text), ":", name }, "}" ) }
            | "filter", name, "where", expression, [ "skipping", "missing" ],
              "into", [ "mut" ], name
            | "summarize", name, "by", (name | text), { ",", (name | text) }, "with",
@@ -196,10 +197,43 @@ Column inference considers all nonmissing values:
   and zero-row columns are character vectors with unknown intended type.
 
 No rows are dropped, missing values are not replaced with zero, and mixed columns
-are not partly converted. Explicit column schemas, alternate missing markers,
-and preserving numeric-looking identifiers as text are not configurable yet.
+are not partly converted. Optional column types override inference as described
+below. Alternate missing markers remain unsupported.
 The CSV loader reads the whole file into memory and is an initial implementation,
 not a streaming or large-dataset engine.
+
+### Explicit CSV column types
+
+```text
+read "codes.csv" into codes with columns {code: Text, amount: Number, active: Boolean}
+read "codes.txt" into codes_again with delimiter ";" with columns {"product code": Text}
+```
+
+Each optional with clause appears at most once; delimiter and columns may appear
+in either order. A columns block must contain at least one unique header/type pair,
+separated by commas. Newlines inside the block and quoted headers are supported.
+Types are exactly Text, Number, or Boolean; columns is contextual, not reserved.
+Undeclared columns retain inference. Declared names must exist in the file header,
+even for a zero-row file. Header matching is exact and case-sensitive.
+
+Text preserves nonmissing field text, including leading zeros and surrounding
+whitespace. Number accepts only the existing decimal/scientific syntax and finite
+conversion results. Boolean accepts exactly true/false/TRUE/FALSE. No trimming or
+conversion fallback occurs. Empty fields and exact NA remain missing for all types;
+quoted empty fields and quoted NA are also missing. Declared Number and Boolean
+columns retain their types when empty or all missing.
+
+```text
+# If amount contains "unknown", execution fails with its column and data-row number.
+read "sales.csv" into sales with columns {amount: Number}
+```
+
+Syntax/type-label errors fail compilation. Header mismatches and invalid values
+fail only at execution, at the read statement's source location; data rows are
+numbered from 1 excluding the header, including multiline quoted records as one
+row. No partial table is returned. Compilation never reads the CSV. These types
+control loading only; the analyzer still treats table-column types as unknown.
+Mutable table reloads may specify different column types on each read.
 
 Generated output embeds .rss_read_csv only when needed. That helper name cannot
 collide with a source binding because dots are column-access punctuation, not
@@ -255,8 +289,8 @@ rows or a single column. Printed row numbers are reset. The original table remai
 unchanged unless its mutable binding is the target. into mut declares a new mutable
 target; existing targets follow ordinary reassignment rules.
 
-CSV inference still governs empty and all-missing columns: these are Text until a
-schema feature exists. A numeric comparison on a header-only or all-missing Text
+CSV inference still governs undeclared empty and all-missing columns: these are
+Text unless explicitly declared. A numeric comparison on a header-only or all-missing Text
 column fails a type check; is missing works. By contrast, filtering all rows out
 of an already numeric column preserves its numeric type.
 
@@ -475,8 +509,8 @@ or a promise of crash recovery. Relative paths use the execution working directo
 For example, running the program twice reports an existing-output error on the
 second run; choose a new filename explicitly.
 
-CSV is a data-exchange format, not exact typed serialization. Re-reading applies
-the existing inference rules: empty text and the literal text NA become missing,
+CSV is a data-exchange format, not exact typed serialization. Re-reading without
+explicit column types applies the existing inference rules: empty text and the literal text NA become missing,
 numeric-looking text can become numbers, and empty/all-missing columns become
 Text. Standard numeric formatting can lose precision. Use the R values returned
 by run_file() when preserving R types and precision matters.
@@ -773,15 +807,38 @@ Do not infer safe arbitrary-R interoperability or deep immutability outside the
 language. Recursive schemas, vector/table fields, methods, and classes are separate
 future work; no additional object backend or dependency is introduced.
 
-## Bundled numeric library
+## Bundled standard library
 
 ```text
 magnitudes = std::absolute([-3, 0, 2])
 roots = std::square_root(values: [0, 4, 9])
 ```
 
-Each operation accepts one plain numeric scalar/vector, preserving length and
+The numeric operations accept one plain numeric scalar/vector, preserving length and
 missing values. square_root rejects negative nonmissing inputs at execution.
 Only std:: is supported, with exact names and optional values: arguments. No
 imports or new R exports are needed; emitted implementations run standalone.
 See the [standard-library contract](standard-library.md) for the complete rules.
+
+std::text_length(values) accepts plain Text scalars/vectors and returns a Number
+for each character count. Empty text yields zero, missing text stays missing, and
+empty text vectors yield empty numeric vectors. UTF-8 counts use Unicode code
+points, not grapheme clusters or bytes. There is no normalization or automatic
+conversion; invalid/byte-encoded text and attributed R inputs are rejected.
+
+```text
+lengths = std::text_length(values: ["A", "ABC", ""])
+# Result: [1, 3, 0]
+```
+
+std::trim_text(values) returns Text of the same length after removing boundary
+spaces, tabs, carriage returns, and newlines. Internal spacing and other Unicode
+whitespace remain unchanged. Missing values stay missing; whitespace-only strings
+become empty strings. Plain Text inputs, exact arguments, and encoding checks follow
+the standard-library contract. Returned Text types participate in normal binding,
+record, and expression checks.
+
+```text
+clean = std::trim_text([" A B ", "   "])
+# Result: ["A B", ""]
+```

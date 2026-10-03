@@ -38,11 +38,13 @@ file-only public API and installed-namespace behavioral tests.
 - [x] Column access, comparisons, compound predicates, and explicit missing-value filtering.
 - [x] Scalar average/sum/count summaries and a saved PNG bar chart.
 - [x] Explicit CSV export of analysis tables with overwrite protection.
+- [x] Optional CSV column types, including text identifiers and typed missing columns.
 
 The workflow example now reads, filters, computes scalar summaries, and saves a
 bar chart. The grouped-summary extension now combines repeated categories with
-one or more grouping keys and multiple outputs. Configurable schemas and
-additional chart types remain extensions.
+one or more grouping keys and multiple outputs. Selected CSV columns can have explicit
+Text, Number, or Boolean types. Custom missing markers and additional chart types
+remain extensions.
 
 Done when a small documented dataset can go from file to summary and chart, with
 useful failures for absent files, missing columns, and invalid inputs.
@@ -99,7 +101,9 @@ states exactly which checks and mutation guarantees apply.
 - [x] Define absolute and square_root for plain numeric values.
 - [x] Qualified std:: calls, exact arguments, and standalone generated R.
 - [x] Bundle, document, and test the first operations in the R package.
-- [ ] Extend the library as concrete beginner workflows establish a need.
+- [x] Character counts for validating text columns with std::text_length.
+- [x] Boundary whitespace cleaning with std::trim_text and checked Text results.
+- [ ] Extend the library as further concrete beginner workflows establish a need.
 
 The [standard-library contract](standard-library.md) describes the experimental
 first slice and its limits. No separate library package is needed.

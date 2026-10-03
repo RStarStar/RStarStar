@@ -568,3 +568,70 @@ Only used operations and common validation are embedded in an isolated base-only
 scope. Generated R remains standalone, with no additional public exports or
 dependencies. Errors retain source locations and language function call chains.
 See the [library contract](standard-library.md) for alternatives and failure cases.
+
+## 2026-10-03 — Text-length standard-library operation
+
+Status: implemented, experimental in 0.0.12. To support validation of text columns
+(such as imported product codes), add std::text_length(values), using the existing
+one-argument namespace syntax. It accepts only attribute-free Text scalars/vectors
+and returns Number character counts of the same length. Empty text gives zero,
+missing text gives a missing Number, and empty vectors remain empty. Known wrong
+types fail analysis; dynamic types and invalid/byte-encoded R text fail execution
+with source locations and language function call chains.
+
+Choose character counts over byte counts for beginner-facing text checks. UTF-8
+counts follow Unicode code points, not grapheme clusters or display width; combined
+accents can therefore count differently from precomposed characters. Do not normalize
+inputs or silently coerce numbers. This bounded behavior uses base R without new
+dependencies. More elaborate Unicode handling needs its own design.
+
+The catalog now declares each operation's input type; the compiler uses this
+metadata for static checks. Standalone embedding, source-file-only APIs, exact
+arguments, and explicit execution remain unchanged. CSV inference also remains
+unchanged: numeric-only codes fail the text check, empty cells become missing,
+and all-missing Text columns are supported. See the
+[library contract](standard-library.md#text-length) for examples and tradeoffs.
+
+## 2026-10-03 — Text trimming and library result types
+
+Status: implemented, experimental in 0.0.13. Add std::trim_text(values) to clean
+surrounding whitespace before checking imported codes or text lengths. It accepts
+plain Text scalars/vectors and preserves length, missing values, and empty vectors.
+Only boundary spaces, tabs, carriage returns, and newlines are removed. Internal
+spacing and other Unicode whitespace are retained. Whitespace-only text becomes
+empty text; it does not become missing. No coercion, normalization, or mutation.
+
+Use an explicit small whitespace set instead of locale-sensitive or broad Unicode
+classification. This keeps cleaning predictable using base R. R-boundary encoding
+validation rejects invalid/byte-encoded inputs before regex processing. Types,
+exact arguments, source locations, standalone output, and execution separation
+follow existing library rules. Filtering on cleaned text preserves original rows;
+CSV inference is unchanged. See the [contract](standard-library.md#trimming-text).
+
+The private catalog now declares output types as well as input types. Analysis
+retains the operation's result type and input length, so arithmetic rejects trimmed
+Text and Text fields/bindings accept it. This removes the earlier assumption that
+every library operation returns Number, without introducing a public API.
+
+## 2026-10-03 — Optional CSV column types
+
+Status: implemented, experimental in 0.0.14. Numeric-looking identifiers should
+remain usable with text operations without losing leading zeros. Add an optional
+with columns {code: Text, amount: Number} clause to read. It can accompany the
+existing with delimiter clause in either order, with each option appearing once.
+Use exact unique headers (names or quoted text) and Text/Number/Boolean type labels;
+columns remains a contextual word. Unspecified columns retain current inference.
+
+Choose per-column overrides rather than mandatory full schemas to keep simple
+reads simple. Validate declared headers even on empty files. Text keeps nonmissing
+field contents; Number and Boolean require their existing strict input formats
+without trimming, lossy conversion, or fallback. Empty and exact NA fields remain
+missing, even quoted. Explicit types preserve empty/all-missing numeric and logical
+vectors. Invalid values report the read location, column, and one-based data-row
+number. Header and value validation happen only during explicit execution.
+
+This is a loader contract, not static table typing or a persistent constraint on
+mutable reloads. Alternate missing markers, required/nonmissing columns, date types,
+and schema objects remain future designs. Standalone generated R embeds the schema
+and loader with no new dependencies or exports. See the
+[implemented rules](implemented-subset.md#explicit-csv-column-types).

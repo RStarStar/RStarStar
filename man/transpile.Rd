@@ -20,6 +20,12 @@ and include source locations. For readable source files, diagnostics use the
 normalized absolute path.
 }
 \details{
+CSV reads may specify selected column types with source syntax such as
+\code{read "codes.csv" into codes with columns \{code: Text\}}.
+Text preserves identifiers with leading zeros; Number and Boolean validate
+nonmissing fields and preserve empty/all-missing column types. Unspecified
+columns remain inferred. Header and data validation occur only at execution.
+
 Only file paths are accepted by the public API. Inline source strings, R source
 files, URLs, connections, and batches of paths are not supported. Internal
 compiler helpers are not exported.

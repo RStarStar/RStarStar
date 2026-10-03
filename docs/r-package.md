@@ -1,6 +1,6 @@
 # R package guide
 
-RStarStar 0.0.11 is an experimental, locally installable R package. There is no
+RStarStar 0.0.14 is an experimental, locally installable R package. There is no
 public CLI and no published CRAN release. It exports transpile(path) to return generated R text and run_file(path) to
 execute a program and return its bindings. Both accept .rsspps files only.
 
@@ -84,9 +84,19 @@ examples/run-file.R for an R caller using a returned function and table.
 
 The package includes experimental std::absolute(values) and std::square_root(values)
 for plain numeric scalars and vectors. Missing values propagate; negative square
-roots fail at execution. Only required implementations are embedded in standalone
+roots fail at execution. std::text_length(values) counts characters in plain text,
+preserving missing values and vector length. std::trim_text(values) removes boundary
+spaces, tabs, carriage returns, and newlines from text. Only required implementations are embedded in standalone
 generated R. There are no new R exports or dependencies. See the
 [standard-library contract](standard-library.md) for examples and limits.
+
+## CSV column types
+
+Inside a .rsspps file, read supports optional with columns {code: Text} to preserve
+identifiers such as 0012. Number and Boolean declarations validate every nonmissing
+value and retain type for empty/all-missing columns. Other columns remain inferred.
+This changes source syntax, not the public file API. See
+[CSV column types](implemented-subset.md#explicit-csv-column-types).
 
 ## Package development
 
@@ -99,7 +109,7 @@ from the source-package payload using .Rbuildignore.
 
 Reinstall after changing R/ and run Rscript tests/run.R against that installation.
 Tests include internal compiler cases and public file-API cases. R CMD build .
-and R CMD check --no-manual RStarStar_0.0.11.tar.gz validate the package, installed
+and R CMD check --no-manual RStarStar_0.0.14.tar.gz validate the package, installed
 help, examples, and tests. Use the current version in the archive name. Chart
 rendering tests report skips when Cairo is unavailable. --no-manual omits PDF
 manual generation only. See [Contributing](../CONTRIBUTING.md) for commands.

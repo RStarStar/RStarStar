@@ -479,18 +479,43 @@ rss_parse <- function(tokens, filename) {
       }
       name <- expect("name", "Expected a variable name after 'into' or 'into mut'.")
       separator <- ","
-      if (peek()$kind == "with") {
+      schema <- character()
+      options <- character()
+      while (peek()$kind == "with") {
         take()
-        expect("delimiter", "Expected 'delimiter' after 'with'.")
-        delimiter <- expect("text", "Expected a quoted delimiter.")
-        separator <- delimiter$value
-        if (nchar(separator, type = "bytes") != 1L || separator %in% c('"', "\n", "\r")) {
-          rss_error("Delimiter must be one ASCII character other than a quote or newline.", delimiter, filename)
+        option <- take()
+        if (!(option$kind == "delimiter" || (option$kind == "name" && option$value == "columns"))) rss_error("Expected 'delimiter' or 'columns' after 'with'.", option, filename)
+        if (option$value %in% options) rss_error("Each read option may appear only once.", option, filename)
+        options <- c(options, option$value)
+        if (option$value == "delimiter") {
+          delimiter <- expect("text", "Expected a quoted delimiter.")
+          separator <- delimiter$value
+          if (nchar(separator, type = "bytes") != 1L || separator %in% c('"', "\n", "\r")) {
+            rss_error("Delimiter must be one ASCII character other than a quote or newline.", delimiter, filename)
+          }
+        } else {
+          expect("{", "Expected '{' before CSV column types.")
+          while (peek()$kind == "newline") take()
+          repeat {
+            field <- peek()
+            if (!field$kind %in% c("name", "text")) rss_error("Expected a column name or quoted header.", field, filename)
+            take()
+            if (!nzchar(trimws(field$value)) || field$value %in% names(schema)) rss_error("Schema column names must be nonempty and unique.", field, filename)
+            expect(":", "Expected ':' before the column type.")
+            type <- expect("name", "Expected Text, Number, or Boolean.")
+            if (!type$value %in% c("Text", "Number", "Boolean")) rss_error("CSV column types must be Text, Number, or Boolean.", type, filename)
+            schema[[field$value]] <- type$value
+            while (peek()$kind == "newline") take()
+            if (peek()$kind != ",") break
+            take()
+            while (peek()$kind == "newline") take()
+          }
+          expect("}", "Expected '}' after CSV column types; separate columns with commas.")
         }
       }
       statement <- node("assign", token, name = name$value, name_token = name,
                         mutable = mutable,
-                        value = node("read", token, path = path$value, separator = separator))
+                        value = node("read", token, path = path$value, separator = separator, schema = schema))
     } else {
       mutable <- FALSE
       if (token$kind == "mut") {
@@ -556,8 +581,11 @@ rss_analyze <- function(statements, filename) {
       if (length(value$arguments) != 1L) rss_error(sprintf("std::%s expects exactly one argument.", value$name), value$token, filename)
       if (nzchar(value$labels[[1L]]) && value$labels[[1L]] != entry$parameter) rss_error("Expected the exact parameter name 'values'.", value$argument_tokens[[1L]], filename)
       operand <- recurse(value$arguments[[1L]])
-      if (!operand$type %in% c("Number", "Unknown")) rss_error("Standard-library numeric operations require plain numbers.", value$token, filename)
-      return(info("Number", operand$size))
+      if (!operand$type %in% c(entry$input_type, "Unknown")) {
+        description <- if (entry$input_type == "Text") "text" else "numbers"
+        rss_error(paste0("Standard-library operations require plain ", description, "."), value$token, filename)
+      }
+      return(info(entry$output_type, operand$size))
     }
     if (kind == "call") {
       target <- lookup(value$name, value$token)
@@ -789,8 +817,13 @@ rss_generate <- function(statements, filename) {
                      paste0("base::list(", paste(specs, collapse = ", "), ")")), value$token)
       },
       summary = call_runtime("summary", c(quote_text(value$operation), recurse(value$value), if (value$skip) "TRUE" else "FALSE"), value$token),
-      read = paste0(".rss_read_csv(", quote_text(value$path), ", ", quote_text(value$separator),
-                    ", ", quote_text(filename), ", ", value$token$line, "L, ", value$token$column, "L)"),
+      read = {
+        vector <- function(values) paste0("base::c(", paste(vapply(values, quote_text, character(1)), collapse = ", "), ")")
+        schema <- if (length(value$schema)) paste0("base::structure(", vector(unname(value$schema)),
+          ", names = ", vector(names(value$schema)), ")") else "base::character()"
+        paste0(".rss_read_csv(", quote_text(value$path), ", ", quote_text(value$separator),
+               ", ", quote_text(filename), ", ", value$token$line, "L, ", value$token$column, "L, ", schema, ")")
+      },
       filter = {
         predicate <- emit(value$predicate, name(value$table))
         call_runtime("filter", c(name(value$table), predicate, if (value$skip) "TRUE" else "FALSE"), value$token)
@@ -858,7 +891,7 @@ rss_compile <- function(source, filename = "<input>") {
 
 # Self-contained runtime helper, embedded only in programs containing read.
 # Keep all dependencies inside this function or explicitly namespace-qualified.
-rss_read_csv <- function(path, separator, filename, line, column) {
+rss_read_csv <- function(path, separator, filename, line, column, schema = character()) {
   fail <- function(message) {
     stop(structure(list(
       message = sprintf("%s:%d:%d: Cannot read CSV '%s': %s", filename, line, column, path, message),
@@ -920,21 +953,34 @@ rss_read_csv <- function(path, separator, filename, line, column) {
   if (state == "quoted") fail(sprintf("unclosed quoted field starting in the row on CSV line %d.", record_line))
   header <- records[[1L]]
   if (any(!nzchar(trimws(header))) || anyDuplicated(header)) fail("column names must be nonempty and unique.")
+  absent <- setdiff(names(schema), header)
+  if (length(absent)) fail(sprintf("schema column '%s' is absent from the CSV header.", absent[[1L]]))
   rows <- records[-1L]
   convert <- function(index) {
     values <- vapply(rows, function(row) row[[index]], character(1))
     missing <- values %in% c("", "NA")
     values[missing] <- NA_character_
     present <- values[!missing]
-    if (!length(present)) return(values)
+    declared <- if (header[[index]] %in% names(schema)) schema[[header[[index]]]] else "Infer"
+    if (declared == "Text") return(values)
+    if (declared == "Infer" && !length(present)) return(values)
     numeric_pattern <- "^[+-]?([0-9]+(\\.[0-9]*)?|\\.[0-9]+)([eE][+-]?[0-9]+)?$"
-    if (all(grepl(numeric_pattern, present))) {
+    numeric_valid <- grepl(numeric_pattern, present)
+    boolean_valid <- present %in% c("true", "false", "TRUE", "FALSE")
+    valid <- if (declared == "Number") numeric_valid else boolean_valid
+    if (declared %in% c("Number", "Boolean") && any(!valid)) {
+      row <- which(!missing)[which(!valid)[[1L]]]
+      fail(sprintf("column '%s' requires %s; invalid value at data row %d.", header[[index]], declared, row))
+    }
+    if (declared == "Number" || (declared == "Infer" && all(numeric_valid))) {
       result <- as.numeric(values)
       if (any(!is.finite(result[!missing]))) fail(sprintf("column '%s' contains a number outside the finite range.", header[[index]]))
       return(result)
     }
-    if (all(present %in% c("true", "false", "TRUE", "FALSE"))) {
-      return(ifelse(is.na(values), NA, tolower(values) == "true"))
+    if (declared == "Boolean" || all(boolean_valid)) {
+      result <- tolower(values) == "true"
+      result[missing] <- NA
+      return(result)
     }
     values
   }

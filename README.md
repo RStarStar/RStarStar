@@ -11,7 +11,7 @@ syntax difficult to approach. Prior programming experience is not required.
 ## Project status
 
 **Compiler prototype.** Bindings, `mut`, literals, vectors, arithmetic, printing,
-CSV loading/export, column access, filtering, scalar/grouped summaries, and PNG bar charts
+CSV loading/export with optional column types, column access, filtering, scalar/grouped summaries, and PNG bar charts
 transpile to readable R. Grouping supports multiple columns, such as region and
 product. User-defined functions support positional/named calls and conditional expressions; records with typed scalar/nested fields, copy updates, equality, and direct field access on expression results are also supported. Classes and
 interfaces remain future work.
@@ -20,7 +20,8 @@ The language and package API are experimental. RStarStar is now an installable
 accept local UTF-8 **.rsspps files only** for compilation or explicit execution.
 The R-call bridge remains future work. The bundled experimental
 [standard library](docs/standard-library.md) now offers std::absolute(values) and
-std::square_root(values). See the [package guide](docs/r-package.md).
+std::square_root(values), plus std::text_length(values) for character counts and
+std::trim_text(values) for removing boundary whitespace. See the [package guide](docs/r-package.md).
 
 ## Install locally and try it
 

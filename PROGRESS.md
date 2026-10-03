@@ -580,3 +580,88 @@ Limits: the library API remains experimental and contains only these two numeric
 operations. No imports, first-class library values, external R-call bridge, or
 class/method backend is introduced. Hosted CI, other R versions/platforms, and PDF
 manual generation remain unverified.
+
+## 2026-10-03 — Standard-library text length (0.0.12)
+
+Added std::text_length(values) for character-count validation of text, including
+CSV code columns. It accepts one plain Text scalar/vector with an optional exact
+values: label and returns Number counts of the same length. Empty strings count
+as zero; missing values and empty vectors are preserved. UTF-8 counts use Unicode
+code points, not bytes, display widths, or grapheme clusters. No normalization or
+implicit coercion occurs. Invalid/byte-encoded text and attributed R inputs fail
+with source-located diagnostics. The catalog now declares input types for static
+checks; numeric operation behavior is preserved.
+
+Extended the packaged standard-library example and demo, installed R help,
+behavioral tests, guides, decision record, and roadmap. Covered Unicode combining
+characters and emoji, static/dynamic type errors, exact arguments, filter scope,
+missing CSV values, empty vectors, R-boundary validation, call chains, once-only
+evaluation, and standalone generated R. No dependencies or public exports added.
+
+Verification: the shared runner reinstalled the package, passed 232 checks with
+0 skips, ran all nine demos (including Cairo output), built the 0.0.12 source
+archive, and completed R CMD check --no-manual with Status: OK. After sandbox
+access failures for dependency indexes, the network-enabled final check also
+reported Status: OK. Verified 56 local Markdown links across 12 files, balanced
+code fences, example consistency, and git diff whitespace.
+
+Limits: CSV schema inference is unchanged; numeric-only codes need future explicit
+schema support to remain Text, and empty CSV cells are missing. The library remains
+experimental. Hosted CI, other R versions/platforms, and PDF manual generation
+remain unverified; no external R-call bridge or class backend was added.
+
+## 2026-10-03 — Standard-library text trimming (0.0.13)
+
+Added std::trim_text(values) for cleaning text before comparisons and length checks.
+It removes boundary spaces, tabs, carriage returns, and newlines from plain Text
+scalars/vectors. Internal spacing and other Unicode whitespace are preserved.
+Missing values and empty vectors remain unchanged; strings containing only the
+specified whitespace become empty strings. Inputs are not mutated. Exact arguments,
+encoding validation, R-boundary attribute rejection, and source-located errors
+follow the existing library contract.
+
+Added catalog output-type metadata so analysis correctly retains Text results for
+binding, arithmetic, comparison, and record checks. Extended behavioral tests,
+packaged examples, demo assertions, installed help, guides, decisions, and roadmap.
+Preserved the existing text-length work in the working tree. No dependencies,
+public exports, or implicit conversions were introduced.
+
+Verification: reinstalled through the shared runner; 237 checks passed with 0 skips.
+All nine demos passed, including Cairo rendering. Built RStarStar_0.0.13.tar.gz;
+R CMD check --no-manual reported Status: OK. A network-enabled rerun after sandbox
+dependency-index access failures also reported Status: OK. Checked 57 local links
+across 12 Markdown files, balanced code fences, examples, and git diff whitespace.
+
+Limits: nonbreaking spaces and other Unicode whitespace are intentionally retained.
+Filtering with trimmed text does not rewrite the original table values. CSV type
+inference and missing-cell behavior remain unchanged. The library is experimental;
+hosted CI, other R versions/platforms, and PDF manual generation remain unverified.
+
+## 2026-10-03 — Optional CSV column types (0.0.14)
+
+Added read ... with columns {code: Text, amount: Number} to preserve identifiers
+and validate selected columns. Supports exact bare/quoted headers, multiline
+comma-separated declarations, and combination with delimiter in either order.
+Each option appears at most once. Other columns retain inference. Declared Text
+preserves leading zeros; declared Number/Boolean retain types even on empty or
+all-missing inputs. Existing missing markers and strict conversion formats apply.
+Unknown headers and invalid values fail during execution with source location,
+column, and data-row diagnostics; compilation still never opens the dataset.
+
+Generated R embeds the schema independently of R argument matching, including
+headers named recursive or use.names. Added regression coverage for these names,
+partial schemas, mutable reloads, malformed declarations, invalid data, typed empty
+columns, file APIs, and standalone execution. Extended the packaged CSV demo with
+an identifier fixture and updated guides, installed help, decisions, and roadmap.
+Preserved the earlier standard-library work in the working tree.
+
+Verification: the final shared runner reinstalled the package, passed 245 checks
+with 0 skips, ran all nine demos including Cairo rendering, built the 0.0.14 archive,
+and completed R CMD check --no-manual with Status: OK. A network-enabled rerun
+after sandbox dependency-index failures also reported Status: OK. Checked 59 local links across
+12 Markdown files, balanced code fences, example consistency, and git diff whitespace.
+
+Limits: declared types affect loading, not static table-column inference or later
+mutable reloads. Missing markers remain fixed, including quoted empty/NA fields;
+no date types, required columns, schema objects, dependencies, or exports added.
+Hosted CI, other R versions/platforms, and PDF manual generation remain unverified.

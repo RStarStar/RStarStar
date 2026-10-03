@@ -13,7 +13,9 @@ local UTF-8 .rsspps files; see the [package guide](r-package.md).
 
 The package includes experimental std::absolute(values) and std::square_root(values)
 for plain numeric scalars and vectors. Missing values propagate; negative square
-roots fail at execution. Only required implementations are embedded in standalone
+roots fail at execution. std::text_length(values) counts characters in plain text,
+preserving missing values and vector length. std::trim_text(values) removes boundary
+spaces, tabs, carriage returns, and newlines from text. Only required implementations are embedded in standalone
 generated R. There are no new R exports or dependencies. See the
 [standard-library contract](standard-library.md) for examples and limits.
 
@@ -23,6 +25,17 @@ generated R. There are no new R exports or dependencies. See the
 read "sales.csv" into sales
 filter sales where revenue > 0 into profitable_sales
 ```
+
+Preserve numeric-looking identifiers by choosing a column type when loading:
+
+```text
+read "codes.csv" into codes with columns {code: Text}
+lengths = std::text_length(codes.code)
+```
+
+Only named columns override inference. Text, Number, and Boolean are supported;
+invalid declared values fail at execution. Missing-value markers remain unchanged.
+
 
 Sentence-like commands express actions; ordinary expressions express calculations.
 The filter example assumes a numeric revenue column with no missing values.

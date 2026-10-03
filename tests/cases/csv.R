@@ -114,3 +114,72 @@ check("CSV invalid UTF-8 has a source-located error", {
     runtime_fails(paste("read", encodeString(path, quote = '"'), "into data"), "UTF-8")
   }, finally = unlink(path))
 })
+check("CSV schemas preserve identifiers and infer unspecified columns", {
+  with_csv(c('code,amount,active', '0012,3,true', '0007,4,false'), function(path) {
+    result <- run(paste('read', path, 'into data with columns {code: Text}'))$env$data
+    stopifnot(identical(result$code, c("0012", "0007")), identical(result$amount, c(3, 4)),
+              identical(result$active, c(TRUE, FALSE)))
+  })
+})
+check("CSV schemas preserve missing and zero-row storage types", {
+  for (rows in list(c('n,b,t', 'NA,NA,NA'), 'n,b,t')) {
+    with_csv(rows, function(path) {
+      result <- run(paste('read', path, 'into data with columns {n: Number, b: Boolean, t: Text}'))$env$data
+      stopifnot(typeof(result$n) == "double", typeof(result$b) == "logical", typeof(result$t) == "character",
+                nrow(result) == length(rows) - 1L, all(is.na(result$n)), all(is.na(result$b)))
+    })
+  }
+})
+check("CSV schemas combine with delimiters quoted headers and mutable reloads", {
+  with_csv(c('product code;value', '001;2'), function(path) {
+    result <- run(paste('columns = 3\nread', path, 'into mut data with columns {\n"product code": Text,\nvalue: Number\n} with delimiter ";"\nread', path, 'into data with delimiter ";" with columns {"product code": Text}'))
+    stopifnot(result$env$data[["product code"]] == "001", result$env$data$value == 2, result$env$columns == 3)
+  })
+})
+check("CSV schemas reject malformed declarations before reading data", {
+  prefix <- 'read "does-not-exist.csv" into data with columns '
+  fails(paste0(prefix, '{}'), "Expected a column name")
+  fails(paste0(prefix, '{x: Integer}'), "Text, Number, or Boolean")
+  fails(paste0(prefix, '{x: Text, x: Number}'), "nonempty and unique")
+  fails(paste0(prefix, '{"": Text}'), "nonempty and unique")
+  fails(paste0(prefix, '{x: Text,}'), "Expected a column name")
+  fails(paste0(prefix, '{x: Text} with columns {y: Text}'), "only once")
+  fails('read "x" into data with delimiter ";" with delimiter ","', "only once")
+  stopifnot(is.character(transpile(paste0(prefix, '{x: Text}'))))
+})
+check("CSV schemas reject absent headers even for empty tables", {
+  with_csv('actual', function(path) {
+    runtime_fails(paste('read', path, 'into data with columns {missing_name: Text}'), "absent from the CSV header")
+  })
+})
+check("CSV explicit conversions reject invalid values without fallback", {
+  for (case in list(c("Number", "oops"), c("Number", " 3 "), c("Number", "Inf"), c("Boolean", "1"), c("Boolean", "True"))) {
+    with_csv(c('value', 'NA', case[[2L]]), function(path) {
+      runtime_fails(paste('read', path, 'into data with columns {value:', case[[1L]], '}'),
+                    paste0('requires ', case[[1L]], '; invalid value at data row 2'))
+    })
+  }
+  with_csv(c('value', '1e999'), function(path) {
+    runtime_fails(paste('read', path, 'into data with columns {value: Number}'), "outside the finite range")
+    stopifnot(run(paste('read', path, 'into data with columns {value: Text}'))$env$data$value == "1e999")
+  })
+})
+check("CSV schema file API output executes independently with text helpers", {
+  with_csv(c('code', '0012', '0007'), function(path) {
+    source <- paste('read', path, 'into data with columns {code: Text}\nlengths = std::text_length(data.code)')
+    with_source <- tempfile(fileext = '.rsspps')
+    on.exit(unlink(with_source))
+    writeLines(source, with_source)
+    result <- RStarStar::run_file(with_source)
+    env <- new.env(parent = baseenv())
+    eval(parse(text = RStarStar::transpile(with_source)), env)
+    stopifnot(identical(result$lengths, c(4, 4)), identical(env$data$code, c("0012", "0007")))
+  })
+})
+
+check("CSV schema headers cannot collide with generated R argument names", {
+  with_csv(c('recursive,use.names', '001,002'), function(path) {
+    result <- run(paste('read', path, 'into data with columns {recursive: Text, "use.names": Text}'))$env$data
+    stopifnot(identical(result$recursive, "001"), identical(result[["use.names"]], "002"))
+  })
+})
