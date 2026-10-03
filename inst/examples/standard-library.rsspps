@@ -1,0 +1,4 @@
+changes = [-9, 0, 16]
+magnitudes = std::absolute(changes)
+roots = std::square_root(values: magnitudes)
+print roots

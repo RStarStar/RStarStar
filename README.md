@@ -18,9 +18,9 @@ interfaces remain future work.
 The language and package API are experimental. RStarStar is now an installable
 **R package**, with no public CLI. Its exported functions, transpile(path) and run_file(path),
 accept local UTF-8 **.rsspps files only** for compilation or explicit execution.
-The R-call bridge remains future work. A future standard library will be bundled
-with this R package for use by RStarStar programs. Its contents and APIs are still
-to be designed. See the [package guide](docs/r-package.md).
+The R-call bridge remains future work. The bundled experimental
+[standard library](docs/standard-library.md) now offers std::absolute(values) and
+std::square_root(values). See the [package guide](docs/r-package.md).
 
 ## Install locally and try it
 

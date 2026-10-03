@@ -94,16 +94,15 @@ earlier if needed to avoid architectural dead ends.
 Done when the Predictor example works and a documented external-package example
 states exactly which checks and mutation guarantees apply.
 
-## 5a. Bundled standard library — planned
+## 5a. Bundled standard library — first slice implemented
 
-- [ ] Define the first library operations from practical beginner workflows.
-- [ ] Specify naming/access syntax, compatibility, and use from generated R.
-- [ ] Implement, document, and test the library within the RStarStar R package.
+- [x] Define absolute and square_root for plain numeric values.
+- [x] Qualified std:: calls, exact arguments, and standalone generated R.
+- [x] Bundle, document, and test the first operations in the R package.
+- [ ] Extend the library as concrete beginner workflows establish a need.
 
-Done when installing the toolchain also supplies a documented standard library
-usable by .rsspps programs, with tested diagnostics and an explicit execution
-boundary. Contents and APIs remain undecided; no separate standard-library package
-is planned. See the [package plan](r-package.md#planned-bundled-standard-library).
+The [standard-library contract](standard-library.md) describes the experimental
+first slice and its limits. No separate library package is needed.
 
 ## 6. Contributor-ready preview
 

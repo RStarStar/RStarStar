@@ -772,3 +772,16 @@ complete schema provenance contract for manually forged or modified R objects.
 Do not infer safe arbitrary-R interoperability or deep immutability outside the
 language. Recursive schemas, vector/table fields, methods, and classes are separate
 future work; no additional object backend or dependency is introduced.
+
+## Bundled numeric library
+
+```text
+magnitudes = std::absolute([-3, 0, 2])
+roots = std::square_root(values: [0, 4, 9])
+```
+
+Each operation accepts one plain numeric scalar/vector, preserving length and
+missing values. square_root rejects negative nonmissing inputs at execution.
+Only std:: is supported, with exact names and optional values: arguments. No
+imports or new R exports are needed; emitted implementations run standalone.
+See the [standard-library contract](standard-library.md) for the complete rules.

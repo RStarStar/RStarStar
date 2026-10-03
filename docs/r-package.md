@@ -1,6 +1,6 @@
 # R package guide
 
-RStarStar 0.0.10 is an experimental, locally installable R package. There is no
+RStarStar 0.0.11 is an experimental, locally installable R package. There is no
 public CLI and no published CRAN release. It exports transpile(path) to return generated R text and run_file(path) to
 execute a program and return its bindings. Both accept .rsspps files only.
 
@@ -18,7 +18,7 @@ cat(code)
 
 For your own program, save RStarStar source in analysis.rsspps and call
 transpile("analysis.rsspps"). Use ?transpile for installed API help. The package
-includes seven .rsspps examples and their small CSV fixtures under
+includes eight .rsspps examples and their small CSV fixtures under
 system.file("examples", package = "RStarStar"). Rscript files in the repository's
 examples/ directory are developer demo runners, not a public interface.
 
@@ -80,22 +80,13 @@ code still embeds its runtime helpers and can be saved and evaluated separately
 without an installed compiler. See ?run_file for installed help and
 examples/run-file.R for an R caller using a returned function and table.
 
-## Planned bundled standard library
+## Bundled standard library
 
-RStarStar will eventually include a standard library in the same R package as the
-toolchain. Installing the package will include that library; users will not need
-a separate standard-library package. This is an accepted direction, not an
-implemented library or a promise of particular functions in the current version.
-
-The library should offer reusable operations for RStarStar programs while preserving
-access to R's ecosystem. Its initial contents, naming/import syntax, implementation
-format, and compatibility policy still need design. Whether any library operations
-also become public R exports is a separate decision; compiler internals remain private.
-
-Design must preserve the .rsspps-only public source API, explicit execution boundary,
-and current dependency policy. Decide how generated R uses library operations before
-changing the current standalone-output behavior. Existing language built-ins and
-embedded runtime helpers are not automatically a stable standard-library API.
+The package includes experimental std::absolute(values) and std::square_root(values)
+for plain numeric scalars and vectors. Missing values propagate; negative square
+roots fail at execution. Only required implementations are embedded in standalone
+generated R. There are no new R exports or dependencies. See the
+[standard-library contract](standard-library.md) for examples and limits.
 
 ## Package development
 
@@ -108,7 +99,7 @@ from the source-package payload using .Rbuildignore.
 
 Reinstall after changing R/ and run Rscript tests/run.R against that installation.
 Tests include internal compiler cases and public file-API cases. R CMD build .
-and R CMD check --no-manual RStarStar_0.0.10.tar.gz validate the package, installed
+and R CMD check --no-manual RStarStar_0.0.11.tar.gz validate the package, installed
 help, examples, and tests. Use the current version in the archive name. Chart
 rendering tests report skips when Cairo is unavailable. --no-manual omits PDF
 manual generation only. See [Contributing](../CONTRIBUTING.md) for commands.

@@ -76,6 +76,10 @@ rss_tokenize <- function(source, filename) {
       if (i > n) rss_error("Unclosed text literal; expected a double quote.", start, filename)
       advance()
       add("text", value, start)
+    } else if (ch == ":" && i < n && chars[[i + 1L]] == ":") {
+      advance()
+      advance()
+      add("::", "::", start)
     } else if (ch %in% c("=", "!", "<", ">") && i < n && chars[[i + 1L]] == "=") {
       advance()
       advance()
@@ -140,6 +144,15 @@ rss_parse <- function(tokens, filename) {
     }
     if (token$kind %in% c("number", "text", "true", "false", "name")) {
       take()
+      standard <- FALSE
+      operation <- token$value
+      if (token$kind == "name" && peek()$kind == "::") {
+        take()
+        if (token$value != "std") rss_error("Only the bundled 'std' namespace is supported.", token, filename)
+        operation <- expect("name", "Expected a bundled operation after 'std::'.")$value
+        standard <- TRUE
+        if (peek()$kind != "(") rss_error("Standard-library operations must be called with parentheses.", peek(), filename)
+      }
       if (token$kind == "name" && peek()$kind == "(") {
         take()
         arguments <- list()
@@ -165,7 +178,7 @@ rss_parse <- function(tokens, filename) {
           }
         }
         expect(")", "Expected ')' after function arguments.")
-        return(node("call", token, name = token$value, arguments = arguments,
+        return(node(if (standard) "standard_call" else "call", token, name = operation, arguments = arguments,
                     labels = labels, argument_tokens = argument_tokens))
       }
       if (token$kind == "name" && peek()$kind == ".") {
@@ -537,6 +550,15 @@ rss_analyze <- function(statements, filename) {
       return(info(if (yes$type == no$type) yes$type else "Unknown",
                   if (!is.na(yes$size) && !is.na(no$size) && yes$size == no$size) yes$size else NA_integer_))
     }
+    if (kind == "standard_call") {
+      entry <- rss_standard_catalog()[[value$name]]
+      if (is.null(entry)) rss_error(sprintf("Unknown bundled operation 'std::%s'.", value$name), value$token, filename)
+      if (length(value$arguments) != 1L) rss_error(sprintf("std::%s expects exactly one argument.", value$name), value$token, filename)
+      if (nzchar(value$labels[[1L]]) && value$labels[[1L]] != entry$parameter) rss_error("Expected the exact parameter name 'values'.", value$argument_tokens[[1L]], filename)
+      operand <- recurse(value$arguments[[1L]])
+      if (!operand$type %in% c("Number", "Unknown")) rss_error("Standard-library numeric operations require plain numbers.", value$token, filename)
+      return(info("Number", operand$size))
+    }
     if (kind == "call") {
       target <- lookup(value$name, value$token)
       if (target$type != "Function") rss_error(sprintf("'%s' is not a declared function.", value$name), value$token, filename)
@@ -728,6 +750,7 @@ rss_generate <- function(statements, filename) {
   }
   checked <- has_data || contains_conditional(statements) ||
     any(vapply(statements, function(x) x$kind %in% c("function", "record"), logical(1)))
+  standard_operations <- character()
   needs_runtime <- FALSE
   call_runtime <- function(method, args, token) {
     needs_runtime <<- TRUE
@@ -737,6 +760,11 @@ rss_generate <- function(statements, filename) {
   emit <- function(value, table = NULL) {
     recurse <- function(x) emit(x, table)
     switch(value$kind,
+      standard_call = {
+        standard_operations <<- unique(c(standard_operations, value$name))
+        paste0(".rss_std$", value$name, "(", recurse(value$arguments[[1L]]), ", ",
+               quote_text(filename), ", ", value$token$line, "L, ", value$token$column, "L)")
+      },
       record_update = call_runtime("record_update", c(recurse(value$value),
         paste0("base::c(", paste(vapply(value$fields, quote_text, character(1)), collapse = ", "), ")"),
         paste0("base::list(", paste(vapply(value$values, recurse, character(1)), collapse = ", "), ")")), value$token),
@@ -806,6 +834,7 @@ rss_generate <- function(statements, filename) {
     paste0(name(statement$name), " <- ", rhs)
   }, character(1))
   helpers <- character()
+  if (length(standard_operations)) helpers <- c(helpers, rss_standard_generate(standard_operations))
   if (needs_runtime) helpers <- c(helpers, paste0(".rss <- base::eval(base::quote((", paste(deparse(rss_runtime, width.cutoff = 100L), collapse = "\n"), ")()), base::new.env(parent = base::baseenv()))"))
   if (has_data) {
     helpers <- c(helpers, paste0(".rss_read_csv <- base::eval(base::quote(", paste(deparse(rss_read_csv, width.cutoff = 100L), collapse = "\n"), "), base::baseenv())"))

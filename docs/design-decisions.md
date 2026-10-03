@@ -538,3 +538,33 @@ library's use by generated R before revisiting current standalone-output behavio
 Preserve the .rsspps-only public source API, compilation/execution separation, and
 R-bundled dependency policy. No library code, imports, exports, dependencies, or
 runtime behavior change in this documentation update.
+
+
+## 2026-10-03 — First standard-library slice proposed
+
+Status: proposed, not implemented or accepted syntax. Added a reviewable
+[standard-library proposal](standard-library.md) covering absolute/square_root,
+qualified std:: calls, exact arguments, elementwise missing-value behavior, domain
+errors, private R implementations, and embedding used helpers in standalone output.
+The proposal includes alternatives and a verification checklist. Namespace syntax,
+operation names, value rules, and implementation strategy still require review.
+
+This elaborates the accepted package-bundling direction without promoting it into
+an implemented library. Current built-ins, exports, dependencies, source validation,
+and generated-program behavior remain unchanged. Classes and external R calls stay
+separate milestones.
+
+## 2026-10-03 — First standard-library slice implemented
+
+Status: accepted and implemented, experimental in 0.0.11; supersedes the proposal
+above. std::absolute(values) and std::square_root(values) accept one exact positional
+or named argument. Inputs are attribute-free integer/double scalars or vectors.
+Length, numeric NA, and NaN are preserved; square_root rejects any nonmissing
+negative value at execution. Qualified names avoid user-binding collisions, and
+only std is supported. Operations are not first-class values or arbitrary R calls.
+
+The private catalog holds quoted implementations, never evaluated during compilation.
+Only used operations and common validation are embedded in an isolated base-only
+scope. Generated R remains standalone, with no additional public exports or
+dependencies. Errors retain source locations and language function call chains.
+See the [library contract](standard-library.md) for alternatives and failure cases.

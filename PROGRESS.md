@@ -535,3 +535,48 @@ Documentation only: no implementation, exports, dependencies, version, or execut
 behavior changed. Verified relative Markdown links, balanced code fences, example
 consistency, and git diff whitespace. Package tests/build/check were not rerun for
 this documentation-only change.
+
+
+## 2026-10-03 — Standard-library first-slice proposal
+
+Added docs/standard-library.md with a concrete proposal for two numeric operations,
+qualified access syntax, exact argument matching, scalar/vector/empty/missing and
+nonfinite-value behavior, useful failures, and standalone generated-code integration.
+Included alternatives and an implementation/verification checklist. Linked the
+proposal from README, package/language guides, roadmap, and decision record.
+
+The proposal is explicitly unaccepted and unimplemented. No language syntax,
+exports, dependencies, compiler code, or package version changed; all standard-library
+implementation roadmap items remain pending. Verified relative documentation links,
+code fences, example status/consistency, and git diff whitespace. No package tests
+or build/check were rerun for this documentation-only change.
+
+## 2026-10-03 — Bundled numeric standard library (0.0.11)
+
+Implemented the first slice following the proposal: std::absolute(values) and
+std::square_root(values), with exactly one positional or exact named argument.
+Added namespace parsing and source spans, static name/arity/type checks, and runtime
+validation of attribute-free integer/double inputs. Operations preserve lengths,
+empty numeric vectors, NA/NaN, and positive infinity; square_root rejects all
+nonmissing negative inputs before computing. Errors retain source locations and
+language function call chains. Existing bindings named std and user functions
+named absolute remain usable.
+
+A private catalog holds quoted implementations. Generated R embeds only used
+operations and shared checks in an isolated base-only environment; compilation
+never evaluates their bodies. run_file() hides the helper binding. Added focused
+behavioral/API tests, an installed source example, a developer demo, and R help.
+Updated the guide, implemented subset, package plan, decisions, and roadmap.
+No dependencies or public R exports were added.
+
+Verification: the shared runner reinstalled the package, passed 226 checks with
+0 skips, ran all nine demos including Cairo chart output, built
+RStarStar_0.0.11.tar.gz, and finished R CMD check --no-manual with Status: OK.
+The sandbox blocked dependency-index access; a network-enabled check rerun also
+finished with Status: OK. Checked relative Markdown links, balanced code fences,
+example consistency, and git diff whitespace.
+
+Limits: the library API remains experimental and contains only these two numeric
+operations. No imports, first-class library values, external R-call bridge, or
+class/method backend is introduced. Hosted CI, other R versions/platforms, and PDF
+manual generation remain unverified.
