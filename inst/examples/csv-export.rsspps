@@ -1,0 +1,4 @@
+read "data/sales.csv" into sales
+write sales to "sales-export.csv" with delimiter ";" with missing "N/A"
+read "sales-export.csv" into restored with delimiter ";" with missing ["N/A"]
+print restored

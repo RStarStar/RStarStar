@@ -427,7 +427,33 @@ rss_parse <- function(tokens, filename) {
       take()
       path <- expect("text", "Expected a quoted CSV output path.")
       if (!grepl("\\.csv$", path$value, ignore.case = TRUE)) rss_error("Table export requires a .csv output path.", path, filename)
-      statement <- node("write", token, table = table$value, table_token = table, path = path$value)
+      separator <- ","
+      missing_value <- ""
+      missing_token <- token
+      options <- character()
+      while (peek()$kind == "with") {
+        take()
+        option <- peek()
+        if (!option$kind %in% c("delimiter", "missing")) rss_error("Expected 'delimiter' or 'missing' after 'with' in a write statement.", option, filename)
+        take()
+        if (option$kind %in% options) rss_error("Each write option may appear only once.", option, filename)
+        options <- c(options, option$kind)
+        if (option$kind == "delimiter") {
+          delimiter <- expect("text", "Expected a quoted delimiter.")
+          separator <- delimiter$value
+          if (!separator %in% c(",", ";", "\t", "|")) {
+            rss_error("Export delimiter must be a comma, semicolon, tab, or pipe.", delimiter, filename)
+          }
+        } else {
+          missing_token <- expect("text", "Expected one quoted missing-value marker for export.")
+          missing_value <- missing_token$value
+        }
+      }
+      if (any(vapply(c(separator, '"', "\n", "\r"), function(ch) grepl(ch, missing_value, fixed = TRUE), logical(1)))) {
+        rss_error("Export missing marker cannot contain the delimiter, a quote, or a line break.", missing_token, filename)
+      }
+      statement <- node("write", token, table = table$value, table_token = table, path = path$value,
+                        separator = separator, missing_value = missing_value)
     } else if (token$kind == "plot") {
       take()
       table <- expect("name", "Expected a table variable after 'plot'.")
@@ -871,7 +897,7 @@ rss_generate <- function(statements, filename) {
       declared <<- c(declared, statement$name)
       return(paste0(name(statement$name), " <- function(", paste(vapply(statement$parameters, name, character(1)), collapse = ", "), ") {\n  return(", emit(statement$body), ")\n}"))
     }
-    if (statement$kind == "write") return(call_runtime("write", c(name(statement$table), quote_text(statement$path)), statement$token))
+    if (statement$kind == "write") return(call_runtime("write", c(name(statement$table), quote_text(statement$path), quote_text(statement$separator), quote_text(statement$missing_value)), statement$token))
     if (statement$kind == "plot") return(call_runtime("plot", c(name(statement$table), quote_text(statement$x), quote_text(statement$y), quote_text(statement$path)), statement$token))
     if (statement$kind == "print") return(paste0("base::print(", emit(statement$value), ")"))
     rhs <- emit(statement$value)
@@ -1115,7 +1141,7 @@ rss_runtime <- function() {
       if (!is.finite(result)) error("Summary result is outside the finite numeric range.")
       as.double(result)
     },
-    write = function(table, path, filename, line, column) {
+    write = function(table, path, separator, missing_value, filename, line, column) {
       error <- function(message) fail(message, filename, line, column)
       if (!is.data.frame(table)) error("CSV export requires a table.")
       if (!ncol(table) || anyNA(names(table)) || any(!nzchar(trimws(names(table)))) || anyDuplicated(names(table))) {
@@ -1133,8 +1159,8 @@ rss_runtime <- function() {
       temporary <- tempfile(pattern = ".rstarstar-csv-", tmpdir = dirname(path), fileext = ".csv")
       on.exit(unlink(temporary), add = TRUE)
       tryCatch(withCallingHandlers({
-        utils::write.table(table, file = temporary, sep = ",", dec = ".", quote = TRUE,
-                           row.names = FALSE, col.names = TRUE, na = "", eol = "\n",
+        utils::write.table(table, file = temporary, sep = separator, dec = ".", quote = TRUE,
+                           row.names = FALSE, col.names = TRUE, na = missing_value, eol = "\n",
                            qmethod = "double", fileEncoding = "UTF-8")
         if (!file.copy(temporary, path, overwrite = FALSE)) error("Could not save CSV; check the output path and permissions.")
       }, warning = function(w) stop(conditionMessage(w), call. = FALSE)), error = function(e) {

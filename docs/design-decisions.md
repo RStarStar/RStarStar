@@ -657,3 +657,40 @@ Compilation validates syntax only and never opens data; generated R embeds the
 marker list and remains standalone. Export still writes missing values as empty
 fields, so custom read markers alone do not guarantee round-trip preservation.
 See the [implemented contract](implemented-subset.md#custom-csv-missing-markers).
+
+## 2026-10-06 — Configurable CSV export delimiters
+
+Status: implemented, experimental in 0.0.16. Add an optional with delimiter clause
+to write so semicolon and tab workflows can export without leaving the language.
+Default comma output is unchanged. Supported export delimiters are comma, semicolon,
+tab, and pipe, expressed as one text literal. Require the existing .csv suffix and
+retain overwrite protection, temporary-file handling, source locations, and explicit
+execution. Use a matching read delimiter; no automatic detection is introduced.
+
+Restrict output separators instead of accepting every read separator: R's writer
+leaves numeric and boolean fields unquoted, so letters/digits and punctuation used
+in numbers could create ambiguous output. Text quoting still handles embedded
+supported separators and doubled quotes. Header-only output remains supported.
+Missing values still write as empty fields. No custom export missing marker,
+append mode, new extension, dependencies, or public API is introduced. The packaged
+csv-export example demonstrates export and re-import; its developer runner uses
+a temporary directory. CSV remains unsuitable for guaranteed exact serialization.
+
+## 2026-10-06 — CSV export missing marker
+
+Status: implemented, experimental in 0.0.17. Add write ... with missing "N/A" so
+missing entries can remain distinct from empty text on a matching read. Write
+accepts one text literal, unlike read's marker list; default empty output remains
+unchanged. Delimiter and missing options may appear once each, in either order.
+
+R writes missing markers unquoted. Reject markers containing the final delimiter,
+double quotes, carriage returns, or newlines during compilation, regardless of
+option order. Preserve existing runtime type checks, overwrite protection, temporary
+files, .csv suffix, and standalone output. No compilation-time data access.
+
+Do not imply lossless serialization: real fields equal to a selected read marker
+also become missing, including quoted text. Marker collisions are not detected;
+users must choose a marker absent from real data. Numeric formatting, type inference,
+and explicit read schemas retain their existing limits. Broader quoted-marker
+semantics would change CSV parsing and need a separate design. No dependencies,
+public exports, or append/overwrite mode are added.

@@ -1,6 +1,6 @@
 # Bundled standard library
 
-Status: **implemented, experimental in 0.0.15**. Installing RStarStar includes
+Status: **implemented, experimental in 0.0.17**. Installing RStarStar includes
 these operations. No additional package or import declaration is required.
 
 ```text

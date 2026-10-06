@@ -38,6 +38,8 @@ file-only public API and installed-namespace behavioral tests.
 - [x] Column access, comparisons, compound predicates, and explicit missing-value filtering.
 - [x] Scalar average/sum/count summaries and a saved PNG bar chart.
 - [x] Explicit CSV export of analysis tables with overwrite protection.
+- [x] Export delimiters: comma, semicolon, tab, and pipe.
+- [x] Explicit CSV export missing markers with structural validation.
 - [x] Optional CSV column types, including text identifiers and typed missing columns.
 - [x] Explicit per-read missing markers, including preserving empty and NA text.
 

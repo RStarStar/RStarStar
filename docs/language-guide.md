@@ -356,3 +356,24 @@ print estimate(model, 10)
 The intended output is 21. Implementations must satisfy the declared contract.
 Dispatch, compatibility rules, and mutation in interfaces remain to be designed.
 Composition is preferred initially; inheritance is deferred.
+
+## Export with an alternate delimiter
+
+CSV export supports comma (default), semicolon, tab, and pipe separators:
+
+```text
+write sales to "sales-export.csv" with delimiter ";"
+```
+
+This requires an existing table sales and a new output path. Use the same delimiter
+when reading the file back. Missing fields export as empty by default. Select a
+marker explicitly when empty text must remain distinct:
+
+```text
+write sales to "sales-export.csv" with delimiter ";" with missing "N/A"
+read "sales-export.csv" into restored with delimiter ";" with missing ["N/A"]
+```
+
+Choose a marker absent from real data: a literal N/A field would also be read as
+missing. Export markers cannot contain the delimiter, quotes, or line breaks.
+CSV remains a data-exchange format rather than exact typed serialization.

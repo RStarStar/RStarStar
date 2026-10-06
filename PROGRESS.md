@@ -692,3 +692,57 @@ Limits: one missing policy applies to all data columns in a read. Marker express
 per-column policies, and quoted/unquoted distinctions are unsupported. Export still
 writes missing fields as empty, so custom reading alone is not exact serialization.
 Hosted CI, other R versions/platforms, and PDF manual generation remain unverified.
+
+## 2026-10-06 — CSV export delimiters (0.0.16)
+
+Added write ... with delimiter ";" with comma (default), semicolon, tab, and pipe
+support. Delimiters must be quoted literals; unsupported separators and repeated
+options fail compilation. Preserved UTF-8 text quoting, empty missing fields,
+header-only output, temporary-file cleanup, and overwrite protection. Limited
+export separators because R's writer leaves numbers and booleans unquoted, making
+letters/digits and numeric punctuation unsafe delimiters.
+
+Added checks for semicolon/tab/pipe round trips, embedded separators, quotes,
+multiline and Unicode text, malformed delimiters, header-only tables, overwrite
+protection, compile-without-write, and standalone generated execution. Added a
+packaged csv-export.rsspps example and temporary-directory demo to the shared
+runner. Updated guides, installed help, decisions, roadmap, and package version.
+
+Verification: reinstalled through the shared runner; 255 checks passed with 0 skips.
+All ten demos passed, including Cairo output and the new CSV export demo. Built
+RStarStar_0.0.16.tar.gz; R CMD check --no-manual returned Status: OK. A network-enabled
+rerun after sandbox dependency-index failures also returned Status: OK. Checked
+61 local Markdown links across 12 files, code fences, examples, and diff whitespace.
+
+Limits: .csv output suffix remains required even for tab/pipe output. Read requires
+the matching delimiter explicitly. Custom export missing markers and append/overwrite
+modes remain unsupported; CSV is not exact typed serialization. Hosted CI, other R
+versions/platforms, and PDF manual generation remain unverified.
+
+## 2026-10-06 — CSV export missing marker (0.0.17)
+
+Added write ... with missing "N/A" to replace default empty missing fields with one
+explicit marker. Write accepts a text literal, while read continues to accept a
+marker list. Missing and delimiter options may appear once each, in either order.
+Because R writes missing markers unquoted, compilation rejects the final delimiter,
+quotes, and line breaks inside a marker. Existing defaults and file protections
+remain intact.
+
+Added checks for missing/empty/literal-NA distinctions with matching read options,
+option ordering, explicit default markers, malformed/structurally invalid markers,
+marker collision behavior, compile-without-write, standalone execution, and overwrite
+protection. Updated the packaged export demo, installed help, guides, decisions,
+and roadmap. Preserved the prior export-delimiter work in the working tree.
+No dependencies or public exports added.
+
+Verification: the shared runner reinstalled the package; 260 checks passed with
+0 skips. All ten demos passed, including Cairo rendering and the revised export
+demo. Built RStarStar_0.0.17.tar.gz and completed R CMD check --no-manual with
+Status: OK. A network-enabled rerun after sandbox dependency-index failures also
+returned Status: OK. Checked 61 local Markdown links across 12 files, balanced code fences,
+example consistency, and git diff whitespace.
+
+Limits: real values equal to a chosen read marker also become missing, even when
+quoted; no marker collision detection or exact serialization guarantee is provided.
+Numeric formatting and type inference retain their existing limits. Hosted CI,
+other R versions/platforms, and PDF manual generation remain unverified.

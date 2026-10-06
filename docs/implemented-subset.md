@@ -53,6 +53,7 @@ statement  = "fn", name, "(", [ name, { ",", name } ], ")", "{",
              { newline }, "return", expression, { newline }, "}"
            | [ "mut" ], name, "=", expression
            | "print", expression
+           | "write", name, "to", text, { "with", ("delimiter" | "missing"), text }
            | "read", text, "into", [ "mut" ], name,
              { "with", ( "delimiter", text | "columns", "{", (name | text), ":", name,
                { ",", (name | text), ":", name }, "}"
@@ -525,11 +526,40 @@ write totals to "totals.csv"
 
 write is a reserved keyword. The input must be a declared table variable; the
 output must be a quoted literal ending in .csv (case-insensitive). Export writes
-UTF-8 comma-separated data with headers, LF line endings, no row names, and doubled
+UTF-8 data (comma-separated by default) with headers, LF line endings, no row names, and doubled
 quotes inside quoted text. Numbers use R's standard write.table formatting with a
-decimal point, booleans use TRUE/FALSE, and missing entries become empty fields.
-Header-only output is supported. Custom delimiters and append/overwrite modes are
-not implemented.
+decimal point, booleans use TRUE/FALSE, and missing entries become empty fields by default.
+Header-only output is supported. An optional with delimiter selects comma, semicolon,
+tab ("\t"), or pipe ("|"). Other separators are rejected during compilation because
+they could split unquoted numeric or boolean output. Append/overwrite modes remain
+unsupported. A .csv output suffix is required for every supported delimiter.
+
+```text
+write sales to "sales-export.csv" with delimiter ";"
+read "sales-export.csv" into restored with delimiter ";"
+```
+
+The delimiter must be quoted text, not a variable, and may be specified only once.
+Quoted text fields safely retain embedded delimiters, quotes, and newlines. Import
+does not detect separators automatically; choose the matching delimiter on read.
+
+Use with missing "N/A" to choose the single text marker written for missing values.
+Unlike read's marker list, write accepts one quoted literal. The default is "".
+The missing and delimiter options may appear in either order, once each. Because
+missing markers are written unquoted, the marker cannot contain the selected
+delimiter, a double quote, carriage return, or newline. Validation uses the final
+delimiter regardless of option order and fails before execution.
+
+```text
+write sales to "sales-export.csv" with delimiter ";" with missing "N/A"
+read "sales-export.csv" into restored with delimiter ";" with missing ["N/A"]
+```
+
+Using only N/A on read preserves empty text and literal NA. However, genuine text
+or other field values equal to N/A will also be read as missing, even if quoted;
+choose a marker absent from real data. No collision detection is performed. These
+options do not guarantee exact serialization, and numeric/type limits still apply.
+For example, with missing "a;b" with delimiter ";" fails compilation.
 
 Compilation checks syntax and known types but does not inspect or create the
 output. Execution checks runtime table types and writes via a temporary file in

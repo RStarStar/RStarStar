@@ -30,6 +30,14 @@ and NA missing markers. \code{with missing []} disables marker recognition.
 Matching is exact on parsed field text, including quoted fields, before conversion;
 unmarked empty text fails declared Number or Boolean conversion.
 
+CSV write statements accept an optional \code{with delimiter ";"} clause.
+Supported export separators are comma (default), semicolon, tab, and pipe; the
+output path must end in .csv and must not exist. Use the matching delimiter on read.
+Write also accepts \code{with missing "N/A"} to replace its default empty missing
+marker. Unlike read, write takes one marker. It cannot contain the chosen delimiter,
+quotes, or line breaks. Use matching read markers and choose one absent from real
+values; marker collisions are not detected.
+
 Only file paths are accepted by the public API. Inline source strings, R source
 files, URLs, connections, and batches of paths are not supported. Internal
 compiler helpers are not exported.
