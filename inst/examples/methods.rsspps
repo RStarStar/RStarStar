@@ -1,0 +1,11 @@
+record Point {
+  x: Number
+  y: Number
+  fn magnitude(self) { return std::square_root(self.x * self.x + self.y * self.y) }
+  fn shifted(self, dx, dy) { return self with {x: self.x + dx, y: self.y + dy} }
+}
+start = Point(3, 4)
+distance = start.magnitude()
+next = start.shifted(dx: 1, dy: 2)
+print distance
+print next

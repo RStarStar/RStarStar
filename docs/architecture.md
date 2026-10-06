@@ -156,3 +156,15 @@ the embedded constructor. Runtime validation recursively accepts only supported
 plain scalar/record trees; with updates reuse construction checks and equality
 recursively reduces nested comparisons. Schema declaration order excludes recursive
 types. This is not a provenance validator for arbitrary manually altered R values.
+
+## Record methods
+
+Method declarations reuse function-body parsing inside record nodes. Receiver calls
+are postfix method_call nodes. Analysis registers each method after checking its
+body, with self's nominal type and a frozen declaration-order view. Generation embeds
+visible method IDs at each call; later declarations do not widen those candidates.
+Private runtime registries store schemas and ordinary method closures, validate exact
+receiver layouts/arguments, and route body errors through existing call-chain logic.
+The shared exact argument matcher is embedded in standalone runtime code. Method
+closures retain the program environment for earlier function calls; no methods are
+added to record values and no R dispatch backend is registered.

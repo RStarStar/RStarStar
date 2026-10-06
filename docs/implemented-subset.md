@@ -501,7 +501,8 @@ expression location. Runtime helpers are isolated from user functions so names
 such as mean or c cannot replace implementation dependencies.
 
 This first version excludes annotations, default arguments, nested functions,
-closures, recursion, assignments or other statements inside bodies, and methods.
+closures, recursion, and assignments or other statements inside bodies. Record
+methods use the same one-return body form; see the record-method section.
 A function definition need not be followed by a call. A bare call as a top-level
 statement is not yet supported: assign or print its result instead.
 
@@ -666,8 +667,8 @@ record is reserved. A top-level declaration defines at least one uniquely named
 field, one per line inside braces (a single field may share a line with the braces).
 Fields require explicit Number, Text, Boolean, or earlier record-type annotations
 and hold exactly one value of that type. Primitive fields are plain scalars; nested
-fields hold record values. Integer, vectors, tables, defaults, and methods are not
-supported as field declarations. A scalar missing value is allowed
+fields hold record values. Integer, vectors, tables, defaults, and function-valued fields are not
+supported as field declarations. Methods may follow all fields. A scalar missing value is allowed
 when it has the required type; no nonmissing or finite-number constraint is added.
 
 The generated constructor takes every field exactly once, using ordinary source
@@ -810,8 +811,8 @@ Field access and with updates are applied from left to right before arithmetic.
 Use parentheses to select a whole conditional receiver: (if flag then a else b).x.
 Suffixes may chain syntactically, but each intermediate value must be a table or
 record. A scalar field cannot be a receiver, so Point(1).x.other is an error when x is
-Number. Nested record fields can be chained, but vector indexing, methods, and calls
-through field values remain unsupported. Known invalid receivers/fields fail at compile time; dynamic
+Number. Nested record fields and method calls can be chained. Vector indexing and
+calls through field values remain unsupported. Known invalid receivers/fields fail at compile time; dynamic
 failures retain source locations (the dot for expression-result access).
 
 Existing table.column spelling retains its explicit table-variable lookup. Other
@@ -865,7 +866,7 @@ constructor inputs are recursively checked to exclude unsupported/reference-bear
 fields and extra attributes. This validates the supported value structure, not a
 complete schema provenance contract for manually forged or modified R objects.
 Do not infer safe arbitrary-R interoperability or deep immutability outside the
-language. Recursive schemas, vector/table fields, methods, and classes are separate
+language. Recursive schemas, vector/table fields, and mutable classes are separate
 future work; no additional object backend or dependency is introduced.
 
 ## Bundled standard library
@@ -903,3 +904,31 @@ record, and expression checks.
 clean = std::trim_text([" A B ", "   "])
 # Result: ["A B", ""]
 ```
+
+## Record methods
+
+```text
+record Point {
+  x: Number
+  fn shifted(self, dx) { return self with {x: self.x + dx} }
+}
+a = Point(3)
+b = a.shifted(dx: 2)
+# a.x is 3; b.x is 5.
+```
+
+Methods follow fields, require self first, and contain one return expression.
+Fields and methods must have unique names within the record. Calls implicitly
+supply self and follow exact positional/named argument rules. No mutable receivers,
+field assignment, first-class methods, forward references, or recursion. Method
+lookup is fixed at each call site's declaration position; dynamic receivers dispatch
+only among those visible methods. Known receivers get static checks, unknown ones
+get runtime checks. Receiver and arguments evaluate once in source order, before
+runtime dispatch. Earlier methods/functions and constructors are usable; the current
+constructor is available only after the record declaration completes.
+
+Methods retain copy semantics and existing scalar-field constraints. Runtime checks
+validate receiver layouts, including nested fields. Body errors include method and
+ordinary function call locations. Records remain named lists with nominal tags;
+helpers are excluded from run_file results and generated code stays standalone.
+See the [full contract](record-methods.md) for scope, R boundaries, and failures.

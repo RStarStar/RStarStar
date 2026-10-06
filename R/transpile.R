@@ -1,3 +1,22 @@
+# Shared exact method argument matching, also embedded in standalone runtime code.
+rss_match_method <- function(parameters, labels, token, filename) {
+  fail <- function(message) {
+    stop(structure(list(message = sprintf("%s:%d:%d: %s", filename, token$line, token$column, message),
+      call = NULL, filename = filename, line = token$line, column = token$column,
+      end_line = token$line, end_column = token$column + 1L),
+      class = c("rstarstar_error", "error", "condition")))
+  }
+  if (length(labels) != length(parameters)) fail(sprintf("Method expects %d arguments; received %d.", length(parameters), length(labels)))
+  matched <- integer()
+  for (i in seq_along(labels)) {
+    index <- if (nzchar(labels[[i]])) match(labels[[i]], parameters) else i
+    if (is.na(index)) fail(sprintf("Unknown method parameter '%s'; names must match exactly.", labels[[i]]))
+    if (index %in% matched) fail(sprintf("Method parameter '%s' was supplied more than once.", parameters[[index]]))
+    matched <- c(matched, index)
+  }
+  matched
+}
+
 # RStarStar's dependency-free initial compiler. Transpilation never evaluates input.
 rss_error <- function(message, token, filename) {
   stop(structure(list(
@@ -118,6 +137,33 @@ rss_parse <- function(tokens, filename) {
            span = list(line = token$line, column = token$column,
                        end_line = end$end_line, end_column = end$end_column)), fields)
   }
+  call_arguments <- function() {
+    take()
+    arguments <- list()
+    labels <- character()
+    argument_tokens <- list()
+    named <- FALSE
+    if (peek()$kind != ")") {
+      repeat {
+        start <- peek()
+        label <- ""
+        if (peek()$kind == "name" && tokens[[position + 1L]]$kind == ":") {
+          label <- take()$value
+          take()
+          named <- TRUE
+        } else if (named) {
+          rss_error("Positional arguments must come before named arguments.", start, filename)
+        }
+        arguments[[length(arguments) + 1L]] <- expression()
+        labels <- c(labels, label)
+        argument_tokens[[length(argument_tokens) + 1L]] <- start
+        if (peek()$kind != ",") break
+        take()
+      }
+    }
+    expect(")", "Expected ')' after function arguments.")
+    list(arguments = arguments, labels = labels, argument_tokens = argument_tokens)
+  }
   atom <- function() {
     token <- peek()
     if (token$kind == "if") {
@@ -154,39 +200,9 @@ rss_parse <- function(tokens, filename) {
         if (peek()$kind != "(") rss_error("Standard-library operations must be called with parentheses.", peek(), filename)
       }
       if (token$kind == "name" && peek()$kind == "(") {
-        take()
-        arguments <- list()
-        labels <- character()
-        argument_tokens <- list()
-        named <- FALSE
-        if (peek()$kind != ")") {
-          repeat {
-            start <- peek()
-            label <- ""
-            if (peek()$kind == "name" && tokens[[position + 1L]]$kind == ":") {
-              label <- take()$value
-              take()
-              named <- TRUE
-            } else if (named) {
-              rss_error("Positional arguments must come before named arguments.", start, filename)
-            }
-            arguments[[length(arguments) + 1L]] <- expression()
-            labels <- c(labels, label)
-            argument_tokens[[length(argument_tokens) + 1L]] <- start
-            if (peek()$kind != ",") break
-            take()
-          }
-        }
-        expect(")", "Expected ')' after function arguments.")
-        return(node(if (standard) "standard_call" else "call", token, name = operation, arguments = arguments,
-                    labels = labels, argument_tokens = argument_tokens))
-      }
-      if (token$kind == "name" && peek()$kind == ".") {
-        take()
-        column <- peek()
-        if (!(column$kind %in% c("name", "text"))) rss_error("Expected a column name or quoted column after '.'.", column, filename)
-        take()
-        return(node("column", token, table = token$value, column = column$value))
+        args <- call_arguments()
+        return(node(if (standard) "standard_call" else "call", token, name = operation, arguments = args$arguments,
+                    labels = args$labels, argument_tokens = args$argument_tokens))
       }
       return(node(token$kind, token, value = token$value))
     }
@@ -220,9 +236,18 @@ rss_parse <- function(tokens, filename) {
       token <- take()
       if (token$kind == ".") {
         field <- peek()
-        if (!field$kind %in% c("name", "text")) rss_error("Expected a field name or quoted header after '.'.", field, filename)
+        if (!field$kind %in% c("name", "text")) rss_error(if (value$kind == "name") "Expected a column name or quoted column after '.'." else "Expected a field name or quoted header after '.'.", field, filename)
         take()
-        member <- node("member", token, value = value, column = field$value)
+        if (peek()$kind == "(") {
+          if (field$kind != "name") rss_error("Method names must be identifiers, not quoted text.", field, filename)
+          args <- call_arguments()
+          member <- node("method_call", token, value = value, name = field$value,
+                         arguments = args$arguments, labels = args$labels, argument_tokens = args$argument_tokens)
+        } else if (value$kind == "name") {
+          member <- node("column", value$token, table = value$value, column = field$value)
+        } else {
+          member <- node("member", token, value = value, column = field$value)
+        }
         member$span$line <- value$span$line
         member$span$column <- value$span$column
         value <- member
@@ -323,6 +348,33 @@ rss_parse <- function(tokens, filename) {
     }
     value
   }
+  parse_function <- function(method = FALSE) {
+    token <- peek()
+    take()
+    name <- expect("name", "Expected a function name after 'fn'.")
+    if (!method && name$value %in% c("average", "sum", "count")) rss_error("A function cannot replace a built-in summary.", name, filename)
+    expect("(", "Expected '(' after the function name.")
+    parameters <- character()
+    if (peek()$kind != ")") {
+      repeat {
+        parameter <- expect("name", "Expected a parameter name.")
+        if (parameter$value %in% parameters) rss_error("Parameter names must be unique.", parameter, filename)
+        parameters <- c(parameters, parameter$value)
+        if (peek()$kind != ",") break
+        take()
+      }
+    }
+    expect(")", "Expected ')' after function parameters.")
+    expect("{", "Expected '{' before the function body.")
+    while (peek()$kind == "newline") take()
+    expect("return", "Functions currently require one 'return' expression.")
+    body <- expression()
+    while (peek()$kind == "newline") take()
+    expect("}", "Expected '}' after the return expression; multi-statement functions are not supported yet.")
+    if (method && (!length(parameters) || parameters[[1L]] != "self")) rss_error("A method must declare self as its first parameter.", name, filename)
+    node("function", token, name = name$value, name_token = name,
+                      parameters = parameters, body = body)
+  }
   statements <- list()
   while (peek()$kind != "eof") {
     if (peek()$kind == "newline") {
@@ -338,9 +390,19 @@ rss_parse <- function(tokens, filename) {
       fields <- character()
       types <- character()
       type_tokens <- list()
+      methods <- list()
       while (peek()$kind == "newline") take()
       while (peek()$kind != "}") {
         if (peek()$kind == "eof") rss_error("Expected '}' to close the record.", peek(), filename)
+        if (peek()$kind == "fn") {
+          method <- parse_function(TRUE)
+          if (method$name %in% c(fields, names(methods))) rss_error("Record field and method names must be unique.", method$name_token, filename)
+          methods[[method$name]] <- method
+          if (!peek()$kind %in% c("newline", "}")) rss_error("Expected a new line between record members.", peek(), filename)
+          while (peek()$kind == "newline") take()
+          next
+        }
+        if (length(methods)) rss_error("Record fields must be declared before methods.", peek(), filename)
         field <- expect("name", "Expected a field name or '}' in the record.")
         if (field$value %in% fields) rss_error("Record field names must be unique.", field, filename)
         expect(":", "Expected ':' and a type after the field name.")
@@ -354,31 +416,9 @@ rss_parse <- function(tokens, filename) {
       }
       take()
       if (!length(fields)) rss_error("A record must declare at least one field.", name, filename)
-      statement <- node("record", token, name = name$value, name_token = name, fields = fields, types = types, type_tokens = type_tokens)
+      statement <- node("record", token, name = name$value, name_token = name, fields = fields, types = types, type_tokens = type_tokens, methods = methods)
     } else if (token$kind == "fn") {
-      take()
-      name <- expect("name", "Expected a function name after 'fn'.")
-      if (name$value %in% c("average", "sum", "count")) rss_error("A function cannot replace a built-in summary.", name, filename)
-      expect("(", "Expected '(' after the function name.")
-      parameters <- character()
-      if (peek()$kind != ")") {
-        repeat {
-          parameter <- expect("name", "Expected a parameter name.")
-          if (parameter$value %in% parameters) rss_error("Parameter names must be unique.", parameter, filename)
-          parameters <- c(parameters, parameter$value)
-          if (peek()$kind != ",") break
-          take()
-        }
-      }
-      expect(")", "Expected ')' after function parameters.")
-      expect("{", "Expected '{' before the function body.")
-      while (peek()$kind == "newline") take()
-      expect("return", "Functions currently require one 'return' expression.")
-      body <- expression()
-      while (peek()$kind == "newline") take()
-      expect("}", "Expected '}' after the return expression; multi-statement functions are not supported yet.")
-      statement <- node("function", token, name = name$value, name_token = name,
-                        parameters = parameters, body = body)
+      statement <- parse_function()
     } else if (token$kind == "print") {
       take()
       statement <- node("print", token, value = expression())
@@ -576,6 +616,7 @@ rss_parse <- function(tokens, filename) {
 rss_analyze <- function(statements, filename) {
   bindings <- new.env(parent = emptyenv())
   records <- new.env(parent = emptyenv())
+  methods <- list()
   info <- function(type, size) list(type = type, size = size)
   lookup <- function(name, token) {
     if (!exists(name, bindings, inherits = FALSE)) {
@@ -612,6 +653,19 @@ rss_analyze <- function(statements, filename) {
       no <- recurse(value$no)
       return(info(if (yes$type == no$type) yes$type else "Unknown",
                   if (!is.na(yes$size) && !is.na(no$size) && yes$size == no$size) yes$size else NA_integer_))
+    }
+    if (kind == "method_call") {
+      receiver <- recurse(value$value)
+      if (!receiver$type %in% c("Unknown") && !startsWith(receiver$type, "Record:")) rss_error("Method calls require a record receiver.", value$token, filename)
+      candidates <- Filter(function(entry) entry$name == value$name &&
+        (receiver$type == "Unknown" || entry$type == receiver$type), methods)
+      if (!length(candidates)) rss_error(sprintf("No visible method '%s' for this receiver.", value$name), value$token, filename)
+      if ("self" %in% value$labels) rss_error("The method receiver supplies self; do not pass it as an argument.", value$token, filename)
+      if (receiver$type != "Unknown") rss_match_method(candidates[[1L]]$parameters, value$labels, value$token, filename)
+      invisible(lapply(value$arguments, recurse))
+      results <- lapply(candidates, function(entry) entry$result)
+      if (all(vapply(results, identical, logical(1), results[[1L]]))) return(results[[1L]])
+      return(info("Unknown", NA_integer_))
     }
     if (kind == "standard_call") {
       entry <- rss_standard_catalog()[[value$name]]
@@ -756,6 +810,20 @@ rss_analyze <- function(statements, filename) {
       }, character(1))
       names(schema) <- statement$fields
       assign(record_type, schema, records)
+      for (method in statement$methods) {
+        outer <- bindings
+        bindings <- new.env(parent = emptyenv())
+        for (key in ls(outer, all.names = TRUE)) {
+          entry <- get(key, outer, inherits = FALSE)
+          if (entry$info$type == "Function") assign(key, entry, bindings)
+        }
+        for (parameter in method$parameters) assign(parameter,
+          list(info = if (parameter == "self") info(record_type, 1L) else info("Unknown", NA_integer_), mutable = FALSE), bindings)
+        result <- infer(method$body)
+        bindings <- outer
+        methods[[length(methods) + 1L]] <- list(name = method$name, type = record_type,
+          parameters = method$parameters[-1L], result = result)
+      }
       signature <- info("Function", 1L)
       signature$parameters <- statement$fields
       signature$field_types <- unname(schema)
@@ -816,6 +884,7 @@ rss_generate <- function(statements, filename) {
   }
   checked <- has_data || contains_conditional(statements) ||
     any(vapply(statements, function(x) x$kind %in% c("function", "record"), logical(1)))
+  method_entries <- list()
   standard_operations <- character()
   needs_runtime <- FALSE
   call_runtime <- function(method, args, token) {
@@ -826,6 +895,13 @@ rss_generate <- function(statements, filename) {
   emit <- function(value, table = NULL) {
     recurse <- function(x) emit(x, table)
     switch(value$kind,
+      method_call = {
+        ids <- which(vapply(method_entries, function(entry) entry == value$name, logical(1)))
+        args <- paste0("base::list(", paste(vapply(value$arguments, recurse, character(1)), collapse = ", "), ")")
+        labels <- paste0("base::c(", paste(vapply(value$labels, quote_text, character(1)), collapse = ", "), ")")
+        call_runtime("method_call", c(recurse(value$value), quote_text(value$name),
+          paste0("base::c(", paste(ids, collapse = ", "), ")"), args, labels), value$token)
+      },
       standard_call = {
         standard_operations <<- unique(c(standard_operations, value$name))
         paste0(".rss_std$", value$name, "(", recurse(value$arguments[[1L]]), ", ",
@@ -891,7 +967,17 @@ rss_generate <- function(statements, filename) {
       values <- paste0("base::list(", paste(vapply(statement$fields, name, character(1)), collapse = ", "), ")")
       types <- ifelse(statement$types %in% c("Number", "Text", "Boolean"), statement$types, paste0("Record:", statement$types))
       body <- call_runtime("record", c(quote_text(statement$name), vector(statement$fields), vector(types), values), statement$token)
-      return(paste0(name(statement$name), " <- function(", paste(vapply(statement$fields, name, character(1)), collapse = ", "), ") {\n  return(", body, ")\n}"))
+      constructor <- paste0(name(statement$name), " <- function(", paste(vapply(statement$fields, name, character(1)), collapse = ", "), ") {\n  return(", body, ")\n}")
+      schema_code <- call_runtime("schema", c(quote_text(paste0("Record:", statement$name)), vector(statement$fields), vector(types)), statement$token)
+      implementations <- vapply(statement$methods, function(method) {
+        body <- emit(method$body)
+        id <- length(method_entries) + 1L
+        method_entries[[id]] <<- method$name
+        implementation <- paste0("function(", paste(vapply(method$parameters, name, character(1)), collapse = ", "), ") {\n return(", body, ")\n}")
+        call_runtime("method", c(as.character(id), quote_text(paste0("Record:", statement$name)),
+          vector(method$parameters[-1L]), implementation), method$token)
+      }, character(1))
+      return(paste(c(schema_code, constructor, implementations), collapse = "\n"))
     }
     if (statement$kind == "function") {
       declared <<- c(declared, statement$name)
@@ -907,7 +993,7 @@ rss_generate <- function(statements, filename) {
   }, character(1))
   helpers <- character()
   if (length(standard_operations)) helpers <- c(helpers, rss_standard_generate(standard_operations))
-  if (needs_runtime) helpers <- c(helpers, paste0(".rss <- base::eval(base::quote((", paste(deparse(rss_runtime, width.cutoff = 100L), collapse = "\n"), ")()), base::new.env(parent = base::baseenv()))"))
+  if (needs_runtime) helpers <- c(helpers, paste0(".rss <- base::eval(base::quote((", paste(deparse(rss_runtime, width.cutoff = 100L), collapse = "\n"), ")(", paste(deparse(rss_match_method, width.cutoff = 100L), collapse = "\n"), ")), base::new.env(parent = base::baseenv()))"))
   if (has_data) {
     helpers <- c(helpers, paste0(".rss_read_csv <- base::eval(base::quote(", paste(deparse(rss_read_csv, width.cutoff = 100L), collapse = "\n"), "), base::baseenv())"))
   }
@@ -1031,7 +1117,9 @@ rss_read_csv <- function(path, separator, filename, line, column, schema = chara
 
 # Embedded expression checks also cover values whose CSV type/length is unknown
 # until execution. All closures live in a private environment in generated R.
-rss_runtime <- function() {
+rss_runtime <- function(match_method) {
+  methods <- list()
+  schemas <- list()
   fail <- function(message, filename, line, column) {
     stop(structure(list(message = sprintf("%s:%d:%d: %s", filename, line, column, message),
                         call = NULL, filename = filename, line = line, column = column,
@@ -1097,6 +1185,15 @@ rss_runtime <- function() {
            ">" = left > right, ">=" = left >= right, "and" = left & right, "or" = left | right)
   }
   runtime <- list(
+    schema = function(type, fields, types, filename, line, column) {
+      names(types) <- fields
+      schemas[[type]] <<- types
+      invisible(NULL)
+    },
+    method = function(id, type, parameters, implementation, filename, line, column) {
+      methods[[id]] <<- list(type = type, parameters = parameters, implementation = implementation)
+      invisible(NULL)
+    },
     record = function(record_name, fields, types, values, filename, line, column) {
       for (i in seq_along(fields)) {
         value <- values[[i]]
@@ -1249,6 +1346,27 @@ rss_runtime <- function() {
       value
     }
   )
+  valid_receiver <- function(value, expected) {
+    if (!plain_record(value) || type(value) != expected) return(FALSE)
+    schema <- schemas[[expected]]
+    if (is.null(schema) || !identical(names(value), names(schema))) return(FALSE)
+    all(vapply(seq_along(schema), function(i) {
+      if (startsWith(schema[[i]], "Record:")) return(valid_receiver(value[[i]], schema[[i]]))
+      plain_scalar(value[[i]]) && type(value[[i]]) == schema[[i]]
+    }, logical(1)))
+  }
+  runtime$method_call <- function(receiver, name, candidates, arguments, labels, filename, line, column) {
+    force(receiver)
+    arguments <- lapply(arguments, identity)
+    error <- function(message) fail(message, filename, line, column)
+    if (!startsWith(type(receiver), "Record:")) error("Method calls require a record receiver.")
+    selected <- Filter(function(id) methods[[id]]$type == type(receiver), candidates)
+    if (!length(selected)) error(sprintf("No visible method '%s' for this receiver.", name))
+    entry <- methods[[selected[[1L]]]]
+    if (!valid_receiver(receiver, entry$type)) error("Method receiver does not match its declared record layout.")
+    matched <- match_method(entry$parameters, labels, list(line = line, column = column), filename)
+    runtime$call(entry$implementation, c(list(receiver), arguments[order(matched)]), filename, line, column)
+  }
   runtime$record_update <- function(value, fields, replacements, filename, line, column) {
     if (!startsWith(type(value), "Record:")) fail("A with update requires a record.", filename, line, column)
     absent <- fields[!fields %in% names(value)]

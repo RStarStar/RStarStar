@@ -694,3 +694,31 @@ users must choose a marker absent from real data. Numeric formatting, type infer
 and explicit read schemas retain their existing limits. Broader quoted-marker
 semantics would change CSV parsing and need a separate design. No dependencies,
 public exports, or append/overwrite mode are added.
+
+## 2026-10-06 — Record-method first slice proposed
+
+Status: proposed, not accepted or implemented. The
+[record-method proposal](record-methods.md) describes nested fn declarations with
+explicit self, value-returning updates, exact arguments, definition-time lookup
+visibility, and source-located calls. It recommends ordinary private R functions
+and existing record values rather than selecting a class backend. Unknown-receiver
+dispatch, name collisions, scope, R boundaries, alternatives, and future verification
+are specified for review. Mutable classes and interfaces remain separate designs.
+No syntax, exports, dependencies, generated behavior, or package version changes.
+
+## 2026-10-06 — Value record methods implemented
+
+Status: accepted and implemented, experimental in 0.0.18. Adopts the record-method
+proposal above: nested fn declarations after fields, explicit self, one return
+expression, exact arguments, and copy-returning updates. Declaration-order visibility
+is encoded as fixed candidate method IDs at each call site. Known receivers resolve
+statically; unknown receivers dispatch by nominal record type within that fixed set.
+Method signatures may differ between types. Receiver and arguments evaluate once
+in source order before runtime dispatch, and body errors retain enclosing call chains.
+
+Private runtime registries hold ordinary method functions and schemas; record values
+retain existing list fields/tags and equality. Methods may call earlier methods,
+functions, and constructors; their own constructor becomes visible only after the
+record declaration. No recursion, forward references, mut self, bound method values,
+new backend, dependencies, or exports. Layout validation is not provenance or deep
+immutability for arbitrary R objects. See [record methods](record-methods.md).

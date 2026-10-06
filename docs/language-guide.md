@@ -178,7 +178,7 @@ exactly once. See [named arguments](implemented-subset.md#named-function-argumen
 The initial function form has parameters and a single return expression. Pass
 needed data explicitly; functions do not capture outer variables. Functions may
 call previously declared functions. Annotations, multi-statement bodies, recursion,
-and methods are still proposals. The typed functions in the OOP examples below
+and mutable class methods are still proposals. The typed functions in the OOP examples below
 are therefore not executable yet.
 
 ## Choose a result
@@ -222,7 +222,9 @@ be replaced with another value of the same declared record type; copies retain
 their original fields. An Integer field type is not implemented.
 
 Records use ordinary named R lists with an internal type attribute and base R
-printing. No class backend or dispatch system is selected. R callers can modify
+printing. No class backend or dispatch system is selected. Read-only
+[record methods](record-methods.md) now support nested fn declarations and receiver
+calls, returning new values for updates. R callers can modify
 returned lists, so immutability is a source-language rule. Vector or table fields,
 validation blocks, and defaults remain future work. See [records](implemented-subset.md#records)
 for exact limits and failures.

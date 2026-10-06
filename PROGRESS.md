@@ -746,3 +746,58 @@ Limits: real values equal to a chosen read marker also become missing, even when
 quoted; no marker collision detection or exact serialization guarantee is provided.
 Numeric formatting and type inference retain their existing limits. Hosted CI,
 other R versions/platforms, and PDF manual generation remain unverified.
+
+## 2026-10-06 — Record-method design proposal
+
+Returned to the approachable-objects roadmap with docs/record-methods.md. Proposed
+methods declared after record fields, explicit self, one return expression, exact
+arguments, and value-returning updates. Specified field/method collisions, receiver
+and argument evaluation, declaration-order visibility, unknown-receiver dispatch,
+source locations, generated helper isolation, and R interoperability limits.
+Included successful/failing examples, alternatives, review points, and a future
+implementation checklist. Linked it from README, guide, decisions, and roadmap.
+
+This is a proposal, not accepted syntax or implemented method support. No compiler,
+package API, version, dependency, or backend changes. Mutable classes and interfaces
+remain unresolved. Verified 67 local links across 13 Markdown files, balanced fences,
+example consistency with the proposed rules, and git diff whitespace. Package tests,
+demos, build, and check were not rerun for this documentation-only change.
+
+## 2026-10-06 — Value record methods (0.0.18)
+
+Implemented the reviewed first-slice direction: fn methods after record fields,
+explicit self, a single return expression, receiver calls, and exact positional/named
+arguments. Methods return values and use with for copied updates. Receiver calls
+compose with constructors, nested fields, and expression results. Fields/methods
+share a unique member namespace. Methods see earlier functions, constructors, and
+methods, but not outer data, themselves, later methods, or their current constructor.
+
+Added static method signatures and fixed visible method IDs at each generated call
+site. Unknown receivers dispatch at execution by nominal type among those candidates;
+later declarations cannot expand an earlier function's lookup set. Receiver and
+arguments evaluate once in source order. Runtime checks validate exact supported
+receiver layouts, including nested fields, and shared argument matching avoids R's
+partial matching. Method body errors retain source locations and enclosing call
+chains. Private runtime registries hold ordinary R functions and schemas; record
+values/equality and public result bindings remain unchanged.
+
+Added 12 focused checks covering declarations/spans, copies/aliases, exact and dynamic
+calls, visibility, evaluation order, invalid R layouts, filter scope, lazy bodies,
+helper-name collisions, diagnostics, and standalone execution. Preserved existing
+field-access diagnostics during the parser refactor. A filter test initially tried
+to put a whole CSV column in a scalar field; corrected it to a vector predicate
+method, retaining the existing field contract. Added packaged/developer examples,
+installed help, architecture notes, and updated the contract, guides, and roadmap.
+
+Verification: the final shared runner reinstalled the package, passed 272 checks
+with 0 skips, ran all eleven demos including Cairo rendering and the method demo,
+built RStarStar_0.0.18.tar.gz, and completed R CMD check --no-manual with Status: OK.
+A network-enabled rerun after sandbox dependency-index failures also reported
+Status: OK. Checked 70 local links across 13 Markdown files, balanced fences,
+example consistency, and git diff whitespace.
+
+Limits: no mut self, direct field writes, recursion, forward references, bound method
+values, interfaces, or mutable class backend. Fields remain scalar or nested records.
+R callers use returned language wrappers to invoke methods; no native dollar-method
+interface or arbitrary-object provenance/deep-immutability guarantee. Hosted CI,
+other R versions/platforms, and PDF manual generation remain unverified.
