@@ -55,7 +55,8 @@ statement  = "fn", name, "(", [ name, { ",", name } ], ")", "{",
            | "print", expression
            | "read", text, "into", [ "mut" ], name,
              { "with", ( "delimiter", text | "columns", "{", (name | text), ":", name,
-               { ",", (name | text), ":", name }, "}" ) }
+               { ",", (name | text), ":", name }, "}"
+               | "missing", "[", [ text, { ",", text } ], "]" ) }
            | "filter", name, "where", expression, [ "skipping", "missing" ],
              "into", [ "mut" ], name
            | "summarize", name, "by", (name | text), { ",", (name | text) }, "with",
@@ -193,12 +194,12 @@ Column inference considers all nonmissing values:
   with leading zeros. Nonfinite numeric conversions are rejected.
 - A column containing only true/false/TRUE/FALSE becomes logical.
 - Other columns remain text; mixed numeric/text columns are not conversion errors.
-- Empty fields and exact NA become missing, including inside quotes. All-missing
+- By default, empty fields and exact NA become missing, including inside quotes. All-missing
   and zero-row columns are character vectors with unknown intended type.
 
 No rows are dropped, missing values are not replaced with zero, and mixed columns
 are not partly converted. Optional column types override inference as described
-below. Alternate missing markers remain unsupported.
+below. Missing-value markers can also be replaced explicitly.
 The CSV loader reads the whole file into memory and is an initial implementation,
 not a streaming or large-dataset engine.
 
@@ -209,8 +210,8 @@ read "codes.csv" into codes with columns {code: Text, amount: Number, active: Bo
 read "codes.txt" into codes_again with delimiter ";" with columns {"product code": Text}
 ```
 
-Each optional with clause appears at most once; delimiter and columns may appear
-in either order. A columns block must contain at least one unique header/type pair,
+Each optional with clause appears at most once; delimiter, columns, and missing
+may appear in any order. A columns block must contain at least one unique header/type pair,
 separated by commas. Newlines inside the block and quoted headers are supported.
 Types are exactly Text, Number, or Boolean; columns is contextual, not reserved.
 Undeclared columns retain inference. Declared names must exist in the file header,
@@ -219,8 +220,8 @@ even for a zero-row file. Header matching is exact and case-sensitive.
 Text preserves nonmissing field text, including leading zeros and surrounding
 whitespace. Number accepts only the existing decimal/scientific syntax and finite
 conversion results. Boolean accepts exactly true/false/TRUE/FALSE. No trimming or
-conversion fallback occurs. Empty fields and exact NA remain missing for all types;
-quoted empty fields and quoted NA are also missing. Declared Number and Boolean
+conversion fallback occurs. By default, empty fields and exact NA are missing for
+all types, including quoted fields. The missing option can replace these markers. Declared Number and Boolean
 columns retain their types when empty or all missing.
 
 ```text
@@ -234,6 +235,36 @@ numbered from 1 excluding the header, including multiline quoted records as one
 row. No partial table is returned. Compilation never reads the CSV. These types
 control loading only; the analyzer still treats table-column types as unknown.
 Mutable table reloads may specify different column types on each read.
+
+### Custom CSV missing markers
+
+```text
+read "codes.csv" into codes with columns {code: Text} with missing ["", "N/A"]
+read "literal-codes.csv" into literal_codes with missing []
+```
+
+The optional with missing clause replaces the default ["", "NA"] list for that
+read only. Include every desired marker explicitly. In the first example, literal
+NA stays text, while empty fields and N/A become missing. An empty list disables
+marker recognition: empty fields and literal NA remain values. This [] is a read
+configuration, not support for empty vector expressions elsewhere in the language.
+
+Markers must be unique quoted text literals. Multiline lists and ordinary text
+escapes are allowed. Matching is exact and case-sensitive, after CSV unquoting and
+line-ending normalization, without trimming; quoted and unquoted fields follow
+the same rule. Markers apply to data fields in all columns, never the header, and
+are recognized before inference or declared conversion. Each read starts with the
+defaults unless its own missing clause overrides them, including mutable reloads.
+
+Preserved empty strings or NA text will fail a declared Number/Boolean conversion.
+For example, with columns {amount: Number} with missing [] rejects an empty amount
+instead of silently treating it as missing. Choosing numeric-looking markers such
+as "0" intentionally makes those exact fields missing. No rows are dropped.
+
+Malformed lists, duplicate markers, and repeated missing options fail compilation;
+invalid converted data fails at execution with the existing read diagnostics.
+Compilation still reads no CSV data. Per-column markers, expressions in option
+lists, and distinguishing quoted markers from unquoted markers are unsupported.
 
 Generated output embeds .rss_read_csv only when needed. That helper name cannot
 collide with a source binding because dots are column-access punctuation, not
@@ -510,7 +541,7 @@ For example, running the program twice reports an existing-output error on the
 second run; choose a new filename explicitly.
 
 CSV is a data-exchange format, not exact typed serialization. Re-reading without
-explicit column types applies the existing inference rules: empty text and the literal text NA become missing,
+explicit column types or missing markers applies the existing inference rules: empty text and the literal text NA become missing,
 numeric-looking text can become numbers, and empty/all-missing columns become
 Text. Standard numeric formatting can lose precision. Use the R values returned
 by run_file() when preserving R types and precision matters.

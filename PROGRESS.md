@@ -665,3 +665,30 @@ Limits: declared types affect loading, not static table-column inference or late
 mutable reloads. Missing markers remain fixed, including quoted empty/NA fields;
 no date types, required columns, schema objects, dependencies, or exports added.
 Hosted CI, other R versions/platforms, and PDF manual generation remain unverified.
+
+## 2026-10-06 — Configurable CSV missing markers (0.0.15)
+
+Added with missing ["", "N/A"] to read. The list explicitly replaces the default
+empty-string/NA markers for one read; [] disables marker recognition. Matching is
+exact and case-sensitive after CSV unquoting and line-ending normalization, before
+inference or declared conversion. Quoted fields follow the same rules. Each option
+may appear once, in any order with delimiter and columns. Markers are unique text
+literals; general empty vector expressions remain unsupported.
+
+Added behavioral checks for custom/default replacement, preserved literal NA and
+empty strings, typed conversion failures, inference, quoted and multiline fields,
+mutable reloads, invalid options, public file APIs, and standalone output. Extended
+the packaged CSV example and demo with a missing-code fixture. Updated guides,
+installed help, decisions, and roadmap. Existing unrelated .DS_Store files were
+left untouched. No dependencies or public exports added.
+
+Verification: the shared runner reinstalled the package, passed 251 checks with
+0 skips, ran all nine demos including Cairo rendering, built RStarStar_0.0.15.tar.gz,
+and completed R CMD check --no-manual with Status: OK. A network-enabled rerun
+after sandbox dependency-index failures also reported Status: OK. Checked 61 local Markdown
+links across 12 files, balanced fences, example consistency, and git diff whitespace.
+
+Limits: one missing policy applies to all data columns in a read. Marker expressions,
+per-column policies, and quoted/unquoted distinctions are unsupported. Export still
+writes missing fields as empty, so custom reading alone is not exact serialization.
+Hosted CI, other R versions/platforms, and PDF manual generation remain unverified.

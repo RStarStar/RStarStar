@@ -4,3 +4,6 @@ print sales
 
 read "data/codes.csv" into codes with columns {code: Text, amount: Number}
 print std::text_length(codes.code)
+
+read "data/missing-codes.csv" into literal_codes with columns {code: Text} with missing ["N/A"]
+print literal_codes

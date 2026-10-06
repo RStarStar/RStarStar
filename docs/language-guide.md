@@ -34,7 +34,16 @@ lengths = std::text_length(codes.code)
 ```
 
 Only named columns override inference. Text, Number, and Boolean are supported;
-invalid declared values fail at execution. Missing-value markers remain unchanged.
+invalid declared values fail at execution. Replace default missing markers explicitly
+when a dataset uses a different convention:
+
+```text
+read "codes.csv" into codes with columns {code: Text} with missing ["", "N/A"]
+```
+
+Here NA is ordinary text. Use with missing [] to recognize no markers; preserved
+empty strings still fail declared Number/Boolean conversion. See the
+[missing-marker contract](implemented-subset.md#custom-csv-missing-markers).
 
 
 Sentence-like commands express actions; ordinary expressions express calculations.

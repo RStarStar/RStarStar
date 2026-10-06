@@ -1,7 +1,7 @@
 Package: RStarStar
 Type: Package
 Title: Transpile Beginner-Friendly Source Files to R
-Version: 0.0.14
+Version: 0.0.15
 Authors@R: c(
     person("Kisura", role = c("aut", "cre"),
            email = "85266425+KisuraWSP@users.noreply.github.com"),

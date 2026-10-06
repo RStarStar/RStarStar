@@ -61,7 +61,7 @@ Rscript examples/standard-library.R
 Rscript examples/grouped.R
 Rscript examples/workflow.R
 R CMD build .
-R CMD check --no-manual RStarStar_0.0.14.tar.gz
+R CMD check --no-manual RStarStar_0.0.15.tar.gz
 git diff --check
 ```
 

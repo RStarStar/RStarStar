@@ -39,12 +39,13 @@ file-only public API and installed-namespace behavioral tests.
 - [x] Scalar average/sum/count summaries and a saved PNG bar chart.
 - [x] Explicit CSV export of analysis tables with overwrite protection.
 - [x] Optional CSV column types, including text identifiers and typed missing columns.
+- [x] Explicit per-read missing markers, including preserving empty and NA text.
 
 The workflow example now reads, filters, computes scalar summaries, and saves a
 bar chart. The grouped-summary extension now combines repeated categories with
 one or more grouping keys and multiple outputs. Selected CSV columns can have explicit
-Text, Number, or Boolean types. Custom missing markers and additional chart types
-remain extensions.
+Text, Number, or Boolean types, with configurable missing markers. Additional
+chart types and per-column missing policies remain extensions.
 
 Done when a small documented dataset can go from file to summary and chart, with
 useful failures for absent files, missing columns, and invalid inputs.

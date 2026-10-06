@@ -25,6 +25,10 @@ CSV reads may specify selected column types with source syntax such as
 Text preserves identifiers with leading zeros; Number and Boolean validate
 nonmissing fields and preserve empty/all-missing column types. Unspecified
 columns remain inferred. Header and data validation occur only at execution.
+The source option \code{with missing ["", "N/A"]} replaces the default empty-string
+and NA missing markers. \code{with missing []} disables marker recognition.
+Matching is exact on parsed field text, including quoted fields, before conversion;
+unmarked empty text fails declared Number or Boolean conversion.
 
 Only file paths are accepted by the public API. Inline source strings, R source
 files, URLs, connections, and batches of paths are not supported. Internal

@@ -635,3 +635,25 @@ mutable reloads. Alternate missing markers, required/nonmissing columns, date ty
 and schema objects remain future designs. Standalone generated R embeds the schema
 and loader with no new dependencies or exports. See the
 [implemented rules](implemented-subset.md#explicit-csv-column-types).
+
+## 2026-10-06 — Explicit CSV missing markers
+
+Status: implemented, experimental in 0.0.15. Add with missing ["", "N/A"] to read
+so datasets can choose their missing convention and preserve literal NA codes.
+The list replaces, rather than extends, the default ["", "NA"]. An explicit []
+disables marker recognition. The option can appear once, in any order with delimiter
+and columns, and resets for each read. It accepts unique quoted text literals only.
+This does not introduce general empty vector literals or new reserved words.
+
+Match exact parsed field text, including quoted fields, after CSV unquoting and
+line-ending normalization; do not trim or fold case. Apply markers to data fields
+before inference/conversion, not to headers. All columns share the policy. Text
+preserves unmarked empty/NA fields, while declared Number/Boolean columns reject
+unmarked values outside their strict formats. Missing values retain declared types.
+
+Replacing the entire list makes disabling defaults possible without another option.
+Avoid per-column policies and quoted/unquoted distinctions in this first addition.
+Compilation validates syntax only and never opens data; generated R embeds the
+marker list and remains standalone. Export still writes missing values as empty
+fields, so custom read markers alone do not guarantee round-trip preservation.
+See the [implemented contract](implemented-subset.md#custom-csv-missing-markers).

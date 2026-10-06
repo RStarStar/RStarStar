@@ -480,11 +480,12 @@ rss_parse <- function(tokens, filename) {
       name <- expect("name", "Expected a variable name after 'into' or 'into mut'.")
       separator <- ","
       schema <- character()
+      missing_values <- c("", "NA")
       options <- character()
       while (peek()$kind == "with") {
         take()
         option <- take()
-        if (!(option$kind == "delimiter" || (option$kind == "name" && option$value == "columns"))) rss_error("Expected 'delimiter' or 'columns' after 'with'.", option, filename)
+        if (!(option$kind %in% c("delimiter", "missing") || (option$kind == "name" && option$value == "columns"))) rss_error("Expected 'delimiter', 'columns', or 'missing' after 'with'.", option, filename)
         if (option$value %in% options) rss_error("Each read option may appear only once.", option, filename)
         options <- c(options, option$value)
         if (option$value == "delimiter") {
@@ -493,6 +494,17 @@ rss_parse <- function(tokens, filename) {
           if (nchar(separator, type = "bytes") != 1L || separator %in% c('"', "\n", "\r")) {
             rss_error("Delimiter must be one ASCII character other than a quote or newline.", delimiter, filename)
           }
+        } else if (option$value == "missing") {
+          expect("[", "Expected '[' before missing-value text markers.")
+          missing_values <- character()
+          if (peek()$kind != "]") repeat {
+            marker <- expect("text", "Missing-value markers must be quoted text.")
+            if (marker$value %in% missing_values) rss_error("Missing-value markers must be unique.", marker, filename)
+            missing_values <- c(missing_values, marker$value)
+            if (peek()$kind != ",") break
+            take()
+          }
+          expect("]", "Expected ']' after missing-value markers.")
         } else {
           expect("{", "Expected '{' before CSV column types.")
           while (peek()$kind == "newline") take()
@@ -515,7 +527,7 @@ rss_parse <- function(tokens, filename) {
       }
       statement <- node("assign", token, name = name$value, name_token = name,
                         mutable = mutable,
-                        value = node("read", token, path = path$value, separator = separator, schema = schema))
+                        value = node("read", token, path = path$value, separator = separator, schema = schema, missing_values = missing_values))
     } else {
       mutable <- FALSE
       if (token$kind == "mut") {
@@ -822,7 +834,8 @@ rss_generate <- function(statements, filename) {
         schema <- if (length(value$schema)) paste0("base::structure(", vector(unname(value$schema)),
           ", names = ", vector(names(value$schema)), ")") else "base::character()"
         paste0(".rss_read_csv(", quote_text(value$path), ", ", quote_text(value$separator),
-               ", ", quote_text(filename), ", ", value$token$line, "L, ", value$token$column, "L, ", schema, ")")
+               ", ", quote_text(filename), ", ", value$token$line, "L, ", value$token$column, "L, ", schema, ", ",
+               if (length(value$missing_values)) vector(value$missing_values) else "base::character()", ")")
       },
       filter = {
         predicate <- emit(value$predicate, name(value$table))
@@ -891,7 +904,7 @@ rss_compile <- function(source, filename = "<input>") {
 
 # Self-contained runtime helper, embedded only in programs containing read.
 # Keep all dependencies inside this function or explicitly namespace-qualified.
-rss_read_csv <- function(path, separator, filename, line, column, schema = character()) {
+rss_read_csv <- function(path, separator, filename, line, column, schema = character(), missing_values = c("", "NA")) {
   fail <- function(message) {
     stop(structure(list(
       message = sprintf("%s:%d:%d: Cannot read CSV '%s': %s", filename, line, column, path, message),
@@ -958,7 +971,7 @@ rss_read_csv <- function(path, separator, filename, line, column, schema = chara
   rows <- records[-1L]
   convert <- function(index) {
     values <- vapply(rows, function(row) row[[index]], character(1))
-    missing <- values %in% c("", "NA")
+    missing <- values %in% missing_values
     values[missing] <- NA_character_
     present <- values[!missing]
     declared <- if (header[[index]] %in% names(schema)) schema[[header[[index]]]] else "Infer"

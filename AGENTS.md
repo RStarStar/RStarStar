@@ -47,7 +47,7 @@ do not silently promote an unresolved choice into a language guarantee.
 For documentation, check relative links, example consistency, and git diff
 whitespace. Reinstall the changed package before running Rscript tests/run.R from
 the repository root. Validate package changes with R CMD build . and
-R CMD check --no-manual RStarStar_0.0.14.tar.gz (use the current version).
+R CMD check --no-manual RStarStar_0.0.15.tar.gz (use the current version).
 Rscript examples/demo.R demonstrates explicit compilation and execution. Add
 focused semantic and integration checks for new behavior. Tests should verify
 behavior, diagnostics, and generated R results rather than only mirror

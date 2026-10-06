@@ -183,3 +183,59 @@ check("CSV schema headers cannot collide with generated R argument names", {
     stopifnot(identical(result$recursive, "001"), identical(result[["use.names"]], "002"))
   })
 })
+check("custom missing markers replace defaults with exact matching", {
+  with_csv(c('code', 'NA', '""', 'N/A', '"N/A"', 'n/a', ' N/A '), function(path) {
+    result <- run(paste('read', path, 'into data with missing ["N/A"] with columns {code: Text}'))$env$data
+    stopifnot(identical(result$code, c("NA", "", NA_character_, NA_character_, "n/a", " N/A ")))
+  })
+})
+check("empty missing marker list preserves empty and NA text", {
+  with_csv(c('code', '""', 'NA', '"NA"'), function(path) {
+    result <- run(paste('read', path, 'into data with missing []'))$env$data
+    stopifnot(identical(result$code, c("", "NA", "NA")))
+    runtime_fails(paste('read', path, 'into data with missing [] with columns {code: Number}'),
+                  'requires Number; invalid value at data row 1')
+  })
+})
+check("custom missing markers precede inference and declared conversions", {
+  with_csv(c('n;b', '1;true', 'unknown;unknown'), function(path) {
+    result <- run(paste('read', path, 'into data with delimiter ";" with missing ["unknown"] with columns {b: Boolean}'))$env$data
+    stopifnot(identical(result$n, c(1, NA_real_)), identical(result$b, c(TRUE, NA)))
+  })
+  with_csv(c('n,b', '?,?'), function(path) {
+    result <- run(paste('read', path, 'into data with columns {n: Number, b: Boolean} with missing ["?"]'))$env$data
+    stopifnot(identical(result$n, NA_real_), identical(result$b, NA))
+  })
+})
+check("missing options support multiline markers and reset on each read", {
+  with_csv(c('code', 'NA', 'custom'), function(path) {
+    result <- run(paste('read', path, 'into mut data with missing [\n"custom"\n]\nfirst = data\nread', path, 'into data'))
+    stopifnot(identical(result$env$first$code, c("NA", NA_character_)),
+              identical(result$env$data$code, c(NA_character_, "custom")))
+  })
+  with_csv(c('code', '"two', 'lines"'), function(path) {
+    stopifnot(is.na(run(paste('read', path, 'into data with missing ["two\\nlines"]'))$env$data$code))
+  })
+})
+check("missing marker syntax rejects invalid literals duplicates and options", {
+  prefix <- 'read "does-not-exist.csv" into data with missing '
+  fails(paste0(prefix, '[1]'), 'must be quoted text')
+  fails(paste0(prefix, '[marker]'), 'must be quoted text')
+  fails(paste0(prefix, '["NA", "NA"]'), 'must be unique')
+  fails(paste0(prefix, '["NA",]'), 'must be quoted text')
+  fails(paste0(prefix, '["NA"] with missing []'), 'only once')
+  fails(paste0(prefix, '"NA"'), "Expected '['")
+  stopifnot(is.character(transpile(paste0(prefix, '[]'))))
+  fails('x = []', 'Empty vectors need a type')
+})
+check("custom markers survive public API and standalone generated output", {
+  with_csv(c('code', 'NA', 'N/A', '""'), function(path) {
+    source <- tempfile(fileext = '.rsspps')
+    on.exit(unlink(source))
+    writeLines(paste('read', path, 'into data with missing ["N/A"] with columns {code: Text}\nlengths = std::text_length(data.code)'), source)
+    results <- RStarStar::run_file(source)
+    env <- new.env(parent = baseenv())
+    eval(parse(text = RStarStar::transpile(source)), env)
+    stopifnot(identical(results$lengths, c(2, NA_real_, 0)), identical(results$data, env$data))
+  })
+})

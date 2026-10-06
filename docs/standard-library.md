@@ -1,6 +1,6 @@
 # Bundled standard library
 
-Status: **implemented, experimental in 0.0.14**. Installing RStarStar includes
+Status: **implemented, experimental in 0.0.15**. Installing RStarStar includes
 these operations. No additional package or import declaration is required.
 
 ```text
@@ -77,8 +77,8 @@ filter codes where std::text_length(code) <= 3 skipping missing into short_codes
 
 The code column must be inferred as Text. Missing entries are dropped here because
 of skipping missing on the filter; text_length itself preserves them. CSV loading
-currently treats empty cells as missing, so checking for length zero is useful for
-text constructed in source or supplied by an R caller. Numeric-only CSV codes are
+treats empty cells as missing by default; with missing [] can preserve empty text
+for a length-zero check. Numeric-only CSV codes are
 inferred as Number by default; use with columns {code: Text} on read to retain
 text and leading zeros. An all-missing CSV column is inferred as Text and is accepted.
 
@@ -117,8 +117,9 @@ filter codes where std::trim_text(code) == "A" skipping missing into matching
 ```
 
 The predicate does not rewrite the table: matching retains the original code
-strings. CSV inference and missing-cell rules are unchanged. A spaces-only Text
-cell becomes empty when trimmed, while an empty CSV cell was already missing.
+strings. A spaces-only Text cell becomes empty when trimmed. Empty CSV fields
+are missing under default loading, but remain text when excluded from the read
+statement's missing markers.
 
 ## Packaging and generated R
 
