@@ -50,3 +50,4 @@ rsconnect/
 
 # Generated example charts
 /examples/output/
+*.DS_Store
