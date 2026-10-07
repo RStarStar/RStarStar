@@ -7,29 +7,46 @@ RSSGenerator <- R6::R6Class(
       private$filename <- filename
       private$has_data <- any(vapply(statements, function(x) x$kind == "assign" && x$value$kind == "read", logical(1)))
       private$checked <- private$has_data || private$contains_conditional(statements) ||
-        any(vapply(statements, function(x) x$kind %in% c("function", "record"), logical(1)))
+        any(vapply(statements, function(x) x$kind %in% c("function", "record", "class"), logical(1)))
       private$method_entries <- list()
+      private$class_context <- NULL
       private$standard_operations <- character()
       private$needs_runtime <- FALSE
       private$declared <- character()
       lines <- vapply(statements, function(statement) {
-        if (statement$kind == "record") {
+        if (statement$kind %in% c("record", "class")) {
+          is_class <- statement$kind == "class"
+          nominal <- paste0(if (is_class) "Class:" else "Record:", statement$name)
           private$declared <- c(private$declared, statement$name)
           vector <- function(values) paste0("base::c(", paste(vapply(values, private$quote_text, character(1)), collapse = ", "), ")")
           values <- paste0("base::list(", paste(vapply(statement$fields, private$name, character(1)), collapse = ", "), ")")
           types <- ifelse(statement$types %in% c("Number", "Text", "Boolean"), statement$types, paste0("Record:", statement$types))
-          body <- private$call_runtime("record", c(private$quote_text(statement$name), vector(statement$fields), vector(types), values), statement$token)
+          body <- private$call_runtime(if (is_class) "class_value" else "record", c(private$quote_text(statement$name), vector(statement$fields), vector(types), values), statement$token)
           constructor <- paste0(private$name(statement$name), " <- function(", paste(vapply(statement$fields, private$name, character(1)), collapse = ", "), ") {\n  return(", body, ")\n}")
-          schema_code <- private$call_runtime("schema", c(private$quote_text(paste0("Record:", statement$name)), vector(statement$fields), vector(types)), statement$token)
+          schema_code <- private$call_runtime("schema", c(private$quote_text(nominal), vector(statement$fields), vector(types)), statement$token)
+          if (is_class) schema_code <- paste(schema_code,
+            private$call_runtime("class_permissions", c(private$quote_text(nominal), vector(statement$mutable_fields)), statement$token), sep = "\n")
           implementations <- vapply(statement$methods, function(method) {
-            body <- private$emit(method$body)
+            private$class_context <- if (is_class) nominal else NULL
+            if (isTRUE(method$mutating)) {
+              assignments <- vapply(method$body, function(assignment) {
+                paste0(" self <- ", private$call_runtime("class_set",
+                  c("self", private$quote_text(nominal), private$quote_text(assignment$field),
+                    private$emit(assignment$value)), assignment$field_token))
+              }, character(1))
+              body <- paste(c(assignments, " return(self)"), collapse = "\n")
+            } else body <- paste0(" return(", private$emit(method$body), ")")
+            private$class_context <- NULL
             id <- length(private$method_entries) + 1L
             private$method_entries[[id]] <- method$name
-            implementation <- paste0("function(", paste(vapply(method$parameters, private$name, character(1)), collapse = ", "), ") {\n return(", body, ")\n}")
-            private$call_runtime("method", c(as.character(id), private$quote_text(paste0("Record:", statement$name)),
-              vector(method$parameters[-1L]), implementation), method$token)
+            implementation <- paste0("function(", paste(vapply(method$parameters, private$name, character(1)), collapse = ", "), ") {\n", body, "\n}")
+            private$call_runtime("method", c(as.character(id), private$quote_text(nominal),
+              vector(method$parameters[-1L]), implementation, if (isTRUE(method$mutating)) "TRUE" else "FALSE"), method$token)
           }, character(1))
           return(paste(c(schema_code, constructor, implementations), collapse = "\n"))
+        }
+        if (statement$kind == "mutation") {
+          return(paste0(private$name(statement$name), " <- ", private$emit(statement$value)))
         }
         if (statement$kind == "function") {
           private$declared <- c(private$declared, statement$name)
@@ -56,6 +73,7 @@ RSSGenerator <- R6::R6Class(
     has_data = NULL,
     checked = NULL,
     method_entries = NULL,
+    class_context = NULL,
     standard_operations = NULL,
     needs_runtime = NULL,
     declared = NULL,
@@ -80,7 +98,7 @@ RSSGenerator <- R6::R6Class(
           args <- paste0("base::list(", paste(vapply(value$arguments, recurse, character(1)), collapse = ", "), ")")
           labels <- paste0("base::c(", paste(vapply(value$labels, private$quote_text, character(1)), collapse = ", "), ")")
           private$call_runtime("method_call", c(recurse(value$value), private$quote_text(value$name),
-            paste0("base::c(", paste(ids, collapse = ", "), ")"), args, labels), value$token)
+            paste0("base::c(", paste(ids, collapse = ", "), ")"), args, labels, if (isTRUE(value$mutating)) "TRUE" else "FALSE"), value$token)
         },
         standard_call = {
           private$standard_operations <- unique(c(private$standard_operations, value$name))
@@ -124,7 +142,8 @@ RSSGenerator <- R6::R6Class(
           private$call_runtime("filter", c(private$name(value$table), predicate, if (value$skip) "TRUE" else "FALSE"), value$token)
         },
         member = private$call_runtime("column", c(recurse(value$value), private$quote_text(value$column)), value$token),
-        column = private$call_runtime("column", c(private$name(value$table), private$quote_text(value$column)), value$token),
+        column = if (!is.null(private$class_context) && value$table == "self")
+          private$call_runtime("class_field", c("self", private$quote_text(private$class_context), private$quote_text(value$column)), value$token) else private$call_runtime("column", c(private$name(value$table), private$quote_text(value$column)), value$token),
         local = private$name(value$value),
         number = value$value,
         text = private$quote_text(value$value),

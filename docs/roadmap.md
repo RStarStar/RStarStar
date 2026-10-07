@@ -81,14 +81,16 @@ R 4.6.0 remains pending. No public CLI is planned. See the
 - [x] Direct field/column access on calls, updates, and parenthesized expressions.
 - [x] Acyclic nested records with checked construction, updates, and equality.
 - [x] Read-only [record methods](record-methods.md) with exact calls and copy-returning updates.
-- [ ] Classes and mutating methods.
+- [x] Adopt the [mutable-class contract](mutable-classes.md) with value semantics.
+- [x] Scalar private fields and explicit mutating methods with atomic receiver replacement.
+- [ ] Design nested mutable state and construction defaults from concrete use cases.
 
 Implement records, classes, constructors, methods, and explicit mutation after
 settling the object backend and value-semantics boundary. Define functions and
 scope needed by methods as part of this work or an earlier milestone.
 
-Done when the guide's record and Counter examples run, access rules hold, and
-copying and nested mutation behave as documented.
+The record and scalar Counter examples now run with checked access and alias rules.
+Nested mutable class fields remain deferred; nested records retain copy updates.
 
 ## 5. Contracts and ecosystem access
 

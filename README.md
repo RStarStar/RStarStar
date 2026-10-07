@@ -13,8 +13,8 @@ syntax difficult to approach. Prior programming experience is not required.
 **Compiler prototype.** Bindings, `mut`, literals, vectors, arithmetic, printing,
 CSV loading/export with configurable delimiters, optional import column types, and configurable missing markers, column access, filtering, scalar/grouped summaries, and PNG bar charts
 transpile to readable R. Grouping supports multiple columns, such as region and
-product. User-defined functions support positional/named calls and conditional expressions; records with typed scalar/nested fields, value methods, copy updates, equality, and direct field access on expression results are also supported. Classes and
-interfaces remain future work.
+product. User-defined functions support positional/named calls and conditional expressions; records with typed scalar/nested fields, value methods, copy updates, equality, and direct field access on expression results are also supported. Classes support private scalar fields and explicit mutating methods
+with value semantics. Interfaces remain future work.
 The language and package API are experimental. RStarStar is now an installable
 **R package**, with no public CLI. Its exported functions, transpile(path) and run_file(path),
 accept local UTF-8 **.rsspps files only** for compilation or explicit execution.
@@ -86,6 +86,7 @@ tables should remain useful without learning OOP.
 - [Design decisions](docs/design-decisions.md): direction, proposals, and unresolved questions.
 - [Architecture](docs/architecture.md): a proposed implementation structure.
 - [Record methods](docs/record-methods.md): read-only receivers, value updates, scope, and dispatch.
+- [Mutable classes](docs/mutable-classes.md): private fields, explicit mutation, and alias rules.
 - [Roadmap](docs/roadmap.md): small milestones and completion criteria.
 - [Contributing](CONTRIBUTING.md): how to participate, including with AI assistance.
 - [Agent instructions](AGENTS.md): repository guidance for coding agents.

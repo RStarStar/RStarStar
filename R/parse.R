@@ -14,41 +14,46 @@ RSSParser <- R6::R6Class(
           next
         }
         token <- private$peek()
-        if (token$kind == "record") {
+        if (token$kind %in% c("record", "class")) {
+          is_class <- token$kind == "class"
           private$take()
-          name <- private$expect("name", "Expected a record name after 'record'.")
-          if (name$value %in% c("average", "sum", "count")) rss_error("A record cannot replace a built-in summary.", name, private$filename)
-          private$expect("{", "Expected '{' before record fields.")
+          name <- private$expect("name", if (is_class) "Expected a class name after 'class'." else "Expected a record name after 'record'.")
+          if (name$value %in% c("average", "sum", "count")) rss_error(if (is_class) "A class cannot replace a built-in summary." else "A record cannot replace a built-in summary.", name, private$filename)
+          private$expect("{", if (is_class) "Expected '{' before class fields." else "Expected '{' before record fields.")
           fields <- character()
+          mutable_fields <- character()
           types <- character()
           type_tokens <- list()
           methods <- list()
           while (private$peek()$kind == "newline") private$take()
           while (private$peek()$kind != "}") {
-            if (private$peek()$kind == "eof") rss_error("Expected '}' to close the record.", private$peek(), private$filename)
+            if (private$peek()$kind == "eof") rss_error(if (is_class) "Expected '}' to close the class." else "Expected '}' to close the record.", private$peek(), private$filename)
             if (private$peek()$kind == "fn") {
-              method <- private$parse_function(TRUE)
-              if (method$name %in% c(fields, names(methods))) rss_error("Record field and method names must be unique.", method$name_token, private$filename)
+              method <- private$parse_function(TRUE, is_class)
+              if (method$name %in% c(fields, names(methods))) rss_error(if (is_class) "Class field and method names must be unique." else "Record field and method names must be unique.", method$name_token, private$filename)
               methods[[method$name]] <- method
-              if (!private$peek()$kind %in% c("newline", "}")) rss_error("Expected a new line between record members.", private$peek(), private$filename)
+              if (!private$peek()$kind %in% c("newline", "}")) rss_error(if (is_class) "Expected a new line between class members." else "Expected a new line between record members.", private$peek(), private$filename)
               while (private$peek()$kind == "newline") private$take()
               next
             }
-            if (length(methods)) rss_error("Record fields must be declared before methods.", private$peek(), private$filename)
-            field <- private$expect("name", "Expected a field name or '}' in the record.")
-            if (field$value %in% fields) rss_error("Record field names must be unique.", field, private$filename)
+            if (length(methods)) rss_error(if (is_class) "Class fields must be declared before methods." else "Record fields must be declared before methods.", private$peek(), private$filename)
+            field_mutable <- is_class && private$peek()$kind == "mut"
+            if (field_mutable) private$take()
+            field <- private$expect("name", if (is_class) "Expected a field name or '}' in the class." else "Expected a field name or '}' in the record.")
+            if (field$value %in% fields) rss_error(if (is_class) "Class field names must be unique." else "Record field names must be unique.", field, private$filename)
             private$expect(":", "Expected ':' and a type after the field name.")
-            type <- private$expect("name", "Expected a scalar type or earlier record type after ':'.")
+            type <- private$expect("name", if (is_class) "Expected Number, Text, or Boolean after ':'." else "Expected a scalar type or earlier record type after ':'.")
             type_tokens[[length(type_tokens) + 1L]] <- type
             fields <- c(fields, field$value)
+            if (field_mutable) mutable_fields <- c(mutable_fields, field$value)
             types <- c(types, type$value)
-            if (private$peek()$kind == "eof") rss_error("Expected '}' to close the record.", private$peek(), private$filename)
-            if (!private$peek()$kind %in% c("newline", "}")) rss_error("Expected a new line between record fields.", private$peek(), private$filename)
+            if (private$peek()$kind == "eof") rss_error(if (is_class) "Expected '}' to close the class." else "Expected '}' to close the record.", private$peek(), private$filename)
+            if (!private$peek()$kind %in% c("newline", "}")) rss_error(if (is_class) "Expected a new line between class fields." else "Expected a new line between record fields.", private$peek(), private$filename)
             while (private$peek()$kind == "newline") private$take()
           }
           private$take()
-          if (!length(fields)) rss_error("A record must declare at least one field.", name, private$filename)
-          statement <- private$node("record", token, name = name$value, name_token = name, fields = fields, types = types, type_tokens = type_tokens, methods = methods)
+          if (!length(fields)) rss_error(if (is_class) "A class must declare at least one field." else "A record must declare at least one field.", name, private$filename)
+          statement <- private$node(token$kind, token, name = name$value, name_token = name, fields = fields, types = types, type_tokens = type_tokens, methods = methods, mutable_fields = mutable_fields)
         } else if (token$kind == "fn") {
           statement <- private$parse_function()
         } else if (token$kind == "print") {
@@ -226,6 +231,14 @@ RSSParser <- R6::R6Class(
           statement <- private$node("assign", token, name = name$value, name_token = name,
                             mutable = mutable,
                             value = private$node("read", token, path = path$value, separator = separator, schema = schema, missing_values = missing_values))
+        } else if (token$kind == "name" && private$tokens[[private$position + 1L]]$kind == ".") {
+          call <- private$expression()
+          if (call$kind != "method_call") rss_error("Expected '=' after the variable name; external field assignment is unsupported.", token, private$filename)
+          if (call$value$kind != "name") {
+            rss_error("A mutating call requires a simple named mutable receiver.", token, private$filename)
+          }
+          call$mutating <- TRUE
+          statement <- private$node("mutation", token, name = call$value$value, value = call)
         } else {
           mutable <- FALSE
           if (token$kind == "mut") {
@@ -479,13 +492,15 @@ RSSParser <- R6::R6Class(
       }
       value
     },
-    parse_function = function(method = FALSE) {
+    parse_function = function(method = FALSE, class_method = FALSE) {
       token <- private$peek()
       private$take()
       name <- private$expect("name", "Expected a function name after 'fn'.")
       if (!method && name$value %in% c("average", "sum", "count")) rss_error("A function cannot replace a built-in summary.", name, private$filename)
       private$expect("(", "Expected '(' after the function name.")
       parameters <- character()
+      mutating <- class_method && private$peek()$kind == "mut"
+      if (mutating) private$take()
       if (private$peek()$kind != ")") {
         repeat {
           parameter <- private$expect("name", "Expected a parameter name.")
@@ -498,13 +513,31 @@ RSSParser <- R6::R6Class(
       private$expect(")", "Expected ')' after function parameters.")
       private$expect("{", "Expected '{' before the function body.")
       while (private$peek()$kind == "newline") private$take()
-      private$expect("return", "Functions currently require one 'return' expression.")
-      body <- private$expression()
-      while (private$peek()$kind == "newline") private$take()
-      private$expect("}", "Expected '}' after the return expression; multi-statement functions are not supported yet.")
+      if (mutating) {
+        body <- list()
+        repeat {
+          start <- private$expect("name", "Mutating methods require self.field = expression assignments.")
+          if (start$value != "self") rss_error("Mutating methods may assign only self.field.", start, private$filename)
+          private$expect(".", "Expected self.field in a mutating assignment.")
+          field <- private$expect("name", "Expected a private field name.")
+          private$expect("=", "Expected '=' after self.field.")
+          body[[length(body) + 1L]] <- private$node("field_assign", start,
+            field = field$value, field_token = field, value = private$expression())
+          if (private$peek()$kind == "}") break
+          private$expect("newline", "Expected a new line between field assignments.")
+          while (private$peek()$kind == "newline") private$take()
+          if (private$peek()$kind == "}") break
+        }
+        private$expect("}", "Expected '}' after the mutating method.")
+      } else {
+        private$expect("return", "Functions currently require one 'return' expression.")
+        body <- private$expression()
+        while (private$peek()$kind == "newline") private$take()
+        private$expect("}", "Expected '}' after the return expression; multi-statement functions are not supported yet.")
+      }
       if (method && (!length(parameters) || parameters[[1L]] != "self")) rss_error("A method must declare self as its first parameter.", name, private$filename)
       private$node("function", token, name = name$value, name_token = name,
-                        parameters = parameters, body = body)
+                        parameters = parameters, body = body, mutating = mutating)
     }
   )
 )

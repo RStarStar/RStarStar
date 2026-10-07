@@ -27,7 +27,7 @@ RSSTokenizer <- R6::R6Class(
           begin <- private$i
           while (private$i <= private$n && grepl("^[A-Za-z0-9_]$", private$current())) private$advance()
           value <- paste0(private$chars[begin:(private$i - 1L)], collapse = "")
-          kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not", "plot", "summarize", "fn", "return", "write", "if", "then", "else", "record")) value else "name"
+          kind <- if (value %in% c("mut", "print", "true", "false", "read", "into", "with", "delimiter", "filter", "where", "skipping", "missing", "is", "and", "or", "not", "plot", "summarize", "fn", "return", "write", "if", "then", "else", "record", "class")) value else "name"
           private$add(kind, value, start)
         } else if (grepl("^[0-9]$", ch)) {
           rest <- paste0(private$chars[private$i:private$n], collapse = "")

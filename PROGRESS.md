@@ -842,3 +842,68 @@ Limits: R6 must be installed to use the compiler. Classes are internal implement
 details, with no new public API or language features. No performance improvement is
 claimed. Hosted CI, other R versions/platforms, and PDF manual generation remain
 unverified. Local verification used R 4.6.0 and R6 2.6.1 on macOS arm64.
+
+## 2026-10-07 — Mutable-class design proposal
+
+Added docs/mutable-classes.md with a concrete next OOP slice: private scalar fields,
+explicit constructors, read-only methods, mut self assignment bodies, and standalone
+calls on simple mutable bindings. Recommended value semantics and candidate-based
+receiver replacement so aliases remain independent and failed methods do not commit
+partial state. Defined evaluation order, field/binding permissions, effect restrictions,
+source-located failures, dynamic dispatch boundaries, and R interoperability limits.
+
+Separated the representation recommendation from the compiler's existing R6 usage;
+no source-language backend is selected. Included alternatives, successful/failing
+examples, and a future verification checklist. Linked the proposal from README,
+guide, roadmap, and decision record; clarified that the older Counter sketch includes
+defaults outside this proposed first slice.
+
+Documentation only: no language implementation, package version, exports, dependencies,
+or runtime behavior changed. Verified 77 local links across 14 Markdown files,
+balanced code fences, example consistency with the proposed rules, and git diff
+whitespace. Tests, demos, build, and package check were not rerun. The proposal still
+needs adoption before implementation; classes remain unsupported in 0.0.18.
+
+## 2026-10-07 — Scalar-field mutable classes (0.0.19)
+
+Implemented the proposed first class slice: private scalar Number/Text/Boolean
+fields, generated all-field constructors, read-only methods, and mut self methods
+containing sequential self.field assignments. Mutating calls require a simple
+named mut binding and a field declared mut. Added source spans and diagnostics for
+permissions, private access, exact signatures, effects, and unsupported bodies.
+class is now a reserved word.
+
+Class values use a separate nominal list tag and private schema/permission/method
+metadata. Receiver and arguments evaluate once in source order. Assignments update
+a validated local candidate; only a completely successful method replaces the caller
+binding. Aliases keep their values, and failed later assignments never commit partial
+receiver state. Known receivers are checked statically; unknown receivers enforce
+effects, layouts, and declaration-order method visibility at runtime. Generic field
+access, record updates, comparisons, vector construction, and whole-object summaries
+or missingness cannot bypass the class boundary. Generated programs remain R6-free.
+
+Added fifteen behavioral checks alongside the previous 278, covering aliasing,
+repeated/zero-argument calls, immutable fields, candidate visibility, atomic failures,
+private access through dynamic receivers, static/runtime effects, exact signatures,
+scope, nominal types, malformed R layouts, evaluation order (including dispatch
+failure), spans, stage reuse, and fresh-process execution without R6/RStarStar.
+Added packaged classes.rsspps and its developer demo; extended the shared check runner.
+Updated package help, guide, implemented subset, architecture, class contract,
+decision record, roadmap, README, and versioned build instructions.
+
+Verification: the shared runner installed the current package, passed 293 checks
+with 0 skips, ran all twelve demos including Cairo rendering, and built
+RStarStar_0.0.19.tar.gz. The initial package check reported Status: OK but could not
+access dependency indexes in the sandbox. Reran R CMD check --no-manual with network
+access: Status: OK, with no warnings or notes; its installed-package suite also
+passed all 293 checks. Verified 81 local links across 14 Markdown files, balanced
+fences, example consistency, and git diff whitespace. Local environment: R 4.6.0
+on macOS arm64.
+
+Limits: fields are plain scalars only. No defaults, nested mutable state, general
+statement bodies, mutable parameters, class equality, interfaces, inheritance, or
+external R-call bridge. Privacy is source-level access control, not secrecy in R;
+base printing and R callers can inspect returned lists. Failed calls protect the
+receiver binding, not earlier program prints/files, and run_file returns no partial
+results. Hosted CI, other R versions/platforms, and PDF manual generation remain
+unverified.

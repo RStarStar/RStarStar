@@ -46,8 +46,8 @@ including their rationale and consequences.
 
 The source extension is .rsspps. Package layout, supported R versions, and
 dependency policy are recorded in the decisions below. R package distribution is
-selected; a public CLI is not planned. The source-language class backend remains
-unchosen. Internal compiler use of R6 does not select that language backend.
+selected; a public CLI is not planned. Source-language classes use tagged scalar-field values as recorded below.
+Internal compiler R6 objects are separate from that representation.
 
 ## Deferred scope
 
@@ -750,3 +750,47 @@ R6 would change record copying and introduce a runtime dependency, outside the
 requested scope. Verification covers repeat calls, separate instances, failures,
 unchanged generated output/diagnostics, and independent execution in a fresh R
 process, in addition to the installed package suite and build/check workflow.
+
+## 2026-10-07 — Mutable-class first slice proposed
+
+Status: proposed, not accepted or implemented. Added the
+[mutable-class proposal](mutable-classes.md) for scalar private fields, explicit
+constructors, mut self assignment bodies, and standalone calls on mutable bindings.
+It recommends value semantics: compute and validate a candidate, then replace only
+the named receiver binding after success. Aliases remain unchanged; failed calls
+must not commit partial receiver state. Earlier program effects are not rolled back.
+
+The proposal distinguishes compiler-internal R6 from the source-language backend.
+Tagged list values and private metadata are recommended for review; no backend is
+selected or implemented. Generated programs must remain independent of R6. Includes
+failure examples, R-boundary limits, alternatives, and a future verification checklist.
+Field defaults, nesting, mutable parameters, interfaces, and inheritance remain
+outside the proposed first slice. Current syntax, package version, and APIs are unchanged.
+
+
+## 2026-10-07 — Scalar-field mutable classes implemented
+
+Status: accepted and implemented, experimental in 0.0.19. Supersedes the proposal
+status above following the request to continue implementation. Adopt private
+Number/Text/Boolean fields, explicit all-field constructors, read-only return
+methods, and mut self assignment methods. class becomes reserved. There are three
+permissions: mutable binding, mutable field, and mutable receiver method.
+
+Mutating calls are standalone statements on simple named mutable bindings. Evaluate
+receiver and arguments once in source order, then validate dispatch, effects, and
+signature. Sequential field assignments validate a candidate; only complete success
+replaces the caller binding. For example, alias = counter remains unchanged after
+counter.increment(1); a later invalid field assignment leaves counter unchanged too.
+This does not roll back earlier program output/files.
+
+Tagged list values and private metadata implement value semantics without a new
+runtime dependency. Environment-backed references would change alias behavior;
+automatic cloning would require an additional policy. Known and dynamic receivers
+enforce privacy and effects, and declaration-order dispatch stays fixed. Classes
+cannot use record equality/with updates or generic field access. Direct self.field
+(and self."field") in the owning class is the supported private-read spelling.
+
+No nested object fields, defaults, general statement bodies, mutable parameters,
+interfaces, inheritance, external R-call bridge, or native R dollar-method API.
+R can inspect/alter returned lists; layout validation is not provenance or deep
+immutability. See the [class contract](mutable-classes.md) and PROGRESS.md for checks.

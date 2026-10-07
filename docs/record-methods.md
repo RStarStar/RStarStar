@@ -1,7 +1,7 @@
 # Record methods
 
 Status: **implemented, experimental in 0.0.18**. Record methods extend existing
-value records. Mutable classes and interfaces remain future work. This contract
+value records. Mutable classes have a separate [contract](mutable-classes.md); interfaces remain future work. This contract
 adopts the first-slice proposal recorded in the decision log.
 
 ## Syntax and purpose

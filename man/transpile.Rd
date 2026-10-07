@@ -20,6 +20,12 @@ and include source locations. For readable source files, diagnostics use the
 normalized absolute path.
 }
 \details{
+Classes support private scalar fields and explicit mutating methods. Mutation
+replaces only a named mutable receiver after the entire method succeeds; aliases
+retain their values. Class values are tagged R lists, and generated code does not
+require R6. R callers can inspect or modify returned lists; source privacy is not
+a security boundary. See the packaged \code{classes.rsspps} example.
+
 CSV reads may specify selected column types with source syntax such as
 \code{read "codes.csv" into codes with columns \{code: Text\}}.
 Text preserves identifiers with leading zeros; Number and Boolean validate

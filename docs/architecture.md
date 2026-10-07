@@ -6,7 +6,8 @@ in R/transpile.R. The compiler performs tokenization, parsing, semantic analysis
 and R generation. Internal rss_* functions are not exported.
 
 CSV programs embed a self-contained loader and checked expression helpers.
-Records with scalar and nested fields are implemented; classes and the explicit R interoperability bridge are not. The
+Records with scalar/nested fields and classes with private scalar fields are implemented.
+The explicit R interoperability bridge remains future work. The
 compiler uses R6 alongside R-bundled dependencies; see the [package guide](r-package.md).
 
 ## Internal compiler classes
@@ -23,8 +24,8 @@ The internal rss_* stage functions remain small adapters for focused tests. No
 classes are exported. R/runtime.R keeps the ordinary helper functions embedded
 in generated programs, and R/standard-library.R supplies standalone operations.
 R6 is needed to compile, but generated R and record values retain their existing
-representation and need no R6 installation. Source-language classes remain future
-work. See the [R6 introduction](https://r6.r-lib.org/articles/Introduction.html)
+representation and need no R6 installation. Source-language classes likewise
+use tagged values and standalone helpers. See the [R6 introduction](https://r6.r-lib.org/articles/Introduction.html)
 for private members and reference semantics.
 
 ## Compilation pipeline
@@ -186,3 +187,18 @@ receiver layouts/arguments, and route body errors through existing call-chain lo
 The shared exact argument matcher is embedded in standalone runtime code. Method
 closures retain the program environment for earlier function calls; no methods are
 added to record values and no R dispatch backend is registered.
+
+
+## Mutable classes
+
+Class nodes carry scalar schemas and mutable field names. Method nodes carry an
+explicit effect; mutating bodies contain field_assign nodes with source spans.
+Analysis scopes private field access to direct self receivers in the owning class.
+Standalone mutation nodes require a mutable binding and a mutating method.
+Method dispatch checks effects as well as nominal types and exact arguments.
+
+Classes use rss_class_type tagged lists, separate from records. The runtime validates
+plain scalar layouts and field permissions. Each generated field assignment replaces
+the method-local candidate; the caller binding receives the result only after the
+complete checked method succeeds. Generic column access, equality, and record updates
+reject classes. No reference backend or R6 runtime dependency is introduced.

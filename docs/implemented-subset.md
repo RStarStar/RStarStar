@@ -161,7 +161,7 @@ line 2. Undefined names, mixed vector types, nonnumeric arithmetic, and mismatch
 vector lengths also fail before R generation.
 
 Not implemented: other chart types, general indexing, conditional statements, multi-statement functions,
-function annotations, explicit conversions, recursive records, classes, interfaces, and arbitrary
+function annotations, explicit conversions, recursive records, interfaces, and arbitrary
 R calls. Input is parsed as RStarStar, never evaluated as R during compilation.
 
 
@@ -868,7 +868,7 @@ constructor inputs are recursively checked to exclude unsupported/reference-bear
 fields and extra attributes. This validates the supported value structure, not a
 complete schema provenance contract for manually forged or modified R objects.
 Do not infer safe arbitrary-R interoperability or deep immutability outside the
-language. Recursive schemas, vector/table fields, and mutable classes are separate
+language. Recursive schemas and vector/table fields remain
 future work; no additional object backend or dependency is introduced.
 
 ## Bundled standard library
@@ -934,3 +934,42 @@ validate receiver layouts, including nested fields. Body errors include method a
 ordinary function call locations. Records remain named lists with nominal tags;
 helpers are excluded from run_file results and generated code stays standalone.
 See the [full contract](record-methods.md) for scope, R boundaries, and failures.
+
+
+## Mutable classes
+
+```text
+class Counter {
+  mut value: Number
+  fn current(self) { return self.value }
+  fn increment(mut self, amount) { self.value = self.value + amount }
+}
+first = Counter(0)
+mut second = first
+second.increment(amount: 1)
+print first.current()   # 0
+print second.current()  # 1
+```
+
+class is reserved. Classes require at least one private scalar Number, Text, or
+Boolean field before methods. All constructor fields are required, with exact
+positional/named arguments. Read-only methods have one return expression; mut self
+methods have one or more self.field assignments to fields declared mut. Only direct
+self.field or self."field" inside the owning class accesses private fields.
+
+Mutating calls are standalone statements on named mutable bindings. Receiver and
+arguments evaluate once in source order. Field assignments operate sequentially on
+a candidate, checking types before each replacement. Only successful completion
+replaces the caller binding; aliases retain their values, including on failure.
+Fields cannot contain nested objects, vectors, tables, or foreign references.
+
+Known effects/types are checked statically; unknown receivers use checked dispatch
+within the call site's fixed visible method set. Methods have no outer data captures,
+recursion, forward calls, or mutable parameters. Class equality, with updates,
+defaults, custom constructors, and arbitrary statement bodies are unsupported.
+Earlier program output/files are not rolled back on error.
+
+Generated values are tagged lists, independent of R6. Privacy is a source rule:
+R callers and base printing can inspect those lists. See the [class contract](mutable-classes.md)
+for failures, evaluation order, and R boundaries, and the packaged classes.rsspps
+example for executable usage.

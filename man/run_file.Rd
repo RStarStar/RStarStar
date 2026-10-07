@@ -17,6 +17,12 @@ print-only programs return an empty list. Returned functions retain their runtim
 checks and can be called from R.
 }
 \details{
+Classes support private scalar fields and explicit mutating methods. Mutation
+replaces only a named mutable receiver after the entire method succeeds; aliases
+retain their values. Class values are tagged R lists, and generated code does not
+require R6. R callers can inspect or modify returned lists; source privacy is not
+a security boundary. See the packaged \code{classes.rsspps} example.
+
 Compilation errors prevent execution. Runtime errors propagate without returning
 partial results; earlier console and file effects are not rolled back. Language
 errors retain their original source locations.

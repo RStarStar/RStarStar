@@ -2,7 +2,7 @@
 
 This guide explores the intended experience. **Bindings, mut, literals, vectors,
 arithmetic, printing, CSV loading/export, column access, filtering, scalar/grouped summaries,
-PNG bar charts, simple user-defined functions, conditional expressions, and basic records now work; classes remain proposed.** See the [implemented subset](implemented-subset.md) for exact working
+PNG bar charts, simple user-defined functions, conditional expressions, records, and scalar-field classes now work.** See the [implemented subset](implemented-subset.md) for exact working
 syntax and [design decisions](design-decisions.md) for open proposals.
 
 The R package provides transpile(path) for compilation and run_file(path) for
@@ -179,8 +179,8 @@ exactly once. See [named arguments](implemented-subset.md#named-function-argumen
 
 The initial function form has parameters and a single return expression. Pass
 needed data explicitly; functions do not capture outer variables. Functions may
-call previously declared functions. Annotations, multi-statement bodies, recursion,
-and mutable class methods are still proposals. The typed functions in the OOP examples below
+call previously declared functions. Annotations, general multi-statement bodies, and recursion remain proposals.
+Mutating class methods support restricted field-assignment bodies. The typed functions in the OOP examples below
 are therefore not executable yet.
 
 ## Choose a result
@@ -224,7 +224,7 @@ be replaced with another value of the same declared record type; copies retain
 their original fields. An Integer field type is not implemented.
 
 Records use ordinary named R lists with an internal type attribute and base R
-printing. No class backend or dispatch system is selected. Read-only
+printing. Method dispatch uses private runtime metadata. Read-only
 [record methods](record-methods.md) now support nested fn declarations and receiver
 calls, returning new values for updates. R callers can modify
 returned lists, so immutability is a source-language rule. Vector or table fields,
@@ -283,45 +283,50 @@ schemas are not supported. See [nested records](implemented-subset.md#nested-rec
 
 ## Classes: protect state and provide behavior
 
+The experimental [class subset](mutable-classes.md) supports private scalar
+Number, Text, and Boolean fields, explicit constructors, and mutating methods.
+
 ```text
 class Counter {
-  mut value: Integer = 0
-
-  fn increment(mut self) {
-    self.value = self.value + 1
-  }
+  mut value: Number
 
   fn current(self) {
     return self.value
   }
+
+  fn increment(mut self) {
+    self.value = self.value + 1
+  }
 }
 
-mut counter = Counter()
+mut counter = Counter(value: 0)
 counter.increment()
 print counter.current()
 ```
 
-Proposed class fields are private; methods are public unless marked private.
-Generated constructors accept initial field values and defaults. Construction
-does not imply permission to access private fields afterward. Validation and
-custom construction are open design topics.
+Three permissions make the change explicit: mut counter permits binding updates,
+mut value permits field changes, and mut self marks a mutating method. Calls that
+change a receiver must be standalone statements on a named mutable binding.
+Read-only methods contain one return expression; mutating bodies contain only
+self.field assignments. All fields precede methods; all constructor arguments
+are required. Defaults, nested fields, and custom construction remain future work.
 
-The three mutation markers describe different permissions: mut counter allows
-updates to the binding; mut value permits field changes; mut self permits a
-method to update the receiver. Calling a mutating method requires a mutable
-receiver. This explicit spelling is a starting point for usability review.
-
-Value semantics are proposed for language-owned objects:
+Class values have value semantics:
 
 ```text
-mut first = Counter()
+first = Counter(0)
 mut second = first
 second.increment()
+print first.current()   # 0
+print second.current()  # 1
 ```
 
-The intended result is first.current() == 0 and second.current() == 1. The
-implementation strategy and boundaries around R reference objects are unresolved.
-Nested objects and mutation through function arguments need additional examples.
+Each assignment validates the candidate, and the receiver binding is replaced only
+after the complete method succeeds. A failed later assignment leaves that binding
+unchanged. print second.value fails because class fields are private in source.
+Class equality and with updates are unsupported. Tagged R lists implement this
+subset without R6 at execution; R callers can inspect/modify those lists, so this
+does not promise secrecy or safe mutation of arbitrary R reference objects.
 
 ## Interfaces: share a contract
 

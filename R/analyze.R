@@ -8,14 +8,17 @@ RSSAnalyzer <- R6::R6Class(
       private$bindings <- new.env(parent = emptyenv())
       private$records <- new.env(parent = emptyenv())
       private$methods <- list()
+      private$class_context <- NULL
       for (statement in statements) {
-        if (statement$kind == "record") {
-          if (exists(statement$name, private$bindings, inherits = FALSE)) rss_error("Record name is already declared.", statement$name_token, private$filename)
-          record_type <- paste0("Record:", statement$name)
-          if (statement$name %in% c("Number", "Text", "Boolean")) rss_error("A record name cannot replace a built-in field type.", statement$name_token, private$filename)
+        if (statement$kind %in% c("record", "class")) {
+          is_class <- statement$kind == "class"
+          if (exists(statement$name, private$bindings, inherits = FALSE)) rss_error(if (is_class) "Class name is already declared." else "Record name is already declared.", statement$name_token, private$filename)
+          record_type <- paste0(if (is_class) "Class:" else "Record:", statement$name)
+          if (statement$name %in% c("Number", "Text", "Boolean")) rss_error(if (is_class) "A class name cannot replace a built-in field type." else "A record name cannot replace a built-in field type.", statement$name_token, private$filename)
           schema <- vapply(seq_along(statement$types), function(i) {
             field_type <- statement$types[[i]]
             if (field_type %in% c("Number", "Text", "Boolean")) return(field_type)
+            if (is_class) rss_error("Class fields require Number, Text, or Boolean.", statement$type_tokens[[i]], private$filename)
             nested <- paste0("Record:", field_type)
             if (!exists(nested, private$records, inherits = FALSE)) rss_error(sprintf("Unknown field type '%s'; use Number, Text, Boolean, or an earlier record type.", field_type), statement$type_tokens[[i]], private$filename)
             nested
@@ -31,16 +34,37 @@ RSSAnalyzer <- R6::R6Class(
             }
             for (parameter in method$parameters) assign(parameter,
               list(info = if (parameter == "self") private$info(record_type, 1L) else private$info("Unknown", NA_integer_), mutable = FALSE), private$bindings)
-            result <- private$infer(method$body)
+            private$class_context <- if (is_class) record_type else NULL
+            if (isTRUE(method$mutating)) {
+              for (assignment in method$body) {
+                field <- assignment$field
+                if (!field %in% names(schema)) rss_error(sprintf("Unknown class field '%s'.", field), assignment$field_token, private$filename)
+                if (!field %in% statement$mutable_fields) rss_error(sprintf("Field '%s' is immutable; declare it with mut.", field), assignment$field_token, private$filename)
+                replacement <- private$infer(assignment$value)
+                if (!replacement$type %in% c(schema[[field]], "Unknown") ||
+                    (!is.na(replacement$size) && replacement$size != 1L)) {
+                  rss_error(sprintf("Field '%s' requires one %s value.", field, schema[[field]]), assignment$field_token, private$filename)
+                }
+              }
+              result <- private$info(record_type, 1L)
+            } else result <- private$infer(method$body)
+            private$class_context <- NULL
             private$bindings <- outer
             private$methods[[length(private$methods) + 1L]] <- list(name = method$name, type = record_type,
-              parameters = method$parameters[-1L], result = result)
+              parameters = method$parameters[-1L], result = result, mutating = isTRUE(method$mutating))
           }
           signature <- private$info("Function", 1L)
           signature$parameters <- statement$fields
           signature$field_types <- unname(schema)
           signature$result <- private$info(record_type, 1L)
           assign(statement$name, list(info = signature, mutable = FALSE), private$bindings)
+          next
+        }
+        if (statement$kind == "mutation") {
+          private$lookup(statement$name, statement$token)
+          entry <- get(statement$name, private$bindings, inherits = FALSE)
+          if (!entry$mutable) rss_error("A mutating call requires a mutable receiver binding; declare it with mut.", statement$token, private$filename)
+          private$infer(statement$value)
           next
         }
         if (statement$kind == "function") {
@@ -89,6 +113,7 @@ RSSAnalyzer <- R6::R6Class(
     bindings = NULL,
     records = NULL,
     methods = NULL,
+    class_context = NULL,
     filename = NULL,
     info = function(type, size) list(type = type, size = size),
     lookup = function(name, token) {
@@ -129,14 +154,19 @@ RSSAnalyzer <- R6::R6Class(
       }
       if (kind == "method_call") {
         receiver <- recurse(value$value)
-        if (!receiver$type %in% c("Unknown") && !startsWith(receiver$type, "Record:")) rss_error("Method calls require a record receiver.", value$token, private$filename)
+        if (!receiver$type %in% c("Unknown") && !startsWith(receiver$type, "Record:") && !startsWith(receiver$type, "Class:")) rss_error("Method calls require a record receiver or class receiver.", value$token, private$filename)
         candidates <- Filter(function(entry) entry$name == value$name &&
           (receiver$type == "Unknown" || entry$type == receiver$type), private$methods)
         if (!length(candidates)) rss_error(sprintf("No visible method '%s' for this receiver.", value$name), value$token, private$filename)
+        mutating <- isTRUE(value$mutating)
+        compatible <- Filter(function(entry) identical(entry$mutating, mutating), candidates)
+        if (!length(compatible) || (receiver$type != "Unknown" && !identical(candidates[[1L]]$mutating, mutating))) {
+          rss_error(if (mutating) "Standalone calls require a mutating method." else "Mutating methods cannot be used in expressions.", value$token, private$filename)
+        }
         if ("self" %in% value$labels) rss_error("The method receiver supplies self; do not pass it as an argument.", value$token, private$filename)
         if (receiver$type != "Unknown") rss_match_method(candidates[[1L]]$parameters, value$labels, value$token, private$filename)
         invisible(lapply(value$arguments, recurse))
-        results <- lapply(candidates, function(entry) entry$result)
+        results <- lapply(compatible, function(entry) entry$result)
         if (all(vapply(results, identical, logical(1), results[[1L]]))) return(results[[1L]])
         return(private$info("Unknown", NA_integer_))
       }
@@ -184,6 +214,7 @@ RSSAnalyzer <- R6::R6Class(
       if (kind == "summary") {
         operand <- recurse(value$value)
         if (value$operation != "count" && !operand$type %in% c("Number", "Unknown")) rss_error("Numeric summaries require numbers.", value$token, private$filename)
+        if (startsWith(operand$type, "Class:")) rss_error("Operate on class values through methods.", value$token, private$filename)
         if (startsWith(operand$type, "Record:")) rss_error("Summaries require a vector or table, not a record.", value$token, private$filename)
         if (value$operation == "count" && operand$type == "Table" && value$skip) rss_error("count(table) counts rows; choose a column to skip missing values.", value$token, private$filename)
         return(private$info("Number", 1L))
@@ -196,6 +227,14 @@ RSSAnalyzer <- R6::R6Class(
       }
       if (kind %in% c("column", "member")) {
         receiver <- if (kind == "column") private$lookup(value$table, value$token) else recurse(value$value)
+        if (startsWith(receiver$type, "Class:")) {
+          if (kind != "column" || value$table != "self" || !identical(private$class_context, receiver$type)) {
+            rss_error("Class fields are private; use a read-only method.", value$token, private$filename)
+          }
+          schema <- get(receiver$type, private$records, inherits = FALSE)
+          if (!value$column %in% names(schema)) rss_error(sprintf("Unknown class field '%s'.", value$column), value$token, private$filename)
+          return(private$info(schema[[value$column]], 1L))
+        }
         if (startsWith(receiver$type, "Record:")) {
           schema <- get(receiver$type, private$records, inherits = FALSE)
           if (!value$column %in% names(schema)) rss_error(sprintf("Unknown record field '%s'.", value$column), value$token, private$filename)
@@ -223,6 +262,7 @@ RSSAnalyzer <- R6::R6Class(
       if (kind == "group") return(recurse(value$value))
       if (kind == "missing") {
         operand <- recurse(value$value)
+        if (startsWith(operand$type, "Class:")) rss_error("Operate on class values through methods.", value$token, private$filename)
         if (startsWith(operand$type, "Record:")) rss_error("Test a record field for missing values, not a record.", value$token, private$filename)
         if (operand$type == "Table") rss_error("Test a column or vector for missing values, not a table.", value$token, private$filename)
         return(private$info("Boolean", operand$size))
@@ -233,6 +273,7 @@ RSSAnalyzer <- R6::R6Class(
           rss_error("Vector elements must each contain one value; nested vectors are not supported.", value$token, private$filename)
         }
         types <- vapply(elements, function(x) x$type, character(1))
+        if (any(startsWith(types, "Class:"))) rss_error("Classes cannot be vector elements.", value$token, private$filename)
         if (any(startsWith(types, "Record:"))) rss_error("Records cannot be vector elements yet.", value$token, private$filename)
         if (any(types == "Table")) rss_error("Tables cannot be vector elements.", value$token, private$filename)
         known <- unique(types[types != "Unknown"])
@@ -257,6 +298,7 @@ RSSAnalyzer <- R6::R6Class(
         if (any(known != "Boolean")) rss_error("Logical operations require booleans.", value$operator_token, private$filename)
         result_type <- "Boolean"
       } else {
+        if (any(startsWith(known, "Class:"))) rss_error("Class comparison is not supported.", value$operator_token, private$filename)
         if (any(startsWith(known, "Record:")) && !op %in% c("==", "!=")) rss_error("Records support == and != only; ordering is not defined.", value$operator_token, private$filename)
         if ("Table" %in% known || length(unique(known)) > 1L) rss_error("Comparisons require matching value types.", value$operator_token, private$filename)
         if (op %in% c("<", "<=", ">", ">=") && "Boolean" %in% known) rss_error("Ordered comparisons require numbers or text.", value$operator_token, private$filename)

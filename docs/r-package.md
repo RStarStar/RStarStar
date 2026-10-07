@@ -1,6 +1,6 @@
 # R package guide
 
-RStarStar 0.0.18 is an experimental, locally installable R package. There is no
+RStarStar 0.0.19 is an experimental, locally installable R package. There is no
 public CLI and no published CRAN release. It exports transpile(path) to return generated R text and run_file(path) to
 execute a program and return its bindings. Both accept .rsspps files only.
 
@@ -113,6 +113,17 @@ Write accepts one quoted marker (with missing "N/A"); read accepts a list
 contain the selected delimiter, quotes, or line breaks. The development runner
 examples/csv-export.R executes it in a temporary directory and removes its output.
 
+## Mutable classes
+
+The classes.rsspps example demonstrates private scalar fields, mut self methods,
+and standalone mutation on mutable bindings. Copies keep their original values;
+failed methods do not replace the receiver. All fields are explicit constructor
+arguments. Nested mutable fields and defaults remain unsupported.
+
+Class results are ordinary tagged lists. Source privacy does not prevent inspection
+or modification from R, and there is no native dollar-method API. Generated class
+code remains independent of R6. See the [class contract](mutable-classes.md).
+
 ## Record methods
 
 Records support read-only receiver methods returning values, including copied records.
@@ -131,7 +142,7 @@ from the source-package payload using .Rbuildignore.
 
 Reinstall after changing R/ and run Rscript tests/run.R against that installation.
 Tests include internal compiler cases and public file-API cases. R CMD build .
-and R CMD check --no-manual RStarStar_0.0.18.tar.gz validate the package, installed
+and R CMD check --no-manual RStarStar_0.0.19.tar.gz validate the package, installed
 help, examples, and tests. Use the current version in the archive name. Chart
 rendering tests report skips when Cairo is unavailable. --no-manual omits PDF
 manual generation only. See [Contributing](../CONTRIBUTING.md) for commands.

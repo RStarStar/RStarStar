@@ -123,6 +123,7 @@ rss_read_csv <- function(path, separator, filename, line, column, schema = chara
 rss_runtime <- function(match_method) {
   methods <- list()
   schemas <- list()
+  mutable_fields <- list()
   fail <- function(message, filename, line, column) {
     stop(structure(list(message = sprintf("%s:%d:%d: %s", filename, line, column, message),
                         call = NULL, filename = filename, line = line, column = column,
@@ -130,6 +131,8 @@ rss_runtime <- function(match_method) {
                    class = c("rstarstar_error", "error", "condition")))
   }
   type <- function(value) {
+    class_name <- attr(value, "rss_class_type", exact = TRUE)
+    if (is.list(value) && is.character(class_name) && length(class_name) == 1L && !is.na(class_name)) return(paste0("Class:", class_name))
     record <- attr(value, "rss_record_type", exact = TRUE)
     if (is.list(value) && is.character(record) && length(record) == 1L && !is.na(record)) return(paste0("Record:", record))
     if (is.data.frame(value)) return("Table")
@@ -148,6 +151,13 @@ rss_runtime <- function(match_method) {
         is.null(names(value)) || anyNA(names(value)) || any(!nzchar(names(value))) || anyDuplicated(names(value))) return(FALSE)
     all(vapply(value, function(field) plain_scalar(field) || plain_record(field), logical(1)))
   }
+  plain_class <- function(value) {
+    startsWith(type(value), "Class:") && length(value) > 0L &&
+      setequal(names(attributes(value)), c("names", "rss_class_type")) &&
+      !is.null(names(value)) && !anyNA(names(value)) &&
+      all(nzchar(names(value))) && !anyDuplicated(names(value)) &&
+      all(vapply(value, plain_scalar, logical(1)))
+  }
   binary <- function(op, left, right, filename, line, column) {
     error <- function(message) fail(message, filename, line, column)
     types <- c(type(left), type(right))
@@ -156,6 +166,7 @@ rss_runtime <- function(match_method) {
     } else if (op %in% c("and", "or")) {
       if (any(types != "Boolean")) error("Logical operations require booleans.")
     } else {
+      if (any(startsWith(types, "Class:"))) error("Class comparison is not supported.")
       if (any(startsWith(types, "Record:"))) {
         if (!op %in% c("==", "!=")) error("Records support == and != only; ordering is not defined.")
         if (types[[1L]] != types[[2L]]) error("Record equality requires the same declared record type.")
@@ -193,9 +204,39 @@ rss_runtime <- function(match_method) {
       schemas[[type]] <<- types
       invisible(NULL)
     },
-    method = function(id, type, parameters, implementation, filename, line, column) {
-      methods[[id]] <<- list(type = type, parameters = parameters, implementation = implementation)
+    method = function(id, type, parameters, implementation, mutating, filename, line, column) {
+      methods[[id]] <<- list(type = type, parameters = parameters, implementation = implementation, mutating = mutating)
       invisible(NULL)
+    },
+    class_permissions = function(type, fields, filename, line, column) {
+      mutable_fields[[type]] <<- fields
+      invisible(NULL)
+    },
+    class_value = function(class_name, fields, types, values, filename, line, column) {
+      for (i in seq_along(fields)) {
+        value <- values[[i]]
+        if (!plain_scalar(value) || type(value) != types[[i]]) {
+          fail(sprintf("Field '%s' requires one plain %s value.", fields[[i]], types[[i]]), filename, line, column)
+        }
+      }
+      names(values) <- fields
+      structure(values, rss_class_type = class_name)
+    },
+    class_field = function(value, expected, field, filename, line, column) {
+      if (!valid_receiver(value, expected)) fail("Class receiver does not match its declared layout.", filename, line, column)
+      if (!field %in% names(value)) fail(sprintf("Unknown class field '%s'.", field), filename, line, column)
+      value[[field, exact = TRUE]]
+    },
+    class_set = function(value, expected, field, replacement, filename, line, column) {
+      if (!valid_receiver(value, expected)) fail("Class receiver does not match its declared layout.", filename, line, column)
+      if (!field %in% mutable_fields[[expected]]) fail(sprintf("Field '%s' is immutable or unknown.", field), filename, line, column)
+      required <- schemas[[expected]][[field]]
+      if (!plain_scalar(replacement) || type(replacement) != required) {
+        fail(sprintf("Field '%s' requires one plain %s value.", field, required), filename, line, column)
+      }
+      # Supported fields are plain scalars: replacing this list slot preserves aliases.
+      value[[field]] <- replacement
+      value
     },
     record = function(record_name, fields, types, values, filename, line, column) {
       for (i in seq_along(fields)) {
@@ -314,11 +355,13 @@ rss_runtime <- function(match_method) {
     vector = function(values, filename, line, column) {
       if (any(lengths(values) != 1L)) fail("Vector elements must each contain one value.", filename, line, column)
       types <- vapply(values, type, character(1))
+      if (any(startsWith(types, "Class:"))) fail("Classes cannot be vector elements.", filename, line, column)
       if (any(startsWith(types, "Record:"))) fail("Records cannot be vector elements yet.", filename, line, column)
       if (any(types %in% c("Table", "Unsupported")) || length(unique(types)) != 1L) fail("Vector elements must have the same non-table type.", filename, line, column)
       do.call(base::c, values)
     },
     column = function(table, name, filename, line, column) {
+      if (startsWith(type(table), "Class:")) fail("Class fields are private; use a read-only method.", filename, line, column)
       if (startsWith(type(table), "Record:")) {
         if (!name %in% names(table)) fail(sprintf("Unknown record field '%s'.", name), filename, line, column)
         return(table[[name, exact = TRUE]])
@@ -328,6 +371,7 @@ rss_runtime <- function(match_method) {
       table[[name, exact = TRUE]]
     },
     missing = function(value, negate, filename, line, column) {
+      if (startsWith(type(value), "Class:")) fail("Operate on class values through methods.", filename, line, column)
       if (startsWith(type(value), "Record:")) fail("Test a record field for missing values, not a record.", filename, line, column)
       if (type(value) %in% c("Table", "Unsupported")) fail("Test a column or vector for missing values, not a table.", filename, line, column)
       result <- is.na(value)
@@ -350,7 +394,7 @@ rss_runtime <- function(match_method) {
     }
   )
   valid_receiver <- function(value, expected) {
-    if (!plain_record(value) || type(value) != expected) return(FALSE)
+    if (type(value) != expected || !(if (startsWith(expected, "Class:")) plain_class(value) else plain_record(value))) return(FALSE)
     schema <- schemas[[expected]]
     if (is.null(schema) || !identical(names(value), names(schema))) return(FALSE)
     all(vapply(seq_along(schema), function(i) {
@@ -358,17 +402,20 @@ rss_runtime <- function(match_method) {
       plain_scalar(value[[i]]) && type(value[[i]]) == schema[[i]]
     }, logical(1)))
   }
-  runtime$method_call <- function(receiver, name, candidates, arguments, labels, filename, line, column) {
+  runtime$method_call <- function(receiver, name, candidates, arguments, labels, mutating, filename, line, column) {
     force(receiver)
     arguments <- lapply(arguments, identity)
     error <- function(message) fail(message, filename, line, column)
-    if (!startsWith(type(receiver), "Record:")) error("Method calls require a record receiver.")
+    if (!startsWith(type(receiver), "Record:") && !startsWith(type(receiver), "Class:")) error("Method calls require a record receiver or class receiver.")
     selected <- Filter(function(id) methods[[id]]$type == type(receiver), candidates)
     if (!length(selected)) error(sprintf("No visible method '%s' for this receiver.", name))
     entry <- methods[[selected[[1L]]]]
-    if (!valid_receiver(receiver, entry$type)) error("Method receiver does not match its declared record layout.")
+    if (!identical(entry$mutating, mutating)) error(if (mutating) "Standalone calls require a mutating method." else "Mutating methods cannot be used in expressions.")
+    if (!valid_receiver(receiver, entry$type)) error("Method receiver does not match its declared record or class layout.")
     matched <- match_method(entry$parameters, labels, list(line = line, column = column), filename)
-    runtime$call(entry$implementation, c(list(receiver), arguments[order(matched)]), filename, line, column)
+    candidate <- runtime$call(entry$implementation, c(list(receiver), arguments[order(matched)]), filename, line, column)
+    if (mutating && !valid_receiver(candidate, entry$type)) error("Mutating method returned an invalid class receiver.")
+    candidate
   }
   runtime$record_update <- function(value, fields, replacements, filename, line, column) {
     if (!startsWith(type(value), "Record:")) fail("A with update requires a record.", filename, line, column)

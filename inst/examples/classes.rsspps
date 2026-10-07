@@ -1,0 +1,21 @@
+# A mutating call replaces only its named mutable receiver.
+class Counter {
+  mut value: Number
+
+  fn current(self) {
+    return self.value
+  }
+
+  fn increment(mut self, amount) {
+    self.value = self.value + amount
+  }
+}
+
+first = Counter(value: 0)
+mut second = first
+second.increment(amount: 2)
+second.increment(3)
+original = first.current()
+updated = second.current()
+print original
+print updated
