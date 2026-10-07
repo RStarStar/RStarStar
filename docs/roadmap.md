@@ -83,14 +83,18 @@ R 4.6.0 remains pending. No public CLI is planned. See the
 - [x] Read-only [record methods](record-methods.md) with exact calls and copy-returning updates.
 - [x] Adopt the [mutable-class contract](mutable-classes.md) with value semantics.
 - [x] Scalar private fields and explicit mutating methods with atomic receiver replacement.
-- [ ] Design nested mutable state and construction defaults from concrete use cases.
+- [x] Literal class-field defaults for zero-initialized counters and scalar settings.
+- [x] Matching scalar literal defaults for record constructors, including origin points.
+- [x] Record-valued class state with whole-field copy updates and recursive layout checks.
+- [ ] Design nested mutable class state and computed construction defaults from concrete use cases.
 
 Implement records, classes, constructors, methods, and explicit mutation after
 settling the object backend and value-semantics boundary. Define functions and
 scope needed by methods as part of this work or an earlier milestone.
 
 The record and scalar Counter examples now run with checked access and alias rules.
-Nested mutable class fields remain deferred; nested records retain copy updates.
+Classes can hold earlier records and replace them through copy updates. Nested
+mutable class fields and direct nested assignments remain deferred.
 
 ## 5. Contracts and ecosystem access
 

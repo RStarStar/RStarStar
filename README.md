@@ -13,7 +13,7 @@ syntax difficult to approach. Prior programming experience is not required.
 **Compiler prototype.** Bindings, `mut`, literals, vectors, arithmetic, printing,
 CSV loading/export with configurable delimiters, optional import column types, and configurable missing markers, column access, filtering, scalar/grouped summaries, and PNG bar charts
 transpile to readable R. Grouping supports multiple columns, such as region and
-product. User-defined functions support positional/named calls and conditional expressions; records with typed scalar/nested fields, value methods, copy updates, equality, and direct field access on expression results are also supported. Classes support private scalar fields and explicit mutating methods
+product. User-defined functions support positional/named calls and conditional expressions; records with typed scalar/nested fields, scalar literal defaults, value methods, copy updates, equality, and direct field access on expression results are also supported. Classes support private scalar or record fields, scalar literal constructor defaults, and explicit mutating methods
 with value semantics. Interfaces remain future work.
 The language and package API are experimental. RStarStar is now an installable
 **R package**, with no public CLI. Its exported functions, transpile(path) and run_file(path),

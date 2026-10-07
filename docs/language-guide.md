@@ -221,14 +221,18 @@ This initial record form is implemented. Fields require one plain Number, Text, 
 each. Constructors use the same positional/named argument rules
 as functions. Fields are public to read and cannot be assigned. A mut binding may
 be replaced with another value of the same declared record type; copies retain
-their original fields. An Integer field type is not implemented.
+their original fields. Scalar literal defaults are supported, for example
+record Point { x: Number = 0 } allows Point() and Point(x: 3). Fields without
+defaults remain required; use exact names to skip optional fields. A default such
+as x: Number = "zero" or x: Number = (1 + 2) fails during compilation. An Integer
+field type is not implemented.
 
 Records use ordinary named R lists with an internal type attribute and base R
 printing. Method dispatch uses private runtime metadata. Read-only
 [record methods](record-methods.md) now support nested fn declarations and receiver
 calls, returning new values for updates. R callers can modify
 returned lists, so immutability is a source-language rule. Vector or table fields,
-validation blocks, and defaults remain future work. See [records](implemented-subset.md#records)
+validation blocks, and computed or record-valued defaults remain future work. See [records](implemented-subset.md#records)
 for exact limits and failures.
 
 Use with to create an updated record without repeating every field:
@@ -284,7 +288,8 @@ schemas are not supported. See [nested records](implemented-subset.md#nested-rec
 ## Classes: protect state and provide behavior
 
 The experimental [class subset](mutable-classes.md) supports private scalar
-Number, Text, and Boolean fields, explicit constructors, and mutating methods.
+Number, Text, and Boolean fields, earlier record-valued fields, explicit constructors,
+and mutating methods.
 
 ```text
 class Counter {
@@ -308,8 +313,17 @@ Three permissions make the change explicit: mut counter permits binding updates,
 mut value permits field changes, and mut self marks a mutating method. Calls that
 change a receiver must be standalone statements on a named mutable binding.
 Read-only methods contain one return expression; mutating bodies contain only
-self.field assignments. All fields precede methods; all constructor arguments
-are required. Defaults, nested fields, and custom construction remain future work.
+self.field assignments. All fields precede methods. A class field may have a
+literal default: mut value: Number = 0 lets Counter() start at zero, while
+Counter(value: 10) overrides it. Fields without defaults remain required; exact
+named arguments let callers skip optional fields. Defaults must match the scalar
+type; value: Number = "zero" and value: Number = average([1, 2]) fail during
+compilation. Classes can also store earlier records: mut position: Point accepts a Point value.
+A mutating method can assign self.position = self.position with { x: 3 }; snapshots
+and other aliases retain their previous values. Direct self.position.x = 3 is
+unsupported. Record fields require explicit arguments and their complete layouts
+are checked, including when supplied from R. Computed defaults, nested class fields,
+and custom construction remain future work.
 
 Class values have value semantics:
 

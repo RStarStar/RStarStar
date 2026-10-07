@@ -26,7 +26,7 @@ local({
       "\nCairo:", capabilities("cairo"), "\n")
   command("R", c("CMD", "INSTALL", paste0("--library=", library), "."))
   command("Rscript", "tests/run.R")
-  for (demo in c("demo", "read-csv", "filter", "grouped", "functions", "run-file", "records", "standard-library", "csv-export", "methods", "classes")) {
+  for (demo in c("demo", "read-csv", "filter", "grouped", "functions", "run-file", "records", "standard-library", "csv-export", "methods", "classes", "record-state")) {
     command("Rscript", file.path("examples", paste0(demo, ".R")))
   }
   if (isTRUE(capabilities("cairo"))) {

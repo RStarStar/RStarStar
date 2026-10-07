@@ -794,3 +794,91 @@ No nested object fields, defaults, general statement bodies, mutable parameters,
 interfaces, inheritance, external R-call bridge, or native R dollar-method API.
 R can inspect/alter returned lists; layout validation is not provenance or deep
 immutability. See the [class contract](mutable-classes.md) and PROGRESS.md for checks.
+
+
+## 2026-10-07 — Literal class-field defaults
+
+Status: implemented, experimental in 0.0.20, following the request to continue
+with the next object milestone. This supersedes the all-fields-required class
+constructor rule for fields that explicitly declare defaults.
+
+A zero-initialized counter should not require Counter(value: 0) at every call.
+Allow mut value: Number = 0 so Counter() uses zero and Counter(value: 10)
+overrides it. Text and Boolean literals are also supported, as are singly signed
+numbers and parenthesized literals. Check default types even for unused classes.
+Reject calls, variable references, vectors, and computed expressions; for example,
+value: Number = "zero" is a compilation error, not a fallback at construction.
+
+Required and optional fields may be interleaved. Positional arguments always map
+to declaration order; exact names skip optional fields. Missing required fields,
+unknown names, duplicate arguments, and invalid overrides fail. Explicit arguments
+still execute once in written order. Defaults cannot capture ambient data or
+introduce execution during compilation. Each constructed value retains existing
+copy and mutation semantics. Returned R constructors use ordinary R defaults and
+R calling rules; this adds no export or runtime dependency.
+
+Alternatives deferred: computed defaults, dependencies between fields, defaults
+for records/functions, and nested mutable state. Literal defaults meet the counter
+and scalar-settings use cases without adding capture or evaluation-order rules
+for arbitrary default expressions. Verification covers defaults and overrides,
+required/optional matching, declaration and runtime failures, source locations,
+public file APIs, alias preservation, and standalone execution without R6.
+
+
+## 2026-10-07 — Record-valued class state
+
+Status: implemented, experimental in 0.0.21, continuing the requested object work.
+Supersedes the scalar-only field restriction for classes. A Tracker may now store
+an earlier Point record as mut position: Point and replace it using
+self.position = self.position with { x: self.position.x + dx }. Earlier record
+methods may also return the replacement. Constructor arguments remain required
+for record fields; existing scalar literal defaults are unchanged.
+
+The concrete use case is a stateful tracker retaining a position snapshot. Whole
+record replacement reuses existing copy semantics: the original Point, other
+Tracker aliases, and returned snapshots retain their values. Field mutability and
+class privacy still apply; self.position.x = 3 is rejected. Sequential mutation
+uses a local candidate, and failed nested validation prevents receiver replacement.
+
+Class construction, method dispatch, and field replacement validate nested record
+schemas recursively, including scalar leaf types and unsupported attributes from
+R callers. Different nominal types remain different even with identical shapes.
+Only earlier record types are accepted, preserving acyclic schemas. This adds no
+reference backend, runtime dependency, source extension, or public API.
+
+Direct nested mutation and class-valued fields were deferred because they need
+additional ownership and permission rules. Record defaults/computed constructors
+remain deferred too. Returned R lists can be modified outside the language; layout
+validation is not a provenance check or a deep-immutability guarantee.
+
+Verification covers nested copying, record methods, immutable/private fields,
+constructor and assignment types, failure atomicity, source locations and call
+chains, malformed R inputs, public APIs, and standalone R6-free execution.
+
+
+## 2026-10-07 — Scalar literal defaults for record constructors
+
+Status: implemented, experimental in 0.0.22. Continuing the requested object work,
+apply the existing class scalar-default rules to records. An origin Point should
+be constructible with Point() after declaring x: Number = 0 and y: Number = 0,
+just as a Counter can start at zero. This supersedes the no-record-defaults limit;
+defaults for record-valued fields remain unsupported.
+
+Default values are scalar Number/Text/Boolean literals, optionally parenthesized;
+numbers may have a single sign. Types are checked even when declarations are unused
+or every call overrides the default. Calls, variables, vectors, and computed
+expressions such as (1 + 2) remain errors. Fix the shared parser to accept the
+parenthesized literals already documented for classes, preserving source spans.
+
+Required and optional fields may interleave, named arguments match exactly, and
+positional arguments map to declaration order. Overrides retain field checks and
+written execution order. Copy updates preserve current values, not defaults.
+Equality and record methods keep their existing behavior. Generated constructors
+use R parameter defaults; R callers retain ordinary R calling rules.
+
+Alternatives deferred: computed defaults, implicit creation of nested records,
+record-valued constructor defaults, and defaults on ordinary functions/methods.
+The literal-only rule avoids capture and evaluation-order questions while making
+record/class construction consistent. No public API or dependency changes.
+Verification covers defaults, overrides, required fields, errors and locations,
+copy/equality/method behavior, nested state, R callers, and standalone execution.

@@ -191,14 +191,19 @@ added to record values and no R dispatch backend is registered.
 
 ## Mutable classes
 
-Class nodes carry scalar schemas and mutable field names. Method nodes carry an
+Class nodes carry scalar/record schemas and mutable field names. Method nodes carry an
 explicit effect; mutating bodies contain field_assign nodes with source spans.
 Analysis scopes private field access to direct self receivers in the owning class.
 Standalone mutation nodes require a mutable binding and a mutating method.
 Method dispatch checks effects as well as nominal types and exact arguments.
 
 Classes use rss_class_type tagged lists, separate from records. The runtime validates
-plain scalar layouts and field permissions. Each generated field assignment replaces
+plain scalar and recursively declared record layouts, plus field permissions. Each generated field assignment replaces
 the method-local candidate; the caller binding receives the result only after the
 complete checked method succeeds. Generic column access, equality, and record updates
 reject classes. No reference backend or R6 runtime dependency is introduced.
+
+Record and class scalar field literal defaults are validated by the analyzer and emitted as R
+constructor parameter defaults. Constructor signatures track optional fields;
+source calls still require exact names and positional declaration order. Defaults
+do not capture user bindings or evaluate source during compilation.

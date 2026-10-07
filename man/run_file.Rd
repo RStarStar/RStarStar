@@ -17,9 +17,13 @@ print-only programs return an empty list. Returned functions retain their runtim
 checks and can be called from R.
 }
 \details{
-Classes support private scalar fields and explicit mutating methods. Mutation
+Classes support private scalar or record fields, scalar literal constructor defaults, and explicit
+mutating methods. Fields without defaults remain required. Returned constructors
+expose defaults to R callers under ordinary R calling rules. Records also support
+scalar literal defaults; nested record-valued fields still require explicit values. Mutation
 replaces only a named mutable receiver after the entire method succeeds; aliases
-retain their values. Class values are tagged R lists, and generated code does not
+retain their values. Record fields require explicit arguments and recursive layout
+validation during construction, dispatch, and replacement. Class values are tagged R lists, and generated code does not
 require R6. R callers can inspect or modify returned lists; source privacy is not
 a security boundary. See the packaged \code{classes.rsspps} example.
 

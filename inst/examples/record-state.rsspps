@@ -1,0 +1,30 @@
+record Point {
+  x: Number = 0
+  y: Number = 0
+  fn shifted(self, dx, dy) {
+    return self with { x: self.x + dx, y: self.y + dy }
+  }
+}
+
+class Tracker {
+  mut position: Point
+  mut moves: Number = 0
+
+  fn snapshot(self) { return self.position }
+  fn count(self) { return self.moves }
+  fn move(mut self, dx, dy) {
+    self.position = self.position.shifted(dx, dy)
+    self.moves = self.moves + 1
+  }
+}
+
+origin = Point()
+first = Tracker(origin)
+mut second = first
+second.move(dx: 3, dy: 4)
+before = first.snapshot()
+after = second.snapshot()
+move_count = second.count()
+print before
+print after
+print move_count

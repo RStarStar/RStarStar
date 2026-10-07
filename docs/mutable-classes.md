@@ -1,6 +1,6 @@
 # Mutable classes
 
-Status: **implemented, experimental in 0.0.19**. This adopts the first-slice
+Status: **implemented, experimental; literal defaults added in 0.0.20 and record fields in 0.0.21**. This adopts the first-slice
 proposal recorded in the [design decisions](design-decisions.md). The compiler
 uses R6 internally; generated class values are ordinary tagged lists and generated
 programs do not require R6.
@@ -9,7 +9,7 @@ programs do not require R6.
 
 ```text
 class Counter {
-  mut value: Number
+  mut value: Number = 0
 
   fn current(self) {
     return self.value
@@ -20,18 +20,46 @@ class Counter {
   }
 }
 
-mut counter = Counter(value: 0)
+mut counter = Counter()
 counter.increment(amount: 1)
 print counter.current()
 # 1
 ```
 
 class is now reserved. Classes declare at least one field before any methods.
-Fields have explicit Number, Text, or Boolean types and hold one plain scalar.
+Fields have explicit Number, Text, Boolean, or earlier record types. Primitive
+fields hold one plain scalar; record fields hold one value of the declared nominal type.
 Fields are private in source; methods are public. A field needs mut to permit
-assignment. Generated constructors require all fields exactly once with existing
-positional/named argument rules. Defaults, validation blocks, nested class/record
-fields, vectors, tables, and foreign reference fields are unsupported.
+assignment. Generated constructors accept positional/named arguments. Fields without defaults
+must be supplied exactly once. A field can declare a scalar literal default using
+=, such as value: Number = 0, label: Text = "Counter", or active: Boolean = true.
+Numbers may have a single + or - sign; parentheses around literals are allowed.
+Default types are checked at compilation even if the class is unused or every call
+overrides the field. Variables, field references, calls, vectors, and computed
+expressions are rejected. No default expression executes during compilation.
+
+Defaults need not be trailing fields. Positional arguments still correspond to
+field declaration order; use exact names to skip an optional field:
+
+```text
+class Meter {
+  mut value: Number = 0
+  label: Text
+}
+a = Meter(label: "Visits")       # value is 0
+b = Meter(10, "Downloads")       # explicit override
+# Meter() fails: required field label is missing.
+# Meter("Visits") fails: the positional argument supplies value, not label.
+# value: Number = "zero" fails even if a caller supplies a numeric value.
+```
+
+Explicit arguments evaluate once in written order. Omitted fields use their
+literal defaults on each construction. Overrides retain scalar type checks;
+no default is substituted for an explicit invalid or missing value. Returned R
+constructors also have defaults, under ordinary R argument matching rules.
+Records support the same scalar literal defaults. Ordinary functions still require all arguments. Validation blocks,
+nested class fields, vectors, tables, and foreign reference fields remain
+unsupported.
 
 ## Three explicit permissions
 
@@ -69,8 +97,8 @@ print second.current()  # 1
 ```
 
 A mutating call computes a new receiver and assigns it back to second. Existing
-aliases keep their values. Supported fields are plain scalars, so no explicit clone
-is needed. Reassignment retains the same nominal class type.
+aliases keep their values. Supported fields are plain scalars or record trees without
+reference values, so no explicit clone is needed. Reassignment retains the same nominal class type.
 
 Mutating calls are standalone statements on simple named mut bindings. Read-only
 calls remain expressions. Mutation in an expression, on a constructor result,
@@ -98,7 +126,7 @@ earlier call sites.
 The receiver evaluates once, then explicit arguments evaluate once in written
 order, against the old committed receiver. Runtime dispatch validates the receiver,
 effect, and exact signature. Assignments run sequentially on a local candidate;
-each validates its scalar field type, and later assignments see earlier updates.
+each validates its declared field type and complete record layout, and later assignments see earlier updates.
 The caller's binding is replaced only after every assignment succeeds.
 
 ```text
@@ -143,10 +171,58 @@ external R-call bridge, or runtime dependency is introduced.
 
 Tagged values preserve the documented alias semantics. Environment-backed
 reference objects would change those semantics; automatic reference cloning would
-require an additional ownership/copy policy. Nested mutable state, field defaults,
+require an additional ownership/copy policy. Nested mutable class state, computed defaults,
 custom constructors, private methods, interfaces, and inheritance remain future work.
 
 The packaged classes.rsspps example and tests/cases/classes.R cover success,
 permissions, privacy, failure atomicity, evaluation order, dispatch, invalid R
 layouts, spans, stage reuse, and fresh-process execution without R6 or RStarStar.
 See [implemented syntax](implemented-subset.md) and [record methods](record-methods.md).
+
+
+## Record-valued state
+
+A class may hold an earlier record type, including an acyclic tree of records.
+This lets a tracker keep a position as one value instead of repeating its fields:
+
+```text
+record Point {
+  x: Number
+  y: Number
+}
+class Tracker {
+  mut position: Point
+  fn snapshot(self) { return self.position }
+  fn move(mut self, dx) {
+    self.position = self.position with { x: self.position.x + dx }
+  }
+}
+origin = Point(0, 0)
+first = Tracker(origin)
+mut second = first
+second.move(3)
+print first.snapshot().x    # 0
+print second.snapshot().x   # 3
+print origin.x              # 0
+```
+
+Replace the whole private record field with a constructor, a with copy update, or
+a record method's result. self.position.x = 3 is unsupported. The outer field
+must be declared mut even when only one nested record field changes. Immutable
+record-valued class fields may be read and returned, but cannot be replaced.
+Returning a snapshot exposes a record value; changing a copy does not change its
+owner. The enclosing class field remains private.
+
+Record-valued fields have no defaults in this slice and must be explicitly supplied.
+The record type must precede the class declaration; forward, recursive, and
+class-valued fields remain unsupported. A different record with identical fields
+is still the wrong nominal type. Constructors, method receivers, and replacement
+assignments recursively check declared record layouts, including scalar leaf types,
+field names, and unsupported attributes. For example, a Point with a Text x field
+modified by an R caller is rejected when used to construct a Tracker.
+
+Sequential assignments still use a local candidate. If a later replacement is
+invalid, none of that call's candidate changes replace the caller's binding.
+Earlier program output remains outside this guarantee. Returned lists can still
+be inspected and modified in R; these checks do not promise provenance or deep
+immutability for arbitrary R objects. See the packaged record-state.rsspps example.

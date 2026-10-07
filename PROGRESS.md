@@ -907,3 +907,116 @@ base printing and R callers can inspect returned lists. Failed calls protect the
 receiver binding, not earlier program prints/files, and run_file returns no partial
 results. Hosted CI, other R versions/platforms, and PDF manual generation remain
 unverified.
+
+## 2026-10-07 — Literal class-field defaults (0.0.20)
+
+Continued the object milestone with scalar literal constructor defaults. Class
+fields can declare defaults such as mut value: Number = 0, label: Text = "Counter",
+and active: Boolean = true. Defaults accept singly signed numeric literals and
+parenthesized literals; calls, variables, computed expressions, and vectors are
+rejected. The analyzer checks default types even for unused declarations. Fields
+without defaults remain required; exact named arguments can skip optional fields,
+while positional arguments retain declaration order. Required and optional fields
+may be interleaved. Explicit overrides retain normal type and scalar checks.
+
+Generated constructors use R parameter defaults and preserve explicit argument
+execution order. Each constructed value retains existing alias and mutation rules.
+No user code executes during parsing or analysis. No public API, runtime dependency,
+or CLI was added. The packaged class example now uses Counter(); returned R
+constructors also expose defaults under ordinary R calling rules. Updated the guide,
+class contract, implemented subset, architecture, decision record, roadmap, package
+help, and current build instructions.
+
+Added eight behavioral checks for scalar defaults, signs/escaping, overrides,
+required/optional matching, duplicate/unknown/missing arguments, invalid declarations,
+runtime input checks, source locations, aliasing, explicit argument evaluation order,
+public file APIs, R callers, and independent generated execution without R6/RStarStar.
+
+Verification: reinstalled through the shared check runner, passed all 301 checks
+with 0 skips, ran all twelve demos including Cairo charts, built
+RStarStar_0.0.20.tar.gz, and completed R CMD check --no-manual with Status: OK and
+no warnings or notes. An earlier sandboxed validation could not reach dependency
+indexes; the final validation had network access. Checked 81 relative Markdown links
+and balanced fences across 12 Markdown files, example consistency, and git diff
+whitespace. Local environment: R 4.6.0 on macOS arm64.
+
+Limits: defaults are class scalar literals only. Computed defaults, record/function
+defaults, nested mutable state, and custom constructors remain deferred. Existing
+source-privacy and R interoperability limits remain unchanged. Hosted CI, other R
+versions/platforms, and PDF manual generation were not verified.
+
+## 2026-10-07 — Record-valued class state (0.0.21)
+
+Continued the object milestone with private class fields typed as earlier records,
+including acyclic nested record trees. A Tracker can hold a Point and replace it
+through a constructor, with copy update, or read-only record method. The outer
+field must be mutable for replacement; direct nested assignments and nested
+mutable class fields remain unsupported. Record fields require explicit arguments;
+scalar literal defaults from 0.0.20 remain unchanged.
+
+Class construction and replacement now recursively validate declared record layouts,
+not just tags or generic record shape. Receiver dispatch retains the same recursive
+checks. Tests reject malformed nested fields and attributes from R callers. Record
+and class aliases and returned snapshots retain their values; failed later mutation
+assignments do not commit any candidate changes. Source privacy, nominal typing,
+execution separation, and standalone generated R remain intact, with no new public
+API or dependency.
+
+Added the packaged record-state.rsspps example and developer demo, and included it
+in the shared check runner. Added eight behavioral checks covering nested aliasing,
+record methods, static and dynamic type failures, forward/recursive/class-valued
+schema rejection, privacy and immutability, nested assignment rejection, failure
+atomicity, source locations/call chains, malformed R layouts, public APIs, and
+execution without R6/RStarStar. Updated current documentation, decision record,
+roadmap, package help, and versioned build instructions. Preserved the preceding
+uncommitted constructor-default work.
+
+Verification: the final shared runner reinstalled 0.0.21, passed all 309 checks
+with 0 skips, ran all thirteen demos including Cairo rendering, built
+RStarStar_0.0.21.tar.gz, and completed R CMD check --no-manual with Status: OK and
+no warnings or notes. Final package checking used network access for dependency
+indexes. Verified 81 relative links and balanced fences across 12 Markdown files,
+the twelve packaged examples, example consistency, and git diff whitespace.
+Local verification used R 4.6.0 on macOS arm64.
+
+Limits: record trees only, without class-valued fields, direct nested mutation,
+record defaults, or computed defaults. R callers may still inspect/modify returned
+lists; recursive validation does not establish provenance or promise arbitrary-R
+reference safety. Hosted CI, other R versions/platforms, and PDF manual generation
+remain unverified.
+
+## 2026-10-07 — Scalar literal defaults for records (0.0.22)
+
+Extended the existing class constructor-default rules to record scalar fields.
+Point fields can declare x: Number = 0 and y: Number = 0 so Point() constructs
+an origin and Point(y: 3) overrides one value. Fields without defaults remain
+required, including nested record-valued fields. Exact argument matching, written
+argument execution order, type checks, equality, methods, and copy updates retain
+their existing rules. Defaults never restore fields during a with update.
+
+A new test exposed that parenthesized literals, documented for class defaults,
+were rejected by the parser. Fixed the shared literal check to ignore grouping
+while retaining source spans. Parenthesized literals and singly signed numbers
+now work for records and classes; computed expressions and repeated signs remain
+rejected. No default source executes during compilation. No API or dependency was
+added. The packaged tracker example now constructs its origin with Point().
+
+Added seven behavioral checks covering scalar types, overrides, mixed required and
+optional arguments, declaration errors and locations, nested records, copies,
+equality, methods, runtime failures from R inputs, public file APIs, explicit
+argument execution order, parenthesized literals, and independent generated
+execution. Updated current documentation, decision record, roadmap, help, and
+versioned build instructions. Preserved earlier uncommitted implementation work.
+
+Verification: the first new suite caught the parenthesis mismatch above. After
+fixing it, the final shared runner reinstalled 0.0.22, passed all 316 checks with
+0 skips, ran all thirteen demos including Cairo rendering, built
+RStarStar_0.0.22.tar.gz, and completed R CMD check --no-manual with Status: OK and
+no warnings or notes. The final run used network access for dependency indexes,
+which were unavailable in the earlier sandboxed run. Verified 81 relative links
+and balanced fences across 12 Markdown files, example consistency, and git diff
+whitespace. Local environment: R 4.6.0 on macOS arm64.
+
+Limits: defaults remain scalar literals only. Computed expressions, defaults for
+nested record-valued fields, and ordinary function/method parameter defaults are
+unsupported. Hosted CI, other R versions/platforms, and PDF manuals remain unverified.

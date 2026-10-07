@@ -1,6 +1,6 @@
 # R package guide
 
-RStarStar 0.0.19 is an experimental, locally installable R package. There is no
+RStarStar 0.0.22 is an experimental, locally installable R package. There is no
 public CLI and no published CRAN release. It exports transpile(path) to return generated R text and run_file(path) to
 execute a program and return its bindings. Both accept .rsspps files only.
 
@@ -19,7 +19,7 @@ cat(code)
 
 For your own program, save RStarStar source in analysis.rsspps and call
 transpile("analysis.rsspps"). Use ?transpile for installed API help. The package
-includes ten .rsspps examples and their small CSV fixtures under
+includes twelve .rsspps examples and their small CSV fixtures under
 system.file("examples", package = "RStarStar"). Rscript files in the repository's
 examples/ directory are developer demo runners, not a public interface.
 
@@ -117,12 +117,28 @@ examples/csv-export.R executes it in a temporary directory and removes its outpu
 
 The classes.rsspps example demonstrates private scalar fields, mut self methods,
 and standalone mutation on mutable bindings. Copies keep their original values;
-failed methods do not replace the receiver. All fields are explicit constructor
-arguments. Nested mutable fields and defaults remain unsupported.
+failed methods do not replace the receiver. Class fields may declare type-checked literal defaults; Counter() in the example
+uses value: Number = 0. Explicit arguments override defaults, and fields without
+defaults remain required. Returned constructor functions expose these defaults to R
+callers. The record-state.rsspps example adds record-valued class fields and
+whole-field copy updates. Nested record layouts are checked recursively at
+construction, method dispatch, and replacement, including values supplied by R
+callers. Record fields require explicit arguments; nested class fields and computed
+defaults remain unsupported.
 
 Class results are ordinary tagged lists. Source privacy does not prevent inspection
 or modification from R, and there is no native dollar-method API. Generated class
 code remains independent of R6. See the [class contract](mutable-classes.md).
+
+## Record constructor defaults
+
+Record scalar fields support the same literal defaults as class scalar fields.
+For example, record Point { x: Number = 0 } permits Point() and Point(x: 3).
+Defaults are type-checked without execution. Required fields, including nested
+record-valued fields, still need explicit arguments. Returned constructor functions
+expose these defaults to R callers. The record-state.rsspps example now constructs
+its origin with Point(). Computed expressions and constructor calls in defaults
+remain unsupported.
 
 ## Record methods
 
@@ -142,7 +158,7 @@ from the source-package payload using .Rbuildignore.
 
 Reinstall after changing R/ and run Rscript tests/run.R against that installation.
 Tests include internal compiler cases and public file-API cases. R CMD build .
-and R CMD check --no-manual RStarStar_0.0.19.tar.gz validate the package, installed
+and R CMD check --no-manual RStarStar_0.0.22.tar.gz validate the package, installed
 help, examples, and tests. Use the current version in the archive name. Chart
 rendering tests report skips when Cairo is unavailable. --no-manual omits PDF
 manual generation only. See [Contributing](../CONTRIBUTING.md) for commands.

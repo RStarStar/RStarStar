@@ -1,14 +1,14 @@
 Package: RStarStar
 Type: Package
 Title: Transpile Beginner-Friendly Source Files to R
-Version: 0.0.19
+Version: 0.0.22
 Authors@R: c(
     person("Kisura", role = c("aut", "cre"),
            email = "85266425+KisuraWSP@users.noreply.github.com"),
     person("RStarStar", role = "cph"))
 Description: Compiles local '.rsspps' source files into readable R code without
     executing the input program. Supports checked bindings, vector expressions,
-    CSV workflows, summaries, charts, simple functions, records, and scalar-field classes. Generated programs
+    CSV workflows, summaries, charts, simple functions, records, and classes with scalar or record fields. Generated programs
     include their runtime checks and can be executed separately from compilation.
 License: MIT + file LICENSE
 Encoding: UTF-8

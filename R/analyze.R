@@ -18,12 +18,17 @@ RSSAnalyzer <- R6::R6Class(
           schema <- vapply(seq_along(statement$types), function(i) {
             field_type <- statement$types[[i]]
             if (field_type %in% c("Number", "Text", "Boolean")) return(field_type)
-            if (is_class) rss_error("Class fields require Number, Text, or Boolean.", statement$type_tokens[[i]], private$filename)
             nested <- paste0("Record:", field_type)
+            if (is_class && !exists(nested, private$records, inherits = FALSE)) rss_error("Class fields require Number, Text, Boolean, or an earlier record type.", statement$type_tokens[[i]], private$filename)
             if (!exists(nested, private$records, inherits = FALSE)) rss_error(sprintf("Unknown field type '%s'; use Number, Text, Boolean, or an earlier record type.", field_type), statement$type_tokens[[i]], private$filename)
             nested
           }, character(1))
           names(schema) <- statement$fields
+          for (field in names(statement$defaults)) {
+            default <- statement$defaults[[field]]
+            actual <- private$infer(default)
+            if (actual$type != schema[[field]]) rss_error(sprintf("Default for field '%s' requires one %s value.", field, schema[[field]]), default$token, private$filename)
+          }
           assign(record_type, schema, private$records)
           for (method in statement$methods) {
             outer <- private$bindings
@@ -55,6 +60,7 @@ RSSAnalyzer <- R6::R6Class(
           }
           signature <- private$info("Function", 1L)
           signature$parameters <- statement$fields
+          signature$optional <- names(statement$defaults)
           signature$field_types <- unname(schema)
           signature$result <- private$info(record_type, 1L)
           assign(statement$name, list(info = signature, mutable = FALSE), private$bindings)
@@ -185,7 +191,7 @@ RSSAnalyzer <- R6::R6Class(
       if (kind == "call") {
         target <- private$lookup(value$name, value$token)
         if (target$type != "Function") rss_error(sprintf("'%s' is not a declared function.", value$name), value$token, private$filename)
-        if (length(value$arguments) != length(target$parameters)) rss_error(sprintf("Function '%s' expects %d arguments; received %d.", value$name, length(target$parameters), length(value$arguments)), value$token, private$filename)
+        if ((length(value$arguments) != length(target$parameters) && !length(target$optional)) || length(value$arguments) > length(target$parameters)) rss_error(sprintf("Function '%s' expects %d arguments; received %d.", value$name, length(target$parameters), length(value$arguments)), value$token, private$filename)
         matched <- integer()
         for (i in seq_along(value$arguments)) {
           label <- value$labels[[i]]
@@ -194,6 +200,8 @@ RSSAnalyzer <- R6::R6Class(
           if (parameter %in% matched) rss_error(sprintf("Parameter '%s' was supplied more than once.", target$parameters[[parameter]]), value$argument_tokens[[i]], private$filename)
           matched <- c(matched, parameter)
         }
+        missing <- setdiff(target$parameters, c(target$parameters[matched], target$optional))
+        if (length(missing)) rss_error(sprintf("Missing required field '%s' for constructor '%s'.", missing[[1L]], value$name), value$token, private$filename)
         arguments <- lapply(value$arguments, recurse)
         if (!is.null(target$field_types)) {
           for (i in seq_along(arguments)) {

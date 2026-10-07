@@ -22,6 +22,7 @@ RSSParser <- R6::R6Class(
           private$expect("{", if (is_class) "Expected '{' before class fields." else "Expected '{' before record fields.")
           fields <- character()
           mutable_fields <- character()
+          defaults <- list()
           types <- character()
           type_tokens <- list()
           methods <- list()
@@ -42,7 +43,21 @@ RSSParser <- R6::R6Class(
             field <- private$expect("name", if (is_class) "Expected a field name or '}' in the class." else "Expected a field name or '}' in the record.")
             if (field$value %in% fields) rss_error(if (is_class) "Class field names must be unique." else "Record field names must be unique.", field, private$filename)
             private$expect(":", "Expected ':' and a type after the field name.")
-            type <- private$expect("name", if (is_class) "Expected Number, Text, or Boolean after ':'." else "Expected a scalar type or earlier record type after ':'.")
+            type <- private$expect("name", "Expected a scalar type or earlier record type after ':'.")
+            if (private$peek()$kind == "=") {
+              private$take()
+              default <- private$expression()
+              # Parentheses preserve spans but do not turn literals into computations.
+              ungroup <- function(value) {
+                while (value$kind == "group") value <- value$value
+                value
+              }
+              atom <- ungroup(default)
+              literal <- atom$kind %in% c("number", "text", "true", "false") ||
+                (atom$kind == "unary" && atom$operator %in% c("+", "-") && ungroup(atom$value)$kind == "number")
+              if (!literal) rss_error("Field defaults must be scalar literals (numbers may have a sign).", default$token, private$filename)
+              defaults[[field$value]] <- default
+            }
             type_tokens[[length(type_tokens) + 1L]] <- type
             fields <- c(fields, field$value)
             if (field_mutable) mutable_fields <- c(mutable_fields, field$value)
@@ -53,7 +68,7 @@ RSSParser <- R6::R6Class(
           }
           private$take()
           if (!length(fields)) rss_error(if (is_class) "A class must declare at least one field." else "A record must declare at least one field.", name, private$filename)
-          statement <- private$node(token$kind, token, name = name$value, name_token = name, fields = fields, types = types, type_tokens = type_tokens, methods = methods, mutable_fields = mutable_fields)
+          statement <- private$node(token$kind, token, name = name$value, name_token = name, fields = fields, types = types, type_tokens = type_tokens, methods = methods, mutable_fields = mutable_fields, defaults = defaults)
         } else if (token$kind == "fn") {
           statement <- private$parse_function()
         } else if (token$kind == "print") {

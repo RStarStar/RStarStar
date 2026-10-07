@@ -22,7 +22,11 @@ RSSGenerator <- R6::R6Class(
           values <- paste0("base::list(", paste(vapply(statement$fields, private$name, character(1)), collapse = ", "), ")")
           types <- ifelse(statement$types %in% c("Number", "Text", "Boolean"), statement$types, paste0("Record:", statement$types))
           body <- private$call_runtime(if (is_class) "class_value" else "record", c(private$quote_text(statement$name), vector(statement$fields), vector(types), values), statement$token)
-          constructor <- paste0(private$name(statement$name), " <- function(", paste(vapply(statement$fields, private$name, character(1)), collapse = ", "), ") {\n  return(", body, ")\n}")
+          parameters <- vapply(statement$fields, function(field) {
+            default <- statement$defaults[[field]]
+            paste0(private$name(field), if (!is.null(default)) paste0(" = ", private$emit(default)) else "")
+          }, character(1))
+          constructor <- paste0(private$name(statement$name), " <- function(", paste(parameters, collapse = ", "), ") {\n  return(", body, ")\n}")
           schema_code <- private$call_runtime("schema", c(private$quote_text(nominal), vector(statement$fields), vector(types)), statement$token)
           if (is_class) schema_code <- paste(schema_code,
             private$call_runtime("class_permissions", c(private$quote_text(nominal), vector(statement$mutable_fields)), statement$token), sep = "\n")

@@ -86,9 +86,9 @@ pair.advance(true)'
     for (field in c("C", "Integer", "Table")) {
       fails(paste0('class C { x: ', field, ' }'), "Class fields require")
     }
-    fails('record R { x: Number }\nclass C { x: R }', "Class fields require")
+    fails('class Inner { x: Number }\nclass C { x: Inner }', "Class fields require")
     fails('class C { x: Number }\nrecord R { x: C }', "Unknown field type")
-    fails('class C { x: Number = 0 }', "new line")
+    fails('class C { x: Number = 1 + 2 }', "scalar literals")
     fails(paste(counter, 'c = Counter()', sep="\n"), "expects 1 arguments")
     fails(paste(counter, 'c = Counter(v: 0)', sep="\n"), "Unknown parameter")
     fails(paste(counter, 'c = Counter("bad")', sep="\n"), "requires one Number")

@@ -60,12 +60,13 @@ Rscript examples/functions.R
 Rscript examples/records.R
 Rscript examples/methods.R
 Rscript examples/classes.R
+Rscript examples/record-state.R
 Rscript examples/standard-library.R
 Rscript examples/csv-export.R
 Rscript examples/grouped.R
 Rscript examples/workflow.R
 R CMD build .
-R CMD check --no-manual RStarStar_0.0.19.tar.gz
+R CMD check --no-manual RStarStar_0.0.22.tar.gz
 git diff --check
 ```
 

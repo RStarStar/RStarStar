@@ -669,12 +669,35 @@ record is reserved. A top-level declaration defines at least one uniquely named
 field, one per line inside braces (a single field may share a line with the braces).
 Fields require explicit Number, Text, Boolean, or earlier record-type annotations
 and hold exactly one value of that type. Primitive fields are plain scalars; nested
-fields hold record values. Integer, vectors, tables, defaults, and function-valued fields are not
+fields hold record values. Integer, vectors, tables, and function-valued fields are not
 supported as field declarations. Methods may follow all fields. A scalar missing value is allowed
 when it has the required type; no nonmissing or finite-number constraint is added.
 
-The generated constructor takes every field exactly once, using ordinary source
-positional/named call rules. Constructors share the function/binding namespace,
+Scalar record fields may declare literal defaults: x: Number = 0,
+label: Text = "Untitled", or active: Boolean = true. A number may have one sign,
+and parentheses may surround a literal or signed number. Default types are checked
+even for unused declarations. Variables, calls, vectors, and computed expressions
+are rejected; x: Number = "zero" and x: Number = (1 + 2) fail at compilation.
+
+The generated constructor requires every field without a default exactly once.
+Exact named arguments may skip optional fields, including before a required field;
+positional arguments keep declaration order. Explicit overrides use the same type
+checks and evaluate once in written order. Nested record-valued fields remain
+required: no constructor-call defaults or implicit construction are supported.
+Copy updates preserve all unspecified current values rather than restoring defaults.
+Returned R constructors expose the defaults under ordinary R calling rules.
+
+```text
+record Point {
+  x: Number = 0
+  y: Number = 0
+}
+origin = Point()
+raised = Point(y: 3)
+# Point(z: 3) fails: unknown parameter.
+```
+
+Constructors use ordinary source positional/named call rules. Constructors share the function/binding namespace,
 cannot replace built-in summaries, and must be declared before use. Known wrong
 types and lengths fail during analysis; unknown inputs are checked when constructed.
 Constructor runtime errors point to the declaration and include the language call
@@ -951,9 +974,16 @@ print first.current()   # 0
 print second.current()  # 1
 ```
 
-class is reserved. Classes require at least one private scalar Number, Text, or
-Boolean field before methods. All constructor fields are required, with exact
-positional/named arguments. Read-only methods have one return expression; mut self
+class is reserved. Classes require at least one private Number, Text, Boolean, or
+earlier record-type field before methods. Primitive fields hold plain scalars. Fields may have scalar literal defaults, for example
+mut value: Number = 0 or label: Text = "Counter". Numbers may have one sign;
+parentheses around literals are allowed. Defaults are type-checked during compilation;
+variables, calls, vectors, and computed expressions are rejected. Fields without
+defaults remain required. Exact positional/named arguments can override defaults;
+positional arguments keep declaration order, so use names to skip optional fields.
+Required fields may follow optional fields. Explicit arguments retain written
+execution order, and each construction uses the defaults only for omitted fields.
+Returned R constructors expose the same defaults under R's calling rules. Read-only methods have one return expression; mut self
 methods have one or more self.field assignments to fields declared mut. Only direct
 self.field or self."field" inside the owning class accesses private fields.
 
@@ -961,12 +991,20 @@ Mutating calls are standalone statements on named mutable bindings. Receiver and
 arguments evaluate once in source order. Field assignments operate sequentially on
 a candidate, checking types before each replacement. Only successful completion
 replaces the caller binding; aliases retain their values, including on failure.
-Fields cannot contain nested objects, vectors, tables, or foreign references.
+Record fields hold one value of their declared nominal type, including earlier
+acyclic nested records. Assign a whole record using a constructor, a with copy, or
+a read-only record method result. Direct nested assignment (self.position.x = 3)
+is unsupported, and the outer field requires mut for replacement. Returned record
+snapshots are independent values. Construction, receiver dispatch, and replacement
+recursively validate declared record layouts and scalar leaf types, including inputs
+from R callers. Record fields require explicit constructor arguments; no record
+field defaults, nested classes, vectors, tables, or foreign references are supported.
+See the packaged record-state.rsspps example.
 
 Known effects/types are checked statically; unknown receivers use checked dispatch
 within the call site's fixed visible method set. Methods have no outer data captures,
 recursion, forward calls, or mutable parameters. Class equality, with updates,
-defaults, custom constructors, and arbitrary statement bodies are unsupported.
+computed defaults, custom constructors, and arbitrary statement bodies are unsupported.
 Earlier program output/files are not rolled back on error.
 
 Generated values are tagged lists, independent of R6. Privacy is a source rule:

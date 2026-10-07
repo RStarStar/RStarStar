@@ -156,7 +156,7 @@ rss_runtime <- function(match_method) {
       setequal(names(attributes(value)), c("names", "rss_class_type")) &&
       !is.null(names(value)) && !anyNA(names(value)) &&
       all(nzchar(names(value))) && !anyDuplicated(names(value)) &&
-      all(vapply(value, plain_scalar, logical(1)))
+      all(vapply(value, function(field) plain_scalar(field) || plain_record(field), logical(1)))
   }
   binary <- function(op, left, right, filename, line, column) {
     error <- function(message) fail(message, filename, line, column)
@@ -215,7 +215,7 @@ rss_runtime <- function(match_method) {
     class_value = function(class_name, fields, types, values, filename, line, column) {
       for (i in seq_along(fields)) {
         value <- values[[i]]
-        if (!plain_scalar(value) || type(value) != types[[i]]) {
+        if (!valid_class_field(value, types[[i]])) {
           fail(sprintf("Field '%s' requires one plain %s value.", fields[[i]], types[[i]]), filename, line, column)
         }
       }
@@ -231,10 +231,10 @@ rss_runtime <- function(match_method) {
       if (!valid_receiver(value, expected)) fail("Class receiver does not match its declared layout.", filename, line, column)
       if (!field %in% mutable_fields[[expected]]) fail(sprintf("Field '%s' is immutable or unknown.", field), filename, line, column)
       required <- schemas[[expected]][[field]]
-      if (!plain_scalar(replacement) || type(replacement) != required) {
+      if (!valid_class_field(replacement, required)) {
         fail(sprintf("Field '%s' requires one plain %s value.", field, required), filename, line, column)
       }
-      # Supported fields are plain scalars: replacing this list slot preserves aliases.
+      # Plain scalars and record trees contain no references; slot replacement preserves aliases.
       value[[field]] <- replacement
       value
     },
@@ -401,6 +401,10 @@ rss_runtime <- function(match_method) {
       if (startsWith(schema[[i]], "Record:")) return(valid_receiver(value[[i]], schema[[i]]))
       plain_scalar(value[[i]]) && type(value[[i]]) == schema[[i]]
     }, logical(1)))
+  }
+  valid_class_field <- function(value, expected) {
+    if (startsWith(expected, "Record:")) return(valid_receiver(value, expected))
+    plain_scalar(value) && type(value) == expected
   }
   runtime$method_call <- function(receiver, name, candidates, arguments, labels, mutating, filename, line, column) {
     force(receiver)
