@@ -1,2 +1,3 @@
 export(transpile)
 export(run_file)
+importFrom(R6,R6Class)

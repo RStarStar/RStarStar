@@ -11,7 +11,9 @@ local({
   dir.create(library)
   on.exit(unlink(library, recursive = TRUE), add = TRUE)
   # Child R processes must test this installation, not an older user installation.
-  Sys.setenv(R_LIBS = library, R_LIBS_USER = library)
+  # Retain dependency libraries (including R6), with this build first.
+  Sys.setenv(R_LIBS = paste(c(library, .libPaths()), collapse = .Platform$path.sep),
+             R_LIBS_USER = library)
   executable <- function(name) {
     file.path(R.home("bin"), paste0(name, if (.Platform$OS.type == "windows") ".exe" else ""))
   }

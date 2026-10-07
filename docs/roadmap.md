@@ -30,7 +30,10 @@ transpilation separate from execution.
 
 The working subset is documented in [implemented-subset.md](implemented-subset.md).
 The implementation is distributed as a local-installable R package, with a
-file-only public API and installed-namespace behavioral tests.
+file-only public API and installed-namespace behavioral tests. Internal R6 classes
+now separate tokenization, parsing, analysis, and generation while preserving the
+file API and standalone output. This completes a compiler organization refactor;
+source-language classes remain under milestone 4.
 
 ## 3. A complete data-analysis workflow — initial version complete
 

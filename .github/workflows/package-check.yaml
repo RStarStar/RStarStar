@@ -37,6 +37,9 @@ jobs:
         with:
           r-version: ${{ matrix.r }}
           use-public-rspm: false
+      - name: Install compiler dependency
+        shell: Rscript {0}
+        run: install.packages("R6", repos = "https://cloud.r-project.org")
       - name: Install, test, demonstrate, build, and check
         run: Rscript .github/scripts/check.R
       - name: Preserve package check logs

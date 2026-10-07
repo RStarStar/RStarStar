@@ -28,6 +28,7 @@ std::trim_text(values) for removing boundary whitespace. See the [package guide]
 From an R session with this repository as the working directory:
 
 ```r
+install.packages("R6") # Once, if not already installed
 install.packages(".", repos = NULL, type = "source")
 library(RStarStar)
 path <- system.file("examples", "basics.rsspps", package = "RStarStar")
@@ -43,8 +44,8 @@ results <- run_file(path)
 results$adjusted
 ```
 
-This is a local source installation, not a CRAN release. The package uses only
-packages bundled with R. It declares R >= 4.1.0 and has been verified locally on
+This is a local source installation, not a CRAN release. The compiler uses R6
+alongside packages bundled with R; generated programs do not require R6. It declares R >= 4.1.0 and has been verified locally on
 R 4.6.0. Automated checks are configured for R release on Linux/macOS/Windows
 and R 4.1.0 on Linux; hosted results are still pending. PNG execution needs
 Cairo support. See the [implemented subset](docs/implemented-subset.md) for syntax

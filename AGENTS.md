@@ -51,7 +51,8 @@ R CMD check --no-manual RStarStar_0.0.18.tar.gz (use the current version).
 Rscript examples/demo.R demonstrates explicit compilation and execution. Add
 focused semantic and integration checks for new behavior. Tests should verify
 behavior, diagnostics, and generated R results rather than only mirror
-implementation details. Dependencies are limited to R-bundled packages. Chart
+implementation details. Dependencies are limited to R-bundled packages and R6
+for compiler internals. Generated programs must remain independent of R6. Chart
 rendering tests explicitly skip when Cairo is unavailable; report skipped coverage.
 
 Report what changed, what was checked, and any remaining uncertainty. AI-assisted

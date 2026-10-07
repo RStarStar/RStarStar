@@ -8,6 +8,8 @@ syntax and [design decisions](design-decisions.md) for open proposals.
 The R package provides transpile(path) for compilation and run_file(path) for
 explicit execution with variables and functions returned to R. Both accept only
 local UTF-8 .rsspps files; see the [package guide](r-package.md).
+The compiler implementation uses internal R6 classes. This does not change source
+syntax or record value semantics; generated R runs without R6.
 
 ## Bundled standard library
 

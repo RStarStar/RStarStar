@@ -44,10 +44,10 @@ including their rationale and consequences.
 6. How can users call R packages, and what guarantees stop at that boundary?
 7. What generated code or helpers are required for mutation and object semantics?
 
-The source extension is .rsspps. Detailed package layout, supported R versions,
-dependency policy, and object backend remain unchosen. R package distribution is selected;
-a public CLI is not planned (see the package decision below). Do not assume S3, S4, R6, or another system is
-the backend merely because the surface language has classes.
+The source extension is .rsspps. Package layout, supported R versions, and
+dependency policy are recorded in the decisions below. R package distribution is
+selected; a public CLI is not planned. The source-language class backend remains
+unchosen. Internal compiler use of R6 does not select that language backend.
 
 ## Deferred scope
 
@@ -722,3 +722,31 @@ functions, and constructors; their own constructor becomes visible only after th
 record declaration. No recursion, forward references, mut self, bound method values,
 new backend, dependencies, or exports. Layout validation is not provenance or deep
 immutability for arbitrary R objects. See [record methods](record-methods.md).
+
+
+## 2026-10-07 — Internal compiler refactored to R6
+
+Status: accepted and implemented at the user's request. Compiler organization now
+uses RSSCompiler and separate tokenizer, parser, analyzer, and generator classes.
+Mutable cursors, symbol tables, method visibility, and helper tracking belong to
+private stage state; grammar and inference helpers are private methods. Classes
+remain internal, with existing rss_* adapters retained for focused tests.
+
+This supersedes the R-bundled-only dependency policy for compiler implementation:
+R6 is the one additional import. Runtime helpers remain ordinary functions, and
+record values remain tagged lists. Generated programs require no R6. Public APIs,
+source syntax, diagnostics, and execution boundaries remain unchanged. This does
+not select a backend for proposed source-language classes.
+
+Each stage resets state at the start of its operation and each compilation uses
+fresh stages. For example, compiling x = 1 followed by a separate print x still
+fails with an unknown-variable diagnostic; a failed function analysis cannot leave
+its parameter scope in the next compilation. Reference-valued scope environments
+are allocated per call, and cloning internal workers is disabled.
+
+Keeping closure-based stages would avoid an external dependency, but would not
+provide the requested class organization. Converting emitted runtime objects to
+R6 would change record copying and introduce a runtime dependency, outside the
+requested scope. Verification covers repeat calls, separate instances, failures,
+unchanged generated output/diagnostics, and independent execution in a fresh R
+process, in addition to the installed package suite and build/check workflow.

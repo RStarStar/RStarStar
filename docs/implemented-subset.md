@@ -1,7 +1,7 @@
 # Implemented subset
 
-This is the current executable prototype, implemented in base R. Other language
-features in the [guide](language-guide.md) remain proposals. The interface and
+This is the current executable prototype, implemented in R with internal R6
+classes. Other language features in the [guide](language-guide.md) remain proposals. The interface and
 language are experimental and may change.
 
 ## Run it
@@ -10,6 +10,7 @@ The user interface is the R package; see the [package guide](r-package.md).
 From an R session in the repository root, install locally and compile an example:
 
 ```r
+install.packages("R6") # Once, if not already installed
 install.packages(".", repos = NULL, type = "source")
 library(RStarStar)
 path <- system.file("examples", "basics.rsspps", package = "RStarStar")
@@ -40,9 +41,10 @@ source-file directory. Developer runners in examples/ set the working directory
 to the installed example folder explicitly and compile packaged .rsspps files.
 
 The package declares R >= 4.1.0 and is tested locally on R 4.6.0/macOS arm64.
-Earlier versions and other platforms are not yet verified. Only R-bundled packages
-are dependencies. PNG execution requires Cairo; chart rendering checks report
-explicit skips without it. See CONTRIBUTING.md in the repository for installed
+Earlier versions and other platforms are not yet verified. R6 is the compiler’s
+sole dependency outside R-bundled packages; generated programs remain independent
+of R6. PNG execution requires Cairo; chart rendering checks report explicit skips
+without it. See CONTRIBUTING.md in the repository for installed
 namespace tests and package build/check commands.
 
 ## Grammar

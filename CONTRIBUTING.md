@@ -48,6 +48,7 @@ The string compiler and rss_* helpers are internal. Language examples and data
 live in inst/examples/; development runners live in examples/. See the
 [package guide](docs/r-package.md).
 
+Install the compiler dependency once with install.packages("R6") in R.
 From the repository root, install the current source before testing:
 
 ```sh
@@ -76,8 +77,8 @@ The suite combines internal compiler tests with public API tests against the
 installed namespace. It also runs under R CMD check. Chart-rendering tests report
 skips when Cairo is unavailable; compiler and file-API checks remain available.
 --no-manual skips PDF manual generation; API help and examples are still checked.
-Only R-bundled packages are dependencies. Package metadata declares R >= 4.1.0;
-local validation is on R 4.6.0. The configured CI matrix must run successfully
+R6 is the compiler’s sole dependency outside R-bundled packages. Package metadata
+declares R >= 4.1.0; local validation is on R 4.6.0. The configured CI matrix must run successfully
 before broader compatibility is claimed.
 
 Also check relative Markdown links and compare examples with the decision record.
@@ -93,7 +94,7 @@ and manual dispatch. It targets R release on Linux, macOS, and Windows, and exac
 R 4.1.0 on Ubuntu 22.04. A configured target is not evidence of a successful run;
 inspect the checks for your commit. No hosted results have been verified yet.
 
-Run the same dependency-free developer script locally from the repository root:
+With R6 installed, run the same developer script locally from the repository root:
 
 ```sh
 Rscript .github/scripts/check.R

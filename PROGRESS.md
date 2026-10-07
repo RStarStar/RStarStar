@@ -801,3 +801,44 @@ values, interfaces, or mutable class backend. Fields remain scalar or nested rec
 R callers use returned language wrappers to invoke methods; no native dollar-method
 interface or arbitrary-object provenance/deep-immutability guarantee. Hosted CI,
 other R versions/platforms, and PDF manual generation remain unverified.
+
+## 2026-10-07 — R6 compiler implementation
+
+Refactored compiler internals into RSSCompiler plus RSSTokenizer, RSSParser,
+RSSAnalyzer, and RSSGenerator, with separate R/ files for each stage. Cursors,
+source context, semantic scopes, method visibility, and emission bookkeeping now
+live in private R6 fields; grammar, inference, and expression-generation helpers
+are private methods. Stage calls reset their state, and every compilation creates
+fresh stages. Scope environments are allocated per analysis, and cloning is disabled.
+Internal rss_* adapters preserve focused stage tests. Public exports remain
+transpile(path) and run_file(path), with the same file-only source contract.
+
+Moved unchanged standalone runtime functions to R/runtime.R. Generated record
+values remain tagged lists, with existing copying, equality, and method behavior.
+Generated R does not load or require R6. Added R6 as the compiler's sole dependency
+outside R-bundled packages, including its namespace import, installation guidance,
+and CI dependency setup. The shared check runner retains dependency libraries while
+putting the freshly installed package first. Updated architecture, guide, dependency
+policy, decision record, and roadmap; this is no source-language class backend choice.
+
+Added six behavioral checks for repeated calls, separate instances, recovery after
+lexer/parser/analyzer errors, cleared scopes and generator registries, execution
+separation, and generated record/standard-library code running in a fresh R process
+without loading R6 or RStarStar. Compared the previous and refactored compiler on
+1,343 distinct test string literals and packaged example sources: 150 successful
+outputs were byte-identical and 1,193 failures had identical diagnostic classes,
+messages, filenames, and spans. The original 272 checks also passed unchanged.
+
+Verification: the final shared runner reinstalled the package, passed 278 checks
+with 0 skips, ran all eleven demos including Cairo rendering, built
+RStarStar_0.0.18.tar.gz, and completed R CMD check --no-manual with Status: OK.
+The first check exposed a missing explicit R6 namespace import; fixed it before
+the successful final run. That first run also lacked dependency-index network
+access; the final run had network access and no warnings or notes. Checked 70 local
+links across 13 Markdown files, balanced fences, unchanged packaged example output,
+and git diff whitespace.
+
+Limits: R6 must be installed to use the compiler. Classes are internal implementation
+details, with no new public API or language features. No performance improvement is
+claimed. Hosted CI, other R versions/platforms, and PDF manual generation remain
+unverified. Local verification used R 4.6.0 and R6 2.6.1 on macOS arm64.

@@ -7,7 +7,25 @@ and R generation. Internal rss_* functions are not exported.
 
 CSV programs embed a self-contained loader and checked expression helpers.
 Records with scalar and nested fields are implemented; classes and the explicit R interoperability bridge are not. The
-package uses only R-bundled dependencies; see the [package guide](r-package.md).
+compiler uses R6 alongside R-bundled dependencies; see the [package guide](r-package.md).
+
+## Internal compiler classes
+
+RSSCompiler in R/transpile.R coordinates RSSTokenizer (R/tokenize.R), RSSParser
+(R/parse.R), RSSAnalyzer (R/analyze.R), and RSSGenerator (R/generate.R). Each stage
+owns its private cursor, scope, or emission state and exposes one stage method.
+Grammar helpers, inference, and expression emission are private R6 methods.
+Every compilation creates fresh stages; each stage also resets state when reused,
+including after a failed call. Reference-valued scopes are allocated per analysis,
+never as shared class defaults. Cloning is disabled for these internal workers.
+
+The internal rss_* stage functions remain small adapters for focused tests. No
+classes are exported. R/runtime.R keeps the ordinary helper functions embedded
+in generated programs, and R/standard-library.R supplies standalone operations.
+R6 is needed to compile, but generated R and record values retain their existing
+representation and need no R6 installation. Source-language classes remain future
+work. See the [R6 introduction](https://r6.r-lib.org/articles/Introduction.html)
+for private members and reference semantics.
 
 ## Compilation pipeline
 

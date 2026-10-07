@@ -13,5 +13,5 @@ Description: Compiles local '.rsspps' source files into readable R code without
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
-Imports: graphics, grDevices, utils
+Imports: graphics, grDevices, utils, R6
 SystemRequirements: Cairo support in R (optional, for PNG chart execution)

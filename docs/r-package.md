@@ -9,6 +9,7 @@ execute a program and return its bindings. Both accept .rsspps files only.
 From an R session with the repository root as its working directory:
 
 ```r
+install.packages("R6") # Once, if not already installed
 install.packages(".", repos = NULL, type = "source")
 library(RStarStar)
 path <- system.file("examples", "basics.rsspps", package = "RStarStar")
@@ -22,8 +23,9 @@ includes ten .rsspps examples and their small CSV fixtures under
 system.file("examples", package = "RStarStar"). Rscript files in the repository's
 examples/ directory are developer demo runners, not a public interface.
 
-The package declares R >= 4.1.0, uses only R-bundled graphics/grDevices/utils
-packages, and is verified locally on R 4.6.0/macOS arm64. Wider compatibility is
+The package declares R >= 4.1.0 and uses R6 for compiler internals alongside
+R-bundled graphics/grDevices/utils. Generated programs do not require R6.
+Local verification uses R 4.6.0/macOS arm64. Wider compatibility is
 not yet verified. CI targets R release on Linux/macOS/Windows and R 4.1.0 on
 Linux; see [automated checks](../CONTRIBUTING.md#automated-package-checks). PNG chart execution needs Cairo support; compilation does not.
 Choose a writable R library for installation. Release hosting is still undecided.
