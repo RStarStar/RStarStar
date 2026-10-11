@@ -911,16 +911,35 @@ future work; no additional object backend or dependency is introduced.
 
 ## Bundled standard library
 
+Local text files and background tasks are also supported: std::file_exists(path),
+std::read_text(path), std::write_text(path, text), std::start_task(worker, value),
+and std::await_task(task, timeout: 60). File arguments are plain Text scalars; writes
+refuse existing paths and require hard-link support. A task worker must name an
+earlier one-argument function, with plain Number/Text/Boolean input and result.
+Task handles are opaque coordination values, not record/class values or vector
+elements. They may be aliased and passed to a function for awaiting. Only this
+worker argument position permits a function name as a value. Workers use separate
+Rscript processes and captured working directories. Await caches results/errors;
+timeouts do not cancel workers. Eight uncollected tasks per runtime are supported,
+with no nested tasks. See the [full contract](files-and-tasks.md).
+
 ```text
 magnitudes = std::absolute([-3, 0, 2])
 roots = std::square_root(values: [0, 4, 9])
 ```
 
-The numeric operations accept one plain numeric scalar/vector, preserving length and
+absolute and square_root accept one plain numeric scalar/vector, preserving length and
 missing values. square_root rejects negative nonmissing inputs at execution.
 Only std:: is supported, with exact names and optional values: arguments. No
 imports or new R exports are needed; emitted implementations run standalone.
 See the [standard-library contract](standard-library.md) for the complete rules.
+
+std::is_finite(values) accepts the same plain numeric inputs and returns Boolean
+values of matching length. Finite numbers map to true; NA, NaN, and either infinity
+map to false. No result is missing. It can filter computed ratios before a summary:
+std::is_finite([5, 1 / 0, 0 / 0]) returns [true, false, false]. Empty numeric inputs
+produce empty Boolean vectors; text and attributed R values are rejected. This is
+a predicate, not error recovery: errors computing its input still propagate.
 
 std::text_length(values) accepts plain Text scalars/vectors and returns a Number
 for each character count. Empty text yields zero, missing text stays missing, and

@@ -1,0 +1,16 @@
+# Run in a fresh working directory: these writes refuse existing destinations.
+first_path = std::write_text(path: "first.txt", text: "  HELLO  ")
+second_path = std::write_text("second.txt", "  WORLD  ")
+print std::file_exists(first_path)
+
+fn clean_file(path) {
+  return std::lower_text(std::trim_text(std::read_text(path)))
+}
+
+# Both workers start before either result is collected.
+first_task = std::start_task(clean_file, first_path)
+second_task = std::start_task(worker: clean_file, value: second_path)
+first = std::await_task(first_task, timeout: 60)
+second = std::await_task(second_task)
+print first
+print second

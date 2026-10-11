@@ -29,7 +29,12 @@ The R-call bridge remains future work. The bundled experimental
 [standard library](docs/standard-library.md) now offers std::absolute(values) and
 std::square_root(values), plus std::text_length(values) for character counts and
 std::trim_text(values) for removing boundary whitespace and std::lower_text(values)
-for lowercase comparisons. See the [package guide](docs/r-package.md).
+for lowercase comparisons. std::is_finite(values) identifies usable finite numeric
+results, returning false for missing values and infinities. See the [package guide](docs/r-package.md).
+
+The library also supports UTF-8 text reads/writes, file-existence checks, and
+background tasks with explicit start/await operations. See
+[Text files and background tasks](docs/files-and-tasks.md) for examples and limits.
 
 ## New here?
 

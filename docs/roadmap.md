@@ -120,10 +120,23 @@ states exactly which checks and mutation guarantees apply.
 - [x] Character counts for validating text columns with std::text_length.
 - [x] Boundary whitespace cleaning with std::trim_text and checked Text results.
 - [x] Explicit lowercase comparisons with std::lower_text and documented locale behavior.
+- [x] Finite-number predicates with std::is_finite for filtering computed numeric results.
 - [ ] Extend the library as further concrete beginner workflows establish a need.
 
 The [standard-library contract](standard-library.md) describes the experimental
 first slice and its limits. No separate library package is needed.
+
+## 5b. Text files and background tasks — first slice implemented
+
+- [x] UTF-8 text reads/writes and regular-file existence checks with source diagnostics.
+- [x] Text publication without overwrite, including competing writers on supported filesystems.
+- [x] Start/await primitives for earlier one-argument functions in independent R processes.
+- [x] Plain-value inputs/results, cached errors/results, timeout retries, and resource limits.
+- [ ] Broader filesystem operations, cancellation, worker pools, and structured task groups need separate use cases.
+
+The [file/task contract](files-and-tasks.md) records exact effects and lifecycle
+limits. No general first-class functions, shared-memory concurrency, public CLI,
+or external dependency was added. Cross-platform execution remains to be verified.
 
 ## 6. Contributor-ready preview
 

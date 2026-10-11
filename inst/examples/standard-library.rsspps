@@ -3,6 +3,11 @@ magnitudes = std::absolute(changes)
 roots = std::square_root(values: magnitudes)
 print roots
 
+# Division can produce infinity or an undefined result; the predicate marks both false.
+ratios = [10, 1, 0, -1] / [2, 0, 0, 0]
+finite_ratios = std::is_finite(values: ratios)
+print finite_ratios
+
 codes = ["A", "ABC", ""]
 code_lengths = std::text_length(values: codes)
 print code_lengths

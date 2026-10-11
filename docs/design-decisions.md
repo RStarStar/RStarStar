@@ -987,3 +987,80 @@ generated R remains unchanged. No new exports, dependencies, or language syntax.
 Verification covers relative source/directory resolution, output location, default
 compatibility, invalid inputs, compilation ordering, restoration after successful,
 empty, and failed runs, source diagnostics, overwrite protection, and Cairo charts.
+
+## 2026-10-11 — Finite numeric predicate in the standard library
+
+Status: implemented, experimental in 0.0.27. Extend the library for a concrete
+analysis workflow: arithmetic on numeric CSV columns can produce infinity or NaN
+(e.g. division by zero), which numeric summaries reject. std::is_finite(values)
+lets a filter retain usable computed values explicitly before aggregation.
+
+Accept one plain Number scalar/vector, positional or named exactly values, and
+return a same-length Boolean vector. Finite values, including zero and negatives,
+map to true; NA, NaN, and either infinity map to false. Empty numeric input returns
+an empty Boolean vector. Reject text, Boolean, complex, structured, and attributed
+R values without coercion. Evaluate the argument once; leave the original unchanged.
+For example, std::is_finite([5, 1 / 0, 0 / 0]) returns [true, false, false].
+
+Unlike arithmetic transforms, this predicate intentionally does not propagate
+missing values, matching base R is.finite and making its filtering policy explicit.
+It does not catch errors in its input: std::is_finite(std::square_root(-1)) still
+fails. Filtering every row out still leaves average with an empty-input error.
+Automatic removal inside summaries and implicit number conversion remain deferred;
+those would hide data-cleaning policy. No general missing-value policy is changed.
+
+Use the existing catalog and standalone embedding with Boolean result inference;
+no new parser syntax, public R export, or dependency is required. Verification
+covers known/dynamic types, exact arguments, source locations/call chains, R-input
+validation, missing/empty/infinite inputs, CSV filtering and source preservation,
+single evaluation, lazy conditionals, and independent generated execution.
+
+## 2026-10-11 — UTF-8 text files and start/await tasks
+
+Status: implemented, experimental in 0.0.28. The user selected read/write UTF-8
+text and file-existence checks, plus background tasks that a program can start
+and await. Add std::file_exists(path), std::read_text(path), std::write_text(path,
+text), std::start_task(worker, value), and std::await_task(task, timeout: 60).
+The complete [file/task contract](files-and-tasks.md) records executable examples,
+source/R boundaries, effects, and failure cases.
+
+Files use scalar local Text paths. Reads preserve the complete UTF-8 contents,
+including BOMs and line endings, and reject NUL/invalid encoding. Writes accept one
+nonmissing Text value, add no newline, require an existing directory, and refuse
+existing destinations. Stage in that directory and publish via file.link so
+competing workers cannot overwrite one another. A filesystem without hard-link
+support fails; a check-then-copy fallback would weaken the concurrency contract.
+Existence tests report regular files rather than directories, without guaranteeing
+readability. No deletion, append, overwrite, or directory-management API is added.
+
+Tasks call earlier ordinary one-argument functions with copied plain primitive
+inputs/results. This one worker-name position is an explicit exception to the
+ban on general function values. An opaque Task handle represents coordination
+state: aliases refer to the same job, and repeated awaits reuse cached results or
+errors. It is not a record/class value or a deep-immutability guarantee. Handles
+cannot cross program runtimes or processes; nested tasks are rejected. Eight
+uncollected jobs per runtime bound process/transport accumulation.
+
+Use fresh Rscript processes with private file transport and snapshots of required
+functions/helper environments. Explicit scope copying supports standalone script
+functions whose original environment is globalenv(). Clear inherited R_TESTS only
+while launching, then restore the parent value: R's test startup hook is not part
+of the worker job. Runtime errors retain source locations plus task context. An
+await timeout stops waiting, not the worker; the handle can be retried if retained.
+Collection removes transport files. Abandonment requests cleanup on completion,
+without promising cancellation, detached services, or crash recovery.
+
+Alternatives deferred: fork-based workers (R-session/GUI concerns and platform
+limits), private parallel-package protocols, new process-manager dependencies,
+shared-state threads, task pools, cancellation, and a general first-class function
+system. Rscript has startup/serialization costs, and workers do not inherit all R
+session settings. Working directories are captured at start; files remain shared
+external resources. Prior effects are not rolled back and execution is not sandboxed.
+
+The catalog now supports exact multi-argument signatures with eager source-order
+argument evaluation and scalar-size checks. File/task helper families are embedded
+only when used; compilation never reads their data or launches jobs. The two public
+file-only R exports, source suffix, and dependency policy remain unchanged.
+Verification covers file encodings/round trips, no-overwrite and concurrent races,
+source/effect ordering, process overlap, snapshots and standalone execution,
+timeout retry, error caching, resource limits, cleanup, and package-check startup.

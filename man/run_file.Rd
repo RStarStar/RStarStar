@@ -18,6 +18,9 @@ A named list of final top-level variables and functions, excluding compiler
 runtime helpers. Names follow R's default sorted order. Empty programs and
 print-only programs return an empty list. Returned functions retain their runtime
 checks and can be called from R.
+Programs using background tasks can also return opaque Task handles. Await a
+retained handle through a source wrapper returned by that same program; handles
+cannot be transferred to another program runtime. See \code{\link{file_tasks}}.
 }
 \details{
 Classes support private scalar or record fields, scalar literal constructor defaults, and explicit

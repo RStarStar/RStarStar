@@ -146,6 +146,7 @@ rss_runtime <- function(match_method) {
   }
   # Classify storage/nominal tags for language operations; this is not schema validation.
   type <- function(value) {
+    if (is.environment(value) && inherits(value, "rss_task")) return("Task")
     class_name <- attr(value, "rss_class_type", exact = TRUE)
     if (is.list(value) && is.character(class_name) && length(class_name) == 1L && !is.na(class_name)) return(paste0("Class:", class_name))
     record <- attr(value, "rss_record_type", exact = TRUE)
@@ -181,6 +182,7 @@ rss_runtime <- function(match_method) {
   binary <- function(op, left, right, filename, line, column) {
     error <- function(message) fail(message, filename, line, column)
     types <- c(type(left), type(right))
+    if ("Task" %in% types) error("Await a task before operating on its result.")
     if (op %in% c("+", "-", "*", "/")) {
       if (any(types != "Number")) error("Arithmetic requires numbers; text and booleans are not converted automatically.")
     } else if (op %in% c("and", "or")) {
@@ -395,6 +397,7 @@ rss_runtime <- function(match_method) {
     vector = function(values, filename, line, column) {
       if (any(lengths(values) != 1L)) fail("Vector elements must each contain one value.", filename, line, column)
       types <- vapply(values, type, character(1))
+      if (any(types == "Task")) fail("Task handles cannot be vector elements.", filename, line, column)
       if (any(startsWith(types, "Class:"))) fail("Classes cannot be vector elements.", filename, line, column)
       if (any(startsWith(types, "Record:"))) fail("Records cannot be vector elements yet.", filename, line, column)
       if (any(types %in% c("Table", "Unsupported")) || length(unique(types)) != 1L) fail("Vector elements must have the same non-table type.", filename, line, column)
@@ -414,6 +417,7 @@ rss_runtime <- function(match_method) {
     },
     # Test vector missingness (optionally negated); whole structured values are rejected.
     missing = function(value, negate, filename, line, column) {
+      if (type(value) == "Task") fail("Await a task before testing its result.", filename, line, column)
       if (startsWith(type(value), "Class:")) fail("Operate on class values through methods.", filename, line, column)
       if (startsWith(type(value), "Record:")) fail("Test a record field for missing values, not a record.", filename, line, column)
       if (type(value) %in% c("Table", "Unsupported")) fail("Test a column or vector for missing values, not a table.", filename, line, column)

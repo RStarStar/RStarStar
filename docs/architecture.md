@@ -23,6 +23,8 @@ invariants used by its private helpers:
 - [R/generate.R](../R/generate.R): R expression emission and helper selection.
 - [R/runtime.R](../R/runtime.R): execution-time data, object, and expression checks.
 - [R/standard-library.R](../R/standard-library.R): operation contracts and embedded implementations.
+- [R/files.R](../R/files.R): checked UTF-8 file operations and publication without overwrite.
+- [R/tasks.R](../R/tasks.R): process startup, worker snapshots, result transport, and await lifecycle.
 
 These internal helpers are not exported APIs. Public R help remains maintained in
 man/transpile.Rd and man/run_file.Rd; source comments do not require a documentation
@@ -63,6 +65,22 @@ Avoid implementing the language through a chain of text substitutions. Structure
 syntax is needed for scope, useful errors, and reliable nested expressions.
 
 ## Runtime boundary
+
+The standard-library catalog supports named multi-argument signatures in addition
+to the original vector operations. Analysis matches labels exactly; generation
+builds an eager argument list in source order before calling the selected helper.
+File and task helper families are embedded only when referenced. File reads and
+writes run exclusively at execution time; writes publish a staged file with a
+hard link to avoid overwrite races.
+
+Task starts serialize the input and a snapshot of the required generated functions
+and helper environments. Explicit scope copies avoid R's special by-reference
+serialization of globalenv() in standalone scripts. A fresh Rscript process reads
+the private job file, executes the worker in its captured directory, and publishes
+a serialized primitive result or condition. Handles cache collection and carry
+per-runtime ownership. Finalizers request cleanup for abandoned jobs after worker
+completion; they do not terminate workers. See the [task contract](files-and-tasks.md)
+for timeout, capacity, and crash limitations.
 
 Some checks require execution: a CSV may be absent, a column may have an unexpected
 type, or a condition may evaluate to a missing value. Generated checks should retain

@@ -121,6 +121,20 @@ RSSGenerator <- R6::R6Class(
         },
         standard_call = {
           private$standard_operations <- unique(c(private$standard_operations, value$name))
+          entry <- rss_standard_catalog()[[value$name]]
+          if (!is.null(entry$family)) {
+            matched <- rss_standard_match(entry, value$labels, value$argument_tokens, value$token, private$filename)
+            arguments <- vapply(seq_along(value$arguments), function(i) {
+              index <- matched[[i]]
+              argument <- value$arguments[[i]]
+              emitted <- if (entry$input_types[[index]] == "Function") private$name(argument$value) else recurse(argument)
+              paste0(private$name(entry$parameters[[index]]), " = ", emitted)
+            }, character(1))
+            # Building the list eagerly preserves source order even for named calls.
+            return(paste0("base::do.call(.rss_std$", value$name, ", base::list(",
+              paste(c(arguments, paste0("filename = ", private$quote_text(private$filename)),
+                paste0("line = ", value$token$line, "L"), paste0("column = ", value$token$column, "L")), collapse = ", "), "))"))
+          }
           paste0(".rss_std$", value$name, "(", recurse(value$arguments[[1L]]), ", ",
                  private$quote_text(private$filename), ", ", value$token$line, "L, ", value$token$column, "L)")
         },

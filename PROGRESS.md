@@ -1235,3 +1235,83 @@ No executable code, API signatures, language semantics, or dependencies changed
 in this pass. Preserved the earlier uncommitted working_dir API improvements.
 Verification was local on R 4.6.0/macOS arm64; hosted CI, other platforms, and PDF
 manuals remain unverified.
+
+## 2026-10-11 — Finite numeric standard-library predicate (0.0.27)
+
+Added std::is_finite(values) for explicitly filtering computed numeric results
+before summaries. It accepts one plain numeric scalar/vector, positional or named
+values, and returns a same-length Boolean vector. Finite numbers (including zero
+and negatives) map to true; NA, NaN, and either infinity map to false. Empty numeric
+inputs yield an empty Boolean vector. Attributed, text, Boolean, complex, and
+structured R inputs are rejected without coercion. The existing catalog supplies
+Boolean inference and standalone embedding without parser changes or new dependencies.
+
+Added six focused checks covering arithmetic results, scalar/record/conditional use,
+exact signatures, known/dynamic type errors, result inference, CSV filtering with
+missing and zero-row inputs, source-data preservation, R caller validation, source
+locations/call chains, one evaluation, lazy branches, input-error propagation, and
+standalone execution without RStarStar/R6 loaded. Extended the packaged library
+example and development runner. Updated the contract, guides, decision record,
+roadmap, README, package version, and build instructions. Installed library help
+now documents both is_finite and the previously omitted lower_text operation.
+
+Verification: reinstalled 0.0.27 into a temporary library; all 342 behavioral checks
+passed with 0 skips. All thirteen development demos passed, including Cairo chart
+rendering. R CMD build . and R CMD check --no-manual RStarStar_0.0.27.tar.gz completed
+with Status: OK and no warnings or notes. Checked 111 relative links and balanced
+fences across 14 Markdown files, example consistency, and git diff whitespace.
+Local environment: R 4.6.0 on macOS arm64. Hosted CI, other platforms/R versions,
+and PDF manuals remain unverified.
+
+Limits: this predicate deliberately maps missing values to false; existing numeric
+transforms keep their missing-value behavior. It does not catch errors computing
+its input or make an empty average valid. No automatic dropping, replacement,
+coercion, public R exports, or general missing-value policy changes were introduced.
+
+## 2026-10-11 — UTF-8 files and background tasks (0.0.28)
+
+Implemented the user's selected file and concurrency scope: std::file_exists,
+std::read_text, std::write_text, std::start_task, and std::await_task. Text reads
+preserve complete UTF-8 contents and reject invalid encoding/NUL bytes. Writes
+publish staged bytes through a hard link, refusing existing destinations even
+when workers compete. Paths and text receive scalar/type checks and source-located
+diagnostics. Extended catalog signatures preserve exact argument names and eager
+evaluation in written order without executing source during compilation.
+
+Tasks snapshot an earlier one-argument source function and plain primitive input
+before launching a fresh Rscript process. Required generated functions and helper
+environments are copied explicitly, including standalone global-scope functions.
+Workers retain their starting directory; returned handles cache results/errors,
+preserve worker error locations with start/await context, permit timeout retries,
+and enforce eight uncollected tasks per runtime. Collection removes transport
+files; abandoned handles request cleanup on worker completion. Handle directory
+bindings are locked against accidental R-side modification. No public R exports,
+external dependencies, source suffix, or CLI changes were introduced.
+
+Added eighteen behavioral checks for file validation/round trips, argument/effect
+ordering, no overwrite and competing writers, worker overlap in distinct processes,
+input snapshots, working directories, exact signatures, timeout retries, cached
+errors, nested-task rejection, capacity reuse, abandoned-handle cleanup, referenced
+functions/record helpers, and standalone execution. Verification caught and fixed
+global-environment serialization and inherited R_TESTS startup failures; the final
+run also corrected newline escaping in a new test fixture. Added a packaged source
+example, development runner, API comments, installed help, and the full file/task
+contract. Updated the guide, design decisions, roadmap, architecture, README,
+package metadata, and example inventory.
+
+Verification: reinstalled 0.0.28 into a temporary library before tests; all 360
+behavioral checks passed with 0 skips. All fourteen development demos passed,
+including Cairo rendering. R CMD build . and R CMD check --no-manual
+RStarStar_0.0.28.tar.gz completed with Status: OK (no package warnings or notes).
+Repository-index access warnings appeared during dependency lookup, but dependency
+checks passed using installed packages. Separately executed the example guide's R
+blocks and all thirteen packaged sources through run_file. Checked 124 relative
+links, balanced fences, and unique section headings across fifteen Markdown files,
+plus git diff whitespace. Local platform: R 4.6.0 on macOS arm64.
+
+Limits: writes require filesystem hard-link support; reads load entire files into
+memory. Workers require Rscript, copy plain primitive inputs/results, and discard
+console output. Await timeouts do not cancel work. Nested tasks, cancellation,
+worker pools, shared-memory mutation, and crash cleanup guarantees remain absent.
+Files are shared external resources and execution is not sandboxed. Other platforms,
+hosted CI, and PDF manuals remain unverified.

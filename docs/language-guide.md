@@ -18,7 +18,8 @@ syntax or record value semantics; generated R runs without R6.
 
 The package includes experimental std::absolute(values) and std::square_root(values)
 for plain numeric scalars and vectors. Missing values propagate; negative square
-roots fail at execution. std::text_length(values) counts characters in plain text,
+roots fail at execution. std::is_finite(values) returns Boolean values, with false
+for missing values and either infinity and true for finite numbers. std::text_length(values) counts characters in plain text,
 preserving missing values and vector length. std::lower_text(values) produces lowercase text using the current R locale.
 It preserves missing values and is not Unicode normalization or full case folding.
 std::trim_text(values) removes boundary
@@ -27,6 +28,14 @@ generated R. There are no new R exports or dependencies. See the
 [standard-library contract](standard-library.md) for examples and limits.
 
 ## Read and transform data
+
+For whole UTF-8 text files, use std::read_text(path), std::write_text(path, text),
+and std::file_exists(path). Writes create a new file and refuse overwriting.
+Independent work can run through std::start_task(worker, value), where worker is
+an earlier one-argument function, then std::await_task(task, timeout: 60). Task
+inputs/results are plain numeric, text, or Boolean values; timeout does not cancel
+work. See [Text files and background tasks](files-and-tasks.md) for executable
+examples and the process, lifecycle, and filesystem limits.
 
 ```text
 read "sales.csv" into sales

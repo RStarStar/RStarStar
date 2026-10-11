@@ -1,9 +1,19 @@
 # Private metadata: compilation inspects functions without executing their bodies.
 # Returns a named operation catalog: exact parameter, input/output language types,
-# and a quoted runtime function. Each function preserves input length and receives
+# and a quoted runtime function. Vector transforms preserve input length and receive
 # source coordinates; shared check/fail helpers are supplied by the emitter below.
 rss_standard_catalog <- function() {
   list(
+    file_exists = list(parameters = "path", input_types = "Text", sizes = 1L,
+      output_type = "Boolean", output_size = 1L, family = "files"),
+    read_text = list(parameters = "path", input_types = "Text", sizes = 1L,
+      output_type = "Text", output_size = 1L, family = "files"),
+    write_text = list(parameters = c("path", "text"), input_types = c("Text", "Text"), sizes = c(1L, 1L),
+      output_type = "Text", output_size = 1L, family = "files"),
+    start_task = list(parameters = c("worker", "value"), input_types = c("Function", "Value"),
+      output_type = "Task", output_size = 1L, family = "tasks"),
+    await_task = list(parameters = c("task", "timeout"), input_types = c("Task", "Number"),
+      sizes = c(1L, 1L), optional = "timeout", output_type = "Unknown", output_size = NA_integer_, family = "tasks"),
     # Numeric operations preserve missing values; square roots reject negative inputs.
     absolute = list(parameter = "values", input_type = "Number", output_type = "Number", implementation = quote(function(values, filename, line, column) {
       check(values, "Number", "absolute", filename, line, column)
@@ -15,6 +25,12 @@ rss_standard_catalog <- function() {
         fail("std::square_root requires nonnegative values; a nonmissing value is negative.", filename, line, column)
       }
       sqrt(values)
+    })),
+    # Predicate results are never missing: NA, NaN, and either infinity map to false.
+    # Validate plain numeric storage before base R can accept other input types.
+    is_finite = list(parameter = "values", input_type = "Number", output_type = "Boolean", implementation = quote(function(values, filename, line, column) {
+      check(values, "Number", "is_finite", filename, line, column)
+      is.finite(values)
     })),
     # Count characters, not bytes or grapheme clusters; return language Number values.
     text_length = list(parameter = "values", input_type = "Text", output_type = "Number", implementation = quote(function(values, filename, line, column) {
@@ -43,6 +59,23 @@ rss_standard_catalog <- function() {
   )
 }
 
+# Match extended library signatures without partial matching. The returned indices
+# preserve written order; code generation uses them to name already-evaluated values.
+rss_standard_match <- function(entry, labels, tokens, token, filename) {
+  parameters <- entry$parameters
+  if (length(labels) > length(parameters)) rss_error("Too many arguments for this standard-library operation.", token, filename)
+  matched <- integer()
+  for (i in seq_along(labels)) {
+    index <- if (nzchar(labels[[i]])) match(labels[[i]], parameters) else i
+    if (is.na(index)) rss_error(sprintf("Unknown parameter '%s'; expected exact names: %s.", labels[[i]], paste(parameters, collapse = ", ")), tokens[[i]], filename)
+    if (index %in% matched) rss_error(sprintf("Parameter '%s' was supplied more than once.", parameters[[index]]), tokens[[i]], filename)
+    matched <- c(matched, index)
+  }
+  missing <- setdiff(parameters, c(parameters[matched], entry$optional))
+  if (length(missing)) rss_error(paste("Missing required parameters:", paste(missing, collapse = ", ")), token, filename)
+  matched
+}
+
 # Shared checks and only the selected operations are embedded in a base-only scope.
 # operations: unique catalog names already validated by analysis.
 # Returns R text constructing .rss_std; generating this text runs no user operation.
@@ -65,10 +98,17 @@ rss_standard_generate <- function(operations) {
   # Serialize a function/expression as R source, not an evaluated result.
   code <- function(value) paste(deparse(value, width.cutoff = 100L), collapse = "\n")
   catalog <- rss_standard_catalog()
+  families <- unique(unlist(lapply(catalog[operations], function(entry) entry$family)))
+  setup <- character()
+  for (family in families) {
+    factory <- if (family == "files") rss_file_runtime else rss_task_runtime
+    setup <- c(setup, paste0(family, " <- (", code(factory), ")(fail)"))
+  }
   implementations <- vapply(operations, function(operation) {
+    if (!is.null(catalog[[operation]]$family)) return(paste0(operation, " = ", catalog[[operation]]$family, "$", operation))
     paste0(operation, " = ", code(catalog[[operation]]$implementation))
   }, character(1))
   paste0(".rss_std <- base::eval(base::quote({\nfail <- ", code(fail),
-         "\ncheck <- ", code(check), "\nlist(", paste(implementations, collapse = ",\n"),
+         "\ncheck <- ", code(check), "\n", paste(setup, collapse = "\n"), "\nlist(", paste(implementations, collapse = ",\n"),
          ")\n}), base::new.env(parent = base::baseenv()))")
 }

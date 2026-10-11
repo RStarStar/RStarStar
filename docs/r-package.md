@@ -1,6 +1,6 @@
 # R package guide
 
-RStarStar 0.0.26 is an experimental, locally installable R package. There is no
+RStarStar 0.0.28 is an experimental, locally installable R package. There is no
 public CLI and no published CRAN release. It exports transpile(path) to return generated R text and run_file(path) to
 execute a program and return its bindings. Both accept .rsspps files only.
 
@@ -21,7 +21,7 @@ cat(code)
 
 For your own program, save RStarStar source in analysis.rsspps and call
 transpile("analysis.rsspps"). Use ?transpile for installed API help. The package
-includes twelve .rsspps examples and their small CSV fixtures under
+includes thirteen .rsspps examples and their small CSV fixtures under
 system.file("examples", package = "RStarStar"). Rscript files in the repository's
 examples/ directory are developer demo runners, not a public interface.
 
@@ -116,13 +116,29 @@ examples/run-file.R for an R caller using a returned function and table.
 
 The package includes experimental std::absolute(values) and std::square_root(values)
 for plain numeric scalars and vectors. Missing values propagate; negative square
-roots fail at execution. std::text_length(values) counts characters in plain text,
+roots fail at execution. std::is_finite(values) returns Boolean values, with false
+for missing values and either infinity and true for finite numbers. std::text_length(values) counts characters in plain text,
 preserving missing values and vector length. std::lower_text(values) produces lowercase text using the current R locale.
 It preserves missing values and is not Unicode normalization or full case folding.
 std::trim_text(values) removes boundary
 spaces, tabs, carriage returns, and newlines from text. Only required implementations are embedded in standalone
 generated R. There are no new R exports or dependencies. See the
 [standard-library contract](standard-library.md) for examples and limits.
+
+## Text files and background tasks
+
+The bundled source API includes std::file_exists, std::read_text, std::write_text,
+std::start_task, and std::await_task. These introduce no additional exported R
+functions. Text writes require an existing directory and hard-link support; they
+refuse existing destinations, including competing writes from another worker.
+
+Tasks execute earlier one-argument source functions in fresh Rscript processes,
+using copied plain numeric/text/Boolean inputs and results. The current R
+installation must provide Rscript. Generated programs remain standalone and need
+no worker package. run_file() can return task handles and source wrapper functions
+that await them; use a wrapper from the same returned program. A timeout does not
+cancel work, and run_file errors still return no partial bindings. Await tasks
+before ending the R session. See the [file/task contract](files-and-tasks.md).
 
 ## CSV column types
 
@@ -201,7 +217,7 @@ from the source-package payload using .Rbuildignore.
 
 Reinstall after changing R/ and run Rscript tests/run.R against that installation.
 Tests include internal compiler cases and public file-API cases. R CMD build .
-and R CMD check --no-manual RStarStar_0.0.26.tar.gz validate the package, installed
+and R CMD check --no-manual RStarStar_0.0.28.tar.gz validate the package, installed
 help, examples, and tests. Use the current version in the archive name. Chart
 rendering tests report skips when Cairo is unavailable. --no-manual omits PDF
 manual generation only. See [Contributing](../CONTRIBUTING.md) for commands.

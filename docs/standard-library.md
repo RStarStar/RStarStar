@@ -1,6 +1,6 @@
 # Bundled standard library
 
-Status: **implemented, experimental in 0.0.18**. Installing RStarStar includes
+Status: **implemented, experimental in 0.0.28**. Installing RStarStar includes
 these operations. No additional package or import declaration is required.
 
 ```text
@@ -8,17 +8,20 @@ magnitudes = std::absolute([-3, 0, 2])
 roots = std::square_root(values: [0, 4, 9])
 lengths = std::text_length(["A", "ABC", ""])
 clean = std::trim_text([" A ", "B", "   "])
+finite = std::is_finite([5, 1 / 0, 0 / 0])
 ```
 
 | Operation | Result |
 | --- | --- |
 | std::absolute(values) | Elementwise magnitudes; [-3, 0, 2] becomes [3, 0, 2] |
 | std::square_root(values) | Real square roots; [0, 4, 9] becomes [0, 2, 3] |
+| std::is_finite(values) | Boolean predicate; [5, 1 / 0, 0 / 0] becomes [true, false, false] |
 | std::text_length(values) | Character counts; ["A", "ABC", ""] becomes [1, 3, 0] |
 | std::trim_text(values) | Remove boundary whitespace; [" A ", "B", "   "] becomes ["A", "B", ""] |
 | std::lower_text(values) | Lowercase text using the current R locale; ["North", "NORTH"] becomes ["north", "north"] |
 
-All accept exactly one argument, either positional or named exactly values:.
+The six numeric/text transforms and predicates above accept exactly one argument,
+either positional or named exactly values:.
 Arguments evaluate once. Ordinary expression/filter scope applies, including
 @name for outer bindings in filters. A binding named std and a user function named
 absolute remain valid; std is special only before ::. Only the bundled namespace
@@ -32,7 +35,8 @@ attributes. Length is preserved, including empty numeric vectors. No mutation or
 coercion occurs. Text, booleans, records, tables, matrices, classes, named R vectors,
 and reference objects are rejected.
 
-Numeric NA and NaN propagate elementwise and retain their distinction. There is no
+For absolute and square_root, numeric NA and NaN propagate elementwise and retain
+their distinction. The is_finite predicate instead returns false for both. There is no
 skipping missing modifier. Empty numeric columns remain numeric, but an all-missing
 CSV column inferred as Text fails the numeric check.
 
@@ -53,6 +57,42 @@ checked during compilation. Unknown types and domain constraints are checked onl
 at execution. Transpilation does not execute library operations or load user data.
 Runtime errors retain the library call's source location and enclosing language
 function call chain. Untaken conditional branches do not run domain checks.
+
+## Finite numeric values
+
+std::is_finite(values) accepts one plain numeric scalar/vector and returns Boolean
+values of the same length. Finite numbers, including zero and negative numbers,
+return true. Positive/negative infinity, NA, and NaN return false, never missing.
+Empty numeric inputs return an empty Boolean vector. Integer and double inputs are
+accepted; text, booleans, complex numbers, tables, records, classes, and attributed
+R values are rejected without coercion. Inputs are not modified.
+
+Use it to select rows whose computed ratios can be summarized:
+
+```text
+read "ratios.csv" into data with columns {numerator: Number, denominator: Number}
+filter data where std::is_finite(numerator / denominator) into usable
+mean_ratio = average(usable.numerator / usable.denominator)
+```
+
+For rows (10, 2), (1, 0), (0, 0), and (0, 2), the retained ratios are 5 and 0;
+the average is 2.5. Missing numeric inputs are excluded by this predicate as well,
+so no skipping missing clause is needed. The source table remains unchanged.
+An empty retained table still makes average fail; the predicate does not invent a
+fallback result. Declaring numeric CSV columns matters when all values are missing
+or the file has only a header: otherwise inferred Text fails the numeric check.
+
+```text
+flags = std::is_finite(values: [5, 1 / 0, 0 / 0, -1 / 0])
+# [true, false, false, false]
+bad = std::is_finite("5")  # Compile error: numbers required.
+```
+
+The predicate evaluates its input normally, once. It cannot suppress an earlier
+error: std::is_finite(std::square_root(-1)) still fails during square-root execution.
+A finite number may be negative; use a separate comparison when a domain requires
+nonnegative input. Existing is missing tests remain available when missingness
+must be distinguished from infinity.
 
 ## Text length
 
@@ -153,6 +193,22 @@ Non-ASCII mappings may vary by locale and R platform. This is lowercase conversi
 not Unicode normalization, transliteration, or full case folding; it does not
 promise identical matching across locales. No extra Unicode dependency is added.
 For example, std::lower_text(123) is a compilation error rather than text conversion.
+
+## Text files and background tasks
+
+The library also provides std::file_exists(path), std::read_text(path), and
+std::write_text(path, text) for local text files. Reads return one UTF-8 Text value;
+writes create new files without overwriting and require a filesystem with hard-link
+support. Relative paths use the execution directory. These operations have
+filesystem effects only during execution.
+
+std::start_task(worker, value) starts an earlier one-argument function in a separate
+R process. std::await_task(task, timeout: 60) collects its plain Number/Text/Boolean
+result. Inputs are copied; handles coordinate one task and cache the result/error.
+Timeouts do not cancel work. At most eight uncollected tasks are allowed per program;
+nested tasks and shared mutable bindings are unsupported. No extra R dependency is
+needed. See [Text files and background tasks](files-and-tasks.md) for signatures,
+examples, lifecycle, filesystem requirements, and limitations.
 
 ## Packaging and generated R
 

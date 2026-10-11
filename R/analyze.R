@@ -192,6 +192,35 @@ RSSAnalyzer <- R6::R6Class(
       if (kind == "standard_call") {
         entry <- rss_standard_catalog()[[value$name]]
         if (is.null(entry)) rss_error(sprintf("Unknown bundled operation 'std::%s'.", value$name), value$token, private$filename)
+        if (!is.null(entry$family)) {
+          matched <- rss_standard_match(entry, value$labels, value$argument_tokens, value$token, private$filename)
+          operands <- vector("list", length(entry$parameters))
+          for (i in seq_along(value$arguments)) {
+            index <- matched[[i]]
+            expected <- entry$input_types[[index]]
+            argument <- value$arguments[[i]]
+            if (expected == "Function") {
+              if (!argument$kind %in% c("name", "local")) rss_error("Task worker must name an earlier one-argument function.", argument$token, private$filename)
+              operand <- private$lookup(argument$value, argument$token)
+              if (operand$type != "Function" || length(operand$parameters) != 1L || !is.null(operand$field_types)) {
+                rss_error("Task worker must name an earlier one-argument function, not a constructor.", argument$token, private$filename)
+              }
+              if (!operand$result$type %in% c("Number", "Text", "Boolean", "Unknown")) rss_error("Tasks must return plain Number, Text, or Boolean values.", argument$token, private$filename)
+            } else {
+              operand <- recurse(argument)
+              accepted <- if (expected == "Value") c("Number", "Text", "Boolean", "Unknown") else c(expected, "Unknown")
+              if (!operand$type %in% accepted) rss_error(sprintf("std::%s parameter '%s' requires %s.", value$name, entry$parameters[[index]], expected), argument$token, private$filename)
+              if (!is.null(entry$sizes) && !is.na(operand$size) && operand$size != entry$sizes[[index]]) {
+                rss_error(sprintf("std::%s parameter '%s' requires one value.", value$name, entry$parameters[[index]]), argument$token, private$filename)
+              }
+            }
+            operands[[index]] <- operand
+          }
+          result <- private$info(entry$output_type, entry$output_size)
+          if (value$name == "start_task") result$task_result <- operands[[1L]]$result
+          if (value$name == "await_task" && !is.null(operands[[1L]]$task_result)) result <- operands[[1L]]$task_result
+          return(result)
+        }
         if (length(value$arguments) != 1L) rss_error(sprintf("std::%s expects exactly one argument.", value$name), value$token, private$filename)
         if (nzchar(value$labels[[1L]]) && value$labels[[1L]] != entry$parameter) rss_error("Expected the exact parameter name 'values'.", value$argument_tokens[[1L]], private$filename)
         operand <- recurse(value$arguments[[1L]])
@@ -245,6 +274,7 @@ RSSAnalyzer <- R6::R6Class(
       }
       if (kind == "summary") {
         operand <- recurse(value$value)
+        if (operand$type == "Task") rss_error("Await a task before summarizing its result.", value$token, private$filename)
         if (value$operation != "count" && !operand$type %in% c("Number", "Unknown")) rss_error("Numeric summaries require numbers.", value$token, private$filename)
         if (startsWith(operand$type, "Class:")) rss_error("Operate on class values through methods.", value$token, private$filename)
         if (startsWith(operand$type, "Record:")) rss_error("Summaries require a vector or table, not a record.", value$token, private$filename)
@@ -294,6 +324,7 @@ RSSAnalyzer <- R6::R6Class(
       if (kind == "group") return(recurse(value$value))
       if (kind == "missing") {
         operand <- recurse(value$value)
+        if (operand$type == "Task") rss_error("Await a task before testing its result.", value$token, private$filename)
         if (startsWith(operand$type, "Class:")) rss_error("Operate on class values through methods.", value$token, private$filename)
         if (startsWith(operand$type, "Record:")) rss_error("Test a record field for missing values, not a record.", value$token, private$filename)
         if (operand$type == "Table") rss_error("Test a column or vector for missing values, not a table.", value$token, private$filename)
@@ -305,6 +336,7 @@ RSSAnalyzer <- R6::R6Class(
           rss_error("Vector elements must each contain one value; nested vectors are not supported.", value$token, private$filename)
         }
         types <- vapply(elements, function(x) x$type, character(1))
+        if (any(types == "Task")) rss_error("Task handles cannot be vector elements.", value$token, private$filename)
         if (any(startsWith(types, "Class:"))) rss_error("Classes cannot be vector elements.", value$token, private$filename)
         if (any(startsWith(types, "Record:"))) rss_error("Records cannot be vector elements yet.", value$token, private$filename)
         if (any(types == "Table")) rss_error("Tables cannot be vector elements.", value$token, private$filename)
@@ -323,6 +355,7 @@ RSSAnalyzer <- R6::R6Class(
       op <- value$operator
       types <- c(left$type, right$type)
       known <- types[types != "Unknown"]
+      if ("Task" %in% known) rss_error("Await a task before operating on its result.", value$operator_token, private$filename)
       if (op %in% c("+", "-", "*", "/")) {
         if (any(known != "Number")) rss_error("Arithmetic requires numbers; text and booleans are not converted automatically.", value$operator_token, private$filename)
         result_type <- "Number"

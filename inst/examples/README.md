@@ -1,6 +1,6 @@
 # Packaged RStarStar examples
 
-These examples use the implemented syntax and API in RStarStar 0.0.26. Start with
+These examples use the implemented syntax and API in RStarStar 0.0.28. Start with
 [basics.rsspps](basics.rsspps), then choose a topic:
 
 | Example | Demonstrates |
@@ -9,13 +9,14 @@ These examples use the implemented syntax and API in RStarStar 0.0.26. Start wit
 | [filter.rsspps](filter.rsspps) | Outer variables, missing-value policies, and trimmed lowercase label matching |
 | [grouped.rsspps](grouped.rsspps) | Summaries by one or multiple columns and a second aggregation |
 | [functions.rsspps](functions.rsspps) | Positional/named arguments and conditional expressions |
-| [standard-library.rsspps](standard-library.rsspps) | Absolute values, square roots, text length, trimming, and lowercase text |
+| [standard-library.rsspps](standard-library.rsspps) | Absolute values, square roots, finite-number checks, text length, trimming, and lowercase text |
 | [records.rsspps](records.rsspps) | Typed values, copy updates, equality, expression fields, and nested records |
 | [methods.rsspps](methods.rsspps) | Record methods, scalar constructor defaults, and named overrides |
 | [classes.rsspps](classes.rsspps) | Private fields, constructor defaults, and explicit mutation with independent copies |
 | [record-state.rsspps](record-state.rsspps) | Record-valued class state, snapshots, and whole-field updates |
 | [csv-export.rsspps](csv-export.rsspps) | CSV round trip with a semicolon delimiter and a custom missing marker |
 | [workflow.rsspps](workflow.rsspps) | CSV analysis, scalar summaries, and a PNG bar chart |
+| [files-and-tasks.rsspps](files-and-tasks.rsspps) | UTF-8 text files and two independent background workers with explicit await |
 
 ## Run an example from R
 
@@ -52,6 +53,10 @@ Use `run_example("csv-export")` to create `sales-export.csv`, or
 The temporary folders remain available for inspection during the R session;
 remove them with `unlink(result$directory, recursive = TRUE)` when finished.
 Exports and charts refuse to overwrite existing files.
+
+Use `run_example("files-and-tasks")` to create two text files and process them in
+separate R workers. It requires Rscript and hard-link support for text publication.
+Await timeouts do not cancel running workers; the example awaits both results.
 
 ## Behaviors to notice
 
