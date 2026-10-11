@@ -6,3 +6,5 @@ stopifnot(identical(results$magnitudes, c(9, 0, 16)),
           identical(results$code_lengths, c(1, 3, 0)),
           identical(results$clean_codes, c("A", "ABC", "")),
           identical(results$clean_lengths, c(1, 3, 0)))
+stopifnot(identical(results$normalized_labels, c("north", "north", "south")),
+          identical(results$labels, c(" North ", "NORTH", "South")))

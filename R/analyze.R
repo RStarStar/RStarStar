@@ -191,17 +191,26 @@ RSSAnalyzer <- R6::R6Class(
       if (kind == "call") {
         target <- private$lookup(value$name, value$token)
         if (target$type != "Function") rss_error(sprintf("'%s' is not a declared function.", value$name), value$token, private$filename)
-        if ((length(value$arguments) != length(target$parameters) && !length(target$optional)) || length(value$arguments) > length(target$parameters)) rss_error(sprintf("Function '%s' expects %d arguments; received %d.", value$name, length(target$parameters), length(value$arguments)), value$token, private$filename)
+        constructor <- !is.null(target$field_types)
+        supplied <- length(value$arguments)
+        maximum <- length(target$parameters)
+        if (constructor && supplied > maximum) {
+          rss_error(sprintf("Constructor '%s' accepts at most %d %s; received %d.", value$name,
+            maximum, if (maximum == 1L) "argument" else "arguments", supplied), value$token, private$filename)
+        }
+        if (!constructor && supplied != maximum) rss_error(sprintf("Function '%s' expects %d arguments; received %d.", value$name, maximum, supplied), value$token, private$filename)
         matched <- integer()
         for (i in seq_along(value$arguments)) {
           label <- value$labels[[i]]
           parameter <- if (nzchar(label)) match(label, target$parameters) else i
-          if (is.na(parameter)) rss_error(sprintf("Unknown parameter '%s' for function '%s'; names must match exactly.", label, value$name), value$argument_tokens[[i]], private$filename)
+          if (is.na(parameter)) rss_error(sprintf("Unknown parameter '%s' for %s '%s'; names must match exactly.", label, if (constructor) "constructor" else "function", value$name), value$argument_tokens[[i]], private$filename)
           if (parameter %in% matched) rss_error(sprintf("Parameter '%s' was supplied more than once.", target$parameters[[parameter]]), value$argument_tokens[[i]], private$filename)
           matched <- c(matched, parameter)
         }
         missing <- setdiff(target$parameters, c(target$parameters[matched], target$optional))
-        if (length(missing)) rss_error(sprintf("Missing required field '%s' for constructor '%s'.", missing[[1L]], value$name), value$token, private$filename)
+        if (length(missing)) rss_error(sprintf("Missing required %s %s for constructor '%s'.",
+          if (length(missing) == 1L) "field" else "fields",
+          paste(sprintf("'%s'", missing), collapse = ", "), value$name), value$token, private$filename)
         arguments <- lapply(value$arguments, recurse)
         if (!is.null(target$field_types)) {
           for (i in seq_along(arguments)) {

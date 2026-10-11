@@ -16,6 +16,7 @@ clean = std::trim_text([" A ", "B", "   "])
 | std::square_root(values) | Real square roots; [0, 4, 9] becomes [0, 2, 3] |
 | std::text_length(values) | Character counts; ["A", "ABC", ""] becomes [1, 3, 0] |
 | std::trim_text(values) | Remove boundary whitespace; [" A ", "B", "   "] becomes ["A", "B", ""] |
+| std::lower_text(values) | Lowercase text using the current R locale; ["North", "NORTH"] becomes ["north", "north"] |
 
 All accept exactly one argument, either positional or named exactly values:.
 Arguments evaluate once. Ordinary expression/filter scope applies, including
@@ -120,6 +121,38 @@ The predicate does not rewrite the table: matching retains the original code
 strings. A spaces-only Text cell becomes empty when trimmed. Empty CSV fields
 are missing under default loading, but remain text when excluded from the read
 statement's missing markers.
+
+## Lowercase text
+
+std::lower_text(values) accepts one plain Text scalar/vector and returns Text of
+the same length. It uses R's tolower under the current LC_CTYPE locale and does not
+change that locale. Missing text remains missing, empty text stays empty, and an
+empty text vector remains empty. Spaces, punctuation, and digits are retained;
+combine with trim_text when boundary whitespace should be removed too.
+
+```text
+labels = [" North ", "NORTH", "South"]
+normalized = std::lower_text(std::trim_text(labels))
+# ["north", "north", "south"]
+```
+
+This supports explicitly lowercase comparisons on imported labels:
+
+```text
+read "regions.csv" into regions
+filter regions where std::lower_text(std::trim_text(region)) == "north" skipping missing into selected
+```
+
+The original table and selected strings retain their spelling; the predicate does
+not rewrite columns. Missing comparisons require the usual explicit filtering
+policy. Numeric/Boolean input is rejected without conversion. Exactly one
+positional argument or values: argument is accepted, evaluated once. Invalid or
+byte-encoded text and attributed R values are rejected with source-located errors.
+
+Non-ASCII mappings may vary by locale and R platform. This is lowercase conversion,
+not Unicode normalization, transliteration, or full case folding; it does not
+promise identical matching across locales. No extra Unicode dependency is added.
+For example, std::lower_text(123) is a compilation error rather than text conversion.
 
 ## Packaging and generated R
 

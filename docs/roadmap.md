@@ -80,11 +80,13 @@ R 4.6.0 remains pending. No public CLI is planned. See the
 - [x] Same-type scalar-field record equality with explicit missing-value rules.
 - [x] Direct field/column access on calls, updates, and parenthesized expressions.
 - [x] Acyclic nested records with checked construction, updates, and equality.
+- [x] Recursive declared-schema checks for R-supplied nested constructor inputs and copy updates.
 - [x] Read-only [record methods](record-methods.md) with exact calls and copy-returning updates.
 - [x] Adopt the [mutable-class contract](mutable-classes.md) with value semantics.
 - [x] Scalar private fields and explicit mutating methods with atomic receiver replacement.
 - [x] Literal class-field defaults for zero-initialized counters and scalar settings.
 - [x] Matching scalar literal defaults for record constructors, including origin points.
+- [x] Constructor diagnostics identify required fields and accurate optional-argument limits.
 - [x] Record-valued class state with whole-field copy updates and recursive layout checks.
 - [ ] Design nested mutable class state and computed construction defaults from concrete use cases.
 
@@ -116,6 +118,7 @@ states exactly which checks and mutation guarantees apply.
 - [x] Bundle, document, and test the first operations in the R package.
 - [x] Character counts for validating text columns with std::text_length.
 - [x] Boundary whitespace cleaning with std::trim_text and checked Text results.
+- [x] Explicit lowercase comparisons with std::lower_text and documented locale behavior.
 - [ ] Extend the library as further concrete beginner workflows establish a need.
 
 The [standard-library contract](standard-library.md) describes the experimental

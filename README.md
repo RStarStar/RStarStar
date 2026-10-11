@@ -21,7 +21,18 @@ accept local UTF-8 **.rsspps files only** for compilation or explicit execution.
 The R-call bridge remains future work. The bundled experimental
 [standard library](docs/standard-library.md) now offers std::absolute(values) and
 std::square_root(values), plus std::text_length(values) for character counts and
-std::trim_text(values) for removing boundary whitespace. See the [package guide](docs/r-package.md).
+std::trim_text(values) for removing boundary whitespace and std::lower_text(values)
+for lowercase comparisons. See the [package guide](docs/r-package.md).
+
+## New here?
+
+Start with [Using RStarStar in your R projects](docs/using-from-r.md): download and
+install the package, write your first `.rsspps` file, call its functions from R,
+and use returned tables with your existing R code.
+
+Want to help? [Contributions](CONTRIBUTING.md) are welcome: bug reports, small fixes,
+documentation, examples, and feature requests. AI-assisted contributions are allowed;
+contributors remain responsible for understanding and verifying their submissions.
 
 ## Install locally and try it
 
@@ -80,6 +91,7 @@ tables should remain useful without learning OOP.
 
 ## Start here
 
+- [Using RStarStar from your own R code](docs/using-from-r.md): a hands-on beginner walkthrough.
 - [R package guide](docs/r-package.md): installation, file API, and interoperability plans.
 - [Progress log](PROGRESS.md): significant changes and verification results.
 - [Initial language guide](docs/language-guide.md): proposed syntax and behavior.

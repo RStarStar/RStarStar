@@ -686,6 +686,10 @@ checks and evaluate once in written order. Nested record-valued fields remain
 required: no constructor-call defaults or implicit construction are supported.
 Copy updates preserve all unspecified current values rather than restoring defaults.
 Returned R constructors expose the defaults under ordinary R calling rules.
+Source constructor errors list omitted required fields in declaration order and
+report the maximum argument count for overfull calls. Unknown or duplicate labels
+in otherwise non-overfull calls are diagnosed before missing fields. For example,
+Point(z: 3) identifies z instead of reporting only an argument-count mismatch.
 
 ```text
 record Point {
@@ -887,9 +891,14 @@ types; at every level a definite mismatch wins over missing comparisons. Orderin
 remains undefined. Direct field assignment remains unsupported.
 
 The R representation remains nested named lists with internal nominal tags. Nested
-constructor inputs are recursively checked to exclude unsupported/reference-bearing
-fields and extra attributes. This validates the supported value structure, not a
-complete schema provenance contract for manually forged or modified R objects.
+constructor inputs are recursively checked against declared schemas: nominal type,
+field names and declaration order, scalar leaf types, and supported attributes.
+Copy updates validate the entire receiver before replacements and validate nested
+replacements against the declared schema. An R-modified Point whose numeric x was
+changed to text is rejected when passed to a containing constructor or used in a
+with update, even if the update would replace x. Updates do not repair invalid
+receivers. This is layout validation, not a provenance contract: a manually created
+plain tagged list matching the schema can still be accepted.
 Do not infer safe arbitrary-R interoperability or deep immutability outside the
 language. Recursive schemas and vector/table fields remain
 future work; no additional object backend or dependency is introduced.
@@ -929,6 +938,14 @@ record, and expression checks.
 clean = std::trim_text([" A B ", "   "])
 # Result: ["A B", ""]
 ```
+
+std::lower_text(values) returns plain Text of the same length using R's tolower
+and current LC_CTYPE locale. It preserves missing values, empty vectors, spaces,
+and punctuation. It composes with trim_text for comparisons, for example
+std::lower_text(std::trim_text(region)) == "north" inside a filter. Such predicates
+do not modify stored table values. Exact arguments and text/encoding checks follow
+the standard-library contract. Non-ASCII mappings can vary across locales/platforms;
+no Unicode normalization, full case folding, or locale change occurs.
 
 ## Record methods
 

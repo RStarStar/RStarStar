@@ -10,3 +10,7 @@ print code_lengths
 clean_codes = std::trim_text([" A ", "ABC", "   "])
 clean_lengths = std::text_length(clean_codes)
 print clean_codes
+
+labels = [" North ", "NORTH", "South"]
+normalized_labels = std::lower_text(std::trim_text(labels))
+print normalized_labels

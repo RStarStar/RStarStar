@@ -1020,3 +1020,130 @@ whitespace. Local environment: R 4.6.0 on macOS arm64.
 Limits: defaults remain scalar literals only. Computed expressions, defaults for
 nested record-valued fields, and ordinary function/method parameter defaults are
 unsupported. Hosted CI, other R versions/platforms, and PDF manuals remain unverified.
+
+## 2026-10-11 — Recursive record validation at R boundaries (0.0.23)
+
+Reproduced two gaps in the current implementation: a nested record constructor
+accepted an R-modified Point whose Number field had become Text, and a copy update
+accepted extra fields added by R. Nested construction checked generic record shape
+rather than declared schemas; updates derived expected types from supplied values.
+
+Record constructors now reuse the scalar/record validator used by classes, which
+recursively validates registered schemas. Copy updates first validate the complete
+receiver, then validate replacements using its declared schema. Invalid receivers
+cannot be repaired implicitly by an update. Missing/extra/reordered fields, wrong
+leaf types, unknown tags, and unsupported attributes are rejected at these boundaries.
+Valid integer Number inputs, typed missing/nonfinite values, defaults, and alias
+semantics remain unchanged. No syntax, export, or dependency was added.
+
+Added five regression checks covering corrupted nested R inputs, invalid receivers,
+replacement failures and unchanged originals, valid scalar/structural inputs,
+source locations and call chains, public file APIs, and standalone R6-free output.
+Updated documentation, decision record, roadmap, help, and build instructions.
+The first test run identified incorrect expected line numbers in new assertions;
+corrected those assertions before the final verification.
+
+Verification: the final shared runner reinstalled 0.0.23, passed all 321 checks
+with 0 skips, ran all thirteen demos including Cairo rendering, built
+RStarStar_0.0.23.tar.gz, and completed R CMD check --no-manual with Status: OK and
+no warnings or notes. Dependency-index checks had network access. Verified 81
+relative links and balanced fences across 12 Markdown files, example consistency,
+and git diff whitespace. Local environment: R 4.6.0 on macOS arm64.
+
+Limits: matching manually tagged plain values can still be accepted; layout
+validation is not provenance or deep immutability. Generic external field access
+and equality were outside this fix. Hosted CI, other R versions/platforms, and
+PDF manuals remain unverified.
+
+## 2026-10-11 — Clear constructor argument errors (0.0.24)
+
+Improved source record/class constructor diagnostics without changing accepted
+programs or generated code. Errors identify constructors, list all omitted required
+fields in declaration order, and report accurate maximum argument counts including
+optional fields. A defaulted one-field constructor now reports "accepts at most 1
+argument" when overfull, rather than incorrectly implying that one is required.
+
+Non-overfull calls check labels before missing fields, so incomplete calls with
+unknown or duplicate names identify those mistakes directly. Missing/overfull
+errors preserve call locations; unknown labels preserve argument locations.
+Ordinary function/method errors and direct R calls retain their current behavior.
+
+Added four focused checks covering records/classes, required/defaulted fields,
+singular/plural diagnostics, exact labels, locations, public file APIs, and no
+execution before compilation errors. Updated existing constructor-error assertions,
+documentation, decision record, roadmap, and versioned build instructions. An
+initial test assertion named the wrong missing field in an existing Point fixture;
+corrected it to the declared label field. Preserved the prior uncommitted runtime
+validation work.
+
+Verification: final shared validation reinstalled 0.0.24, passed all 325 checks
+with 0 skips, ran all thirteen demos including Cairo rendering, built
+RStarStar_0.0.24.tar.gz, and completed R CMD check --no-manual with Status: OK and
+no warnings or notes. The final run had dependency-index network access after the
+sandboxed run could not reach indexes. Checked 81 relative links and balanced
+fences across 12 Markdown files, example consistency, and git diff whitespace.
+Local environment: R 4.6.0 on macOS arm64.
+
+Limits: diagnostic changes apply to source constructor calls only. Overfull calls
+report argument count before label problems. No partial name matching or spelling
+guesses were added. Hosted CI, other R versions/platforms, and PDF manuals remain
+unverified.
+
+## 2026-10-11 — Lowercase text comparisons (0.0.25)
+
+Added std::lower_text(values) to the bundled catalog for explicit lowercase
+comparisons on CSV labels. It accepts plain Text, preserves length and missing/
+empty values, and composes with trim_text without rewriting source data. Uses
+base R tolower under the caller's LC_CTYPE locale without changing it. Non-ASCII
+mappings can vary across locales/platforms; no normalization or full case folding
+is promised. Attributed, numeric/Boolean, invalid, and byte-encoded inputs are
+rejected with source-located errors. Only used operations are embedded in generated
+R, with no new export or dependency and no execution during compilation.
+
+Added five behavioral checks for composition, original-value preservation, types,
+exact arguments, CSV filtering, missing/empty values, R-input validation/encoding,
+locale parity, single argument evaluation, call chains, lazy execution, public
+APIs, and independent R6-free output. Extended the packaged standard-library example
+and demo with lowercase labels. Updated the library contract, guide, implemented
+subset, package guide, decision record, roadmap, README, and build instructions.
+Preserved prior uncommitted work.
+
+Verification: final shared validation reinstalled 0.0.25, passed all 330 checks
+with 0 skips, ran all thirteen demos including Cairo rendering, built
+RStarStar_0.0.25.tar.gz, and completed R CMD check --no-manual with Status: OK and
+no warnings or notes. Final dependency-index checking had network access. Checked
+81 relative links and balanced fences across 12 Markdown files, example consistency,
+and git diff whitespace. Local environment: R 4.6.0 on macOS arm64.
+
+Limits: lowercase conversion follows the executing R locale and platform. No
+locale-independent Unicode matching, transliteration, or in-place table rewrite
+was introduced. Hosted CI, other R versions/platforms, and PDF manuals remain
+unverified.
+
+## 2026-10-11 — Public user and contributor onboarding
+
+Added docs/using-from-r.md with repository download/source installation, a bundled
+example, a two-file personal R project, calling returned functions with R values,
+CSV analysis and returned data frames, standalone generated R, common diagnostics,
+working-directory behavior, updates, and current interoperability limits. Linked
+the walkthrough prominently from README and the package API guide.
+
+Expanded the existing CONTRIBUTING.md with issue/feature-request guidance, a
+fork/branch/pull-request workflow, and an explicit welcome for AI-assisted reports,
+fixes, patches, tests, documentation, and feature requests. Human understanding,
+verification, and responsibility remain required. Added docs/linkedin-post.md with
+a ready-to-adapt announcement and short repository description, accurately marking
+the package as experimental and source-installed rather than a CRAN release.
+The announcement uses the configured Git remote URL and is intended for use once
+the repository is public; visibility was not verified or changed.
+
+Verification: installed the current 0.0.25 source into a fresh temporary R library,
+extracted and ran every runnable walkthrough block in an isolated project folder,
+and checked documented values, CSV shares, the invalid-input example, and generated
+code in a fresh R process without RStarStar/R6 loaded. All passed. Checked 91
+relative links and balanced code fences across 14 Markdown files, example/API
+consistency, and git diff whitespace. Download/clone instructions and public link
+availability were not exercised. No compiler or package behavior changed in this
+update; the full behavioral suite and package build/check were not rerun. Preserved
+all prior uncommitted changes. No publication, message posting, or GitHub visibility
+change was performed.

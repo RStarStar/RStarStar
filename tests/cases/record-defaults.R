@@ -23,7 +23,7 @@ fn shifted(self, dx) { return self with { x: self.x + dx } }
     fails(paste(prefix, 'a = Settings()', sep = "\n"), "Missing required field 'required'")
     fails(paste(prefix, 'a = Settings(req: 7)', sep = "\n"), "names must match exactly")
     fails(paste(prefix, 'a = Settings("A", label: "B")', sep = "\n"), "supplied more than once")
-    fails(paste(point, 'a = Point(1, 2, 3)', sep = "\n"), "expects 2 arguments")
+    fails(paste(point, 'a = Point(1, 2, 3)', sep = "\n"), "accepts at most 2 arguments")
   })
   check("record default errors identify declarations and reject execution", {
     fails('record Bad {\nx: Number = "bad"\n}', "Default for field 'x' requires one Number", 2, 13)

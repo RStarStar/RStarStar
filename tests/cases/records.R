@@ -22,7 +22,7 @@ check("record names share the declaration namespace and cannot replace summaries
 })
 check("record constructors enforce required names types and scalar lengths", {
   prefix <- 'record Point { x: Number\nlabel: Text }\n'
-  fails(paste0(prefix, 'p = Point(x: 1)'), "expects 2 arguments")
+  fails(paste0(prefix, 'p = Point(x: 1)'), "Missing required field 'label'")
   fails(paste0(prefix, 'p = Point(other: 1, label: "a")'), "Unknown parameter")
   fails(paste0(prefix, 'p = Point(x: 1, x: 2)'), "supplied more than once")
   fails(paste0(prefix, 'p = Point("text", "a")'), "requires one Number")

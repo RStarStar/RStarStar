@@ -4,6 +4,36 @@ RStarStar has a small compiler prototype and an evolving language design. Beginn
 AI-assisted contributors are welcome. Useful contributions include small example
 programs, clearer explanations, confusing-error examples, and design critiques.
 
+## Start contributing
+
+First try the [R project walkthrough](docs/using-from-r.md). You can help without
+being a compiler expert: improve a confusing explanation, add a small example,
+report a bug, or describe a task the language does not yet handle well.
+
+Search existing [issues](https://github.com/RStarStar/RStarStar/issues) before opening
+one. For a bug, include a minimal `.rsspps` file, the R command you ran, expected and
+actual behavior, the full diagnostic, `packageVersion("RStarStar")`, and
+`sessionInfo()`. Use a tiny synthetic dataset instead of private data.
+
+For a feature request, show the analysis you want to perform, proposed syntax if
+useful, an expected result, and at least one error or edge case. Explain why the
+current subset is insufficient. A clear request is useful even if you cannot
+implement it; proposed syntax is not automatically an accepted language rule.
+
+For a patch:
+
+1. Fork the repository and clone your fork.
+2. Create a branch for one focused change.
+3. Make the change and update relevant documentation and behavioral checks.
+4. Reinstall and verify using the commands below; for documentation-only changes,
+   check links, whitespace, and run any new executable examples.
+5. Open a pull request explaining the problem, what changed, and what you checked.
+   Link the related issue if there is one and respond to review feedback.
+
+A small documentation fix does not need a prior issue. Discuss larger language or
+API changes early so implementation work follows an agreed scope. Contributions
+use the project's [MIT license](LICENSE.md).
+
 ## Before changing behavior
 
 Read the [guide](docs/language-guide.md), [decisions](docs/design-decisions.md),
@@ -33,8 +63,16 @@ explicitly provisional while decisions are open.
 
 ## AI-assisted contributions
 
-AI tools are allowed. Contributors remain responsible for understanding their
-changes, checking correctness, and responding to review. Do not submit generated
+AI tools are welcome for bug reports, fixes, patches, tests, documentation, and
+feature requests. You may use them to explore an idea, explain code, draft a patch,
+or improve a proposal. You do not need to avoid AI assistance to contribute.
+
+Contributors remain responsible for understanding their changes, checking
+correctness, and responding to review. Review and test AI-generated suggestions
+before submitting them; report actual results and distinguish tested behavior
+from a proposed feature. A brief note about substantial AI assistance and how you
+verified the result is helpful, but you do not need to share private prompts or
+entire chat histories. Do not submit generated
 code you cannot explain, fabricated test results, or unverified claims about R.
 Keep contributions small enough to review. Do not send secrets or private data
 to tools. Review standards are the same regardless of how a contribution was made.
@@ -66,7 +104,7 @@ Rscript examples/csv-export.R
 Rscript examples/grouped.R
 Rscript examples/workflow.R
 R CMD build .
-R CMD check --no-manual RStarStar_0.0.22.tar.gz
+R CMD check --no-manual RStarStar_0.0.25.tar.gz
 git diff --check
 ```
 

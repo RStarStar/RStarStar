@@ -18,6 +18,13 @@ rss_standard_catalog <- function() {
         error = function(e) fail("std::text_length requires valid character text; byte-encoded or invalid text is unsupported.", filename, line, column))
       as.double(result)
     })),
+    lower_text = list(parameter = "values", input_type = "Text", output_type = "Text", implementation = quote(function(values, filename, line, column) {
+      check(values, "Text", "lower_text", filename, line, column)
+      tryCatch({
+        nchar(values, type = "chars", allowNA = FALSE, keepNA = TRUE)
+        tolower(values)
+      }, error = function(e) fail("std::lower_text requires valid character text supported by the current locale; invalid or byte-encoded text is unsupported.", filename, line, column))
+    })),
     trim_text = list(parameter = "values", input_type = "Text", output_type = "Text", implementation = quote(function(values, filename, line, column) {
       check(values, "Text", "trim_text", filename, line, column)
       tryCatch({

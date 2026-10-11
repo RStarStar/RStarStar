@@ -882,3 +882,77 @@ The literal-only rule avoids capture and evaluation-order questions while making
 record/class construction consistent. No public API or dependency changes.
 Verification covers defaults, overrides, required fields, errors and locations,
 copy/equality/method behavior, nested state, R callers, and standalone execution.
+
+
+## 2026-10-11 — Consistent record schema validation at R boundaries
+
+Status: implemented in 0.0.23. Tighten nested record construction and with updates
+to use declared schemas, matching the existing class-field and method-dispatch
+checks. Previously, R could change Point$x from Number to Text and a containing
+record constructor would accept it because the tag and generic record shape still
+matched. Copy updates also derived expected types from supplied values and could
+preserve added fields or repair an invalid receiver.
+
+Validate nested constructor inputs recursively. Before a copy update, validate the
+entire receiver against its nominal declaration; use that schema for replacements.
+Reject wrong scalar leaf types, missing/extra/reordered fields, unknown nominal
+types, and unsupported attributes. Even an update that would replace a corrupt
+field fails. Valid scalar missing values, integer inputs for Number, defaults,
+alias behavior, and explicit replacement evaluation order remain unchanged.
+
+The alternative of silently repairing externally modified values obscures which
+schema governs an update. Failing at this boundary keeps diagnostics attached to
+the source constructor or update. This tightens runtime validation, adds no syntax
+or API, and performs no user-source execution during compilation. Matching
+manually tagged plain values are still accepted; this is not proof of provenance
+or a deep-immutability promise for arbitrary R objects. Generic external field
+access and equality are outside this focused change.
+
+Verification covers reproduced failures, recursive R-input corruption, constructor
+and update rejection, unchanged originals, valid missing/nonfinite values, source
+locations/call chains, public file APIs, and standalone generated execution.
+
+
+## 2026-10-11 — Constructor argument diagnostics
+
+Status: implemented in 0.0.24. Source record/class constructor errors now identify
+constructors explicitly, list all omitted required fields in declaration order,
+and describe overfull calls with an accurate maximum argument count. Previously,
+a constructor accepting zero arguments via defaults could misleadingly report that
+it expected exactly one argument when given two. Required-only constructors gave
+an argument count without identifying the missing field.
+
+Overfull calls report the maximum first. Other calls validate labels in written
+order, reporting unknown or duplicated names before omitted fields. For example,
+Point(z: 3) identifies the unknown name; a constructor missing x and y identifies
+both. No spelling guesses or partial matching are introduced. Missing-field errors
+point to the call; unknown labels retain argument locations. Accepted programs and
+generated R are unchanged. Ordinary function/method diagnostics and direct R calls
+to returned constructors retain their current behavior.
+
+Verification covers records/classes, defaulted and required fields, exact label
+failures, locations, public file APIs, and absence of output before compile errors.
+
+
+## 2026-10-11 — Lowercase text comparisons
+
+Status: implemented, experimental in 0.0.25. Add std::lower_text(values) to compare
+CSV labels such as North and NORTH explicitly. Composing it with trim_text handles
+boundary whitespace without changing source data. A filter comparing the result
+to "north" preserves original spellings in retained rows.
+
+Accept one plain Text scalar/vector, positional or named exactly values. Preserve
+length, missing text, empty text/vectors, spaces, punctuation, and digits. Reject
+numeric/Boolean inputs, attributed R values, and invalid/byte-encoded text. Return
+Text with existing inference/runtime checks and source locations. Compilation only
+embeds quoted code; only execution converts text. No new API or dependency.
+
+Use base R tolower and the caller's LC_CTYPE locale without changing it. Non-ASCII
+mappings may vary by locale/platform; this is not full Unicode case folding or
+normalization. Alternatives deferred: changing global locale, automatic conversion
+inside comparisons, ASCII-only mapping, and a new Unicode dependency. Explicit
+conversion keeps filtering policy visible and preserves R's existing text behavior.
+
+Verification covers composition, source data preservation, CSV/missing/empty values,
+exact signatures, type checks, R caller inputs and encodings, current-locale parity,
+call chains, compilation/execution separation, and standalone generated R.

@@ -1,8 +1,10 @@
 # R package guide
 
-RStarStar 0.0.22 is an experimental, locally installable R package. There is no
+RStarStar 0.0.25 is an experimental, locally installable R package. There is no
 public CLI and no published CRAN release. It exports transpile(path) to return generated R text and run_file(path) to
 execute a program and return its bindings. Both accept .rsspps files only.
+
+For a step-by-step project walkthrough, start with [Using RStarStar in your R projects](using-from-r.md).
 
 ## Install and compile
 
@@ -73,7 +75,12 @@ before raising an error; an invalid declaration later in the file prevents all e
 
 Records return as ordinary named R lists with an internal type attribute, and their
 constructors return as R functions. Field checks apply when constructors run; R
-callers can subsequently modify returned lists. This is not enforced immutability
+callers can subsequently modify returned lists. Nested constructor inputs and with
+update receivers/replacements are checked recursively against the declared record
+schemas. Wrong leaf types, missing/extra/reordered fields, and unsupported attributes
+fail rather than defining a new layout. Updates cannot repair invalid receivers.
+Matching hand-built tagged lists may still be accepted; this does not prove their
+origin. This is not enforced immutability
 outside the source language. See [records](implemented-subset.md#records).
 
 Caller variables are not injected. Results are ordinary R values and functions are
@@ -87,7 +94,9 @@ examples/run-file.R for an R caller using a returned function and table.
 The package includes experimental std::absolute(values) and std::square_root(values)
 for plain numeric scalars and vectors. Missing values propagate; negative square
 roots fail at execution. std::text_length(values) counts characters in plain text,
-preserving missing values and vector length. std::trim_text(values) removes boundary
+preserving missing values and vector length. std::lower_text(values) produces lowercase text using the current R locale.
+It preserves missing values and is not Unicode normalization or full case folding.
+std::trim_text(values) removes boundary
 spaces, tabs, carriage returns, and newlines from text. Only required implementations are embedded in standalone
 generated R. There are no new R exports or dependencies. See the
 [standard-library contract](standard-library.md) for examples and limits.
@@ -130,6 +139,17 @@ Class results are ordinary tagged lists. Source privacy does not prevent inspect
 or modification from R, and there is no native dollar-method API. Generated class
 code remains independent of R6. See the [class contract](mutable-classes.md).
 
+## Constructor diagnostics
+
+Source calls to record and class constructors identify omitted required fields,
+including every missing field in declaration order. Too many arguments report the
+maximum accepted count, including optional fields. For example, a constructor with
+one defaulted field accepts zero or one arguments; passing two reports that it
+accepts at most one. Names remain exact. Non-overfull calls diagnose unknown or
+duplicate labels before missing fields. These errors occur during compilation,
+before any program output or file effects. Direct calls to returned constructors
+from R continue to use R's argument matching and missing-argument messages.
+
 ## Record constructor defaults
 
 Record scalar fields support the same literal defaults as class scalar fields.
@@ -158,7 +178,7 @@ from the source-package payload using .Rbuildignore.
 
 Reinstall after changing R/ and run Rscript tests/run.R against that installation.
 Tests include internal compiler cases and public file-API cases. R CMD build .
-and R CMD check --no-manual RStarStar_0.0.22.tar.gz validate the package, installed
+and R CMD check --no-manual RStarStar_0.0.25.tar.gz validate the package, installed
 help, examples, and tests. Use the current version in the archive name. Chart
 rendering tests report skips when Cairo is unavailable. --no-manual omits PDF
 manual generation only. See [Contributing](../CONTRIBUTING.md) for commands.

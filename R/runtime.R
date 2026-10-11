@@ -215,7 +215,7 @@ rss_runtime <- function(match_method) {
     class_value = function(class_name, fields, types, values, filename, line, column) {
       for (i in seq_along(fields)) {
         value <- values[[i]]
-        if (!valid_class_field(value, types[[i]])) {
+        if (!valid_field(value, types[[i]])) {
           fail(sprintf("Field '%s' requires one plain %s value.", fields[[i]], types[[i]]), filename, line, column)
         }
       }
@@ -231,7 +231,7 @@ rss_runtime <- function(match_method) {
       if (!valid_receiver(value, expected)) fail("Class receiver does not match its declared layout.", filename, line, column)
       if (!field %in% mutable_fields[[expected]]) fail(sprintf("Field '%s' is immutable or unknown.", field), filename, line, column)
       required <- schemas[[expected]][[field]]
-      if (!valid_class_field(replacement, required)) {
+      if (!valid_field(replacement, required)) {
         fail(sprintf("Field '%s' requires one plain %s value.", field, required), filename, line, column)
       }
       # Plain scalars and record trees contain no references; slot replacement preserves aliases.
@@ -241,8 +241,7 @@ rss_runtime <- function(match_method) {
     record = function(record_name, fields, types, values, filename, line, column) {
       for (i in seq_along(fields)) {
         value <- values[[i]]
-        valid <- if (startsWith(types[[i]], "Record:")) plain_record(value) else plain_scalar(value)
-        if (type(value) != types[[i]] || !valid) {
+        if (!valid_field(value, types[[i]])) {
           fail(sprintf("Field '%s' requires one plain %s value.", fields[[i]], types[[i]]), filename, line, column)
         }
       }
@@ -402,7 +401,7 @@ rss_runtime <- function(match_method) {
       plain_scalar(value[[i]]) && type(value[[i]]) == schema[[i]]
     }, logical(1)))
   }
-  valid_class_field <- function(value, expected) {
+  valid_field <- function(value, expected) {
     if (startsWith(expected, "Record:")) return(valid_receiver(value, expected))
     plain_scalar(value) && type(value) == expected
   }
@@ -423,11 +422,12 @@ rss_runtime <- function(match_method) {
   }
   runtime$record_update <- function(value, fields, replacements, filename, line, column) {
     if (!startsWith(type(value), "Record:")) fail("A with update requires a record.", filename, line, column)
+    if (!valid_receiver(value, type(value))) fail("Record update receiver does not match its declared layout.", filename, line, column)
     absent <- fields[!fields %in% names(value)]
     if (length(absent)) fail(sprintf("Unknown record field '%s'.", absent[[1L]]), filename, line, column)
     # Force replacements in source order, before constructing the new value.
     replacements <- lapply(replacements, identity)
-    types <- vapply(value, type, character(1))
+    types <- unname(schemas[[type(value)]])
     result <- value
     for (i in seq_along(fields)) result[fields[[i]]] <- replacements[i]
     runtime$record(attr(value, "rss_record_type", exact = TRUE), names(value), types,

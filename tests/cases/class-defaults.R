@@ -54,7 +54,7 @@ b = Settings(active: false, label: "new")')
   check("constructor overrides retain static and runtime field checks", {
     fails(paste(counter, 'x = Counter("bad")', sep = "\n"), "requires one Number")
     fails(paste(counter, 'x = Counter([1, 2])', sep = "\n"), "requires one Number")
-    fails(paste(counter, 'x = Counter(1, 2)', sep = "\n"), "expects 1 arguments")
+    fails(paste(counter, 'x = Counter(1, 2)', sep = "\n"), "accepts at most 1 argument")
     result <- run(paste(counter, 'fn make(value) { return Counter(value) }', sep = "\n"))
     for (value in list("bad", c(1, 2), structure(1, names = "x"))) {
       error <- tryCatch(result$env$make(value), rstarstar_error = identity)

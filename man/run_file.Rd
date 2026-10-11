@@ -27,6 +27,12 @@ validation during construction, dispatch, and replacement. Class values are tagg
 require R6. R callers can inspect or modify returned lists; source privacy is not
 a security boundary. See the packaged \code{classes.rsspps} example.
 
+Nested record constructor inputs and record copy-update receivers and replacements
+are checked against declared schemas recursively. R-modified values with wrong
+leaf types or missing/extra fields are rejected. Copy updates do not repair invalid
+receivers. Matching manually tagged values may still be accepted; layout checks
+are not a provenance guarantee.
+
 Compilation errors prevent execution. Runtime errors propagate without returning
 partial results; earlier console and file effects are not rolled back. Language
 errors retain their original source locations.

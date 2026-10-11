@@ -89,7 +89,7 @@ pair.advance(true)'
     fails('class Inner { x: Number }\nclass C { x: Inner }', "Class fields require")
     fails('class C { x: Number }\nrecord R { x: C }', "Unknown field type")
     fails('class C { x: Number = 1 + 2 }', "scalar literals")
-    fails(paste(counter, 'c = Counter()', sep="\n"), "expects 1 arguments")
+    fails(paste(counter, 'c = Counter()', sep="\n"), "Missing required field 'value'")
     fails(paste(counter, 'c = Counter(v: 0)', sep="\n"), "Unknown parameter")
     fails(paste(counter, 'c = Counter("bad")', sep="\n"), "requires one Number")
     fails(paste(counter, 'c = Counter([1, 2])', sep="\n"), "requires one Number")

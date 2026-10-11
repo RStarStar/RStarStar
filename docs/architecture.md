@@ -207,3 +207,9 @@ Record and class scalar field literal defaults are validated by the analyzer and
 constructor parameter defaults. Constructor signatures track optional fields;
 source calls still require exact names and positional declaration order. Defaults
 do not capture user bindings or evaluate source during compilation.
+
+Record construction reuses the scalar/record field validator used by classes.
+Nested inputs are checked recursively against registered schemas. Record copy
+updates validate their receiver before replacements and use its declared schema,
+not types inferred from the externally supplied list. This rejects malformed
+R inputs without treating layout checks as proof of origin.

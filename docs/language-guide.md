@@ -16,7 +16,9 @@ syntax or record value semantics; generated R runs without R6.
 The package includes experimental std::absolute(values) and std::square_root(values)
 for plain numeric scalars and vectors. Missing values propagate; negative square
 roots fail at execution. std::text_length(values) counts characters in plain text,
-preserving missing values and vector length. std::trim_text(values) removes boundary
+preserving missing values and vector length. std::lower_text(values) produces lowercase text using the current R locale.
+It preserves missing values and is not Unicode normalization or full case folding.
+std::trim_text(values) removes boundary
 spaces, tabs, carriage returns, and newlines from text. Only required implementations are embedded in standalone
 generated R. There are no new R exports or dependencies. See the
 [standard-library contract](standard-library.md) for examples and limits.
@@ -223,7 +225,9 @@ as functions. Fields are public to read and cannot be assigned. A mut binding ma
 be replaced with another value of the same declared record type; copies retain
 their original fields. Scalar literal defaults are supported, for example
 record Point { x: Number = 0 } allows Point() and Point(x: 3). Fields without
-defaults remain required; use exact names to skip optional fields. A default such
+defaults remain required; use exact names to skip optional fields. Constructor
+errors name omitted required fields and distinguish the maximum argument count
+from required fields. Unknown labels fail rather than being guessed. A default such
 as x: Number = "zero" or x: Number = (1 + 2) fails during compilation. An Integer
 field type is not implemented.
 
@@ -231,7 +235,10 @@ Records use ordinary named R lists with an internal type attribute and base R
 printing. Method dispatch uses private runtime metadata. Read-only
 [record methods](record-methods.md) now support nested fn declarations and receiver
 calls, returning new values for updates. R callers can modify
-returned lists, so immutability is a source-language rule. Vector or table fields,
+returned lists, so immutability is a source-language rule. Nested constructors and
+copy updates check declared record layouts recursively. If R changes a Point's
+numeric x to text, enclosing constructors and copy updates reject it; an update
+cannot silently repair a malformed receiver. Vector or table fields,
 validation blocks, and computed or record-valued defaults remain future work. See [records](implemented-subset.md#records)
 for exact limits and failures.
 
