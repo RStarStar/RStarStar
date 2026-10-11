@@ -62,6 +62,10 @@ results <- run_file(path)
 results$adjusted
 ```
 
+For programs with relative data/output paths, use
+`run_file(path, working_dir = "your-data-folder")` to select an existing directory
+for execution. The caller's working directory is restored afterward, including on errors.
+
 This is a local source installation, not a CRAN release. The compiler uses R6
 alongside packages bundled with R; generated programs do not require R6. It declares R >= 4.1.0 and has been verified locally on
 R 4.6.0. Automated checks are configured for R release on Linux/macOS/Windows

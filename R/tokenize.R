@@ -1,8 +1,12 @@
 # Internal tokenize stage. Each call resets its private state, including after errors.
+# Turns source text into token lists with kind, value, and one-based source spans.
+# Only parentheses/brackets suppress newline tokens; braces delimit statements.
 RSSTokenizer <- R6::R6Class(
   "RSSTokenizer",
   cloneable = FALSE,
   public = list(
+    # source is decoded text; filename labels diagnostics. Returns tokens plus EOF.
+    # Columns count characters, not bytes; line-ending normalization keeps CRLF sane.
     tokenize = function(source, filename) {
       private$filename <- filename
       source <- gsub("\r\n?", "\n", source)
@@ -84,7 +88,9 @@ RSSTokenizer <- R6::R6Class(
     depth = NULL,
     tokens = NULL,
     filename = NULL,
+    # Peek without advancing; the empty sentinel lets scanning loops stop at EOF.
     current = function() if (private$i <= private$n) private$chars[[private$i]] else "",
+    # Consume one character and keep the next character's source coordinates.
     advance = function() {
       if (private$current() == "\n") {
         private$line <- private$line + 1L
@@ -94,8 +100,10 @@ RSSTokenizer <- R6::R6Class(
       }
       private$i <- private$i + 1L
     },
+    # Snapshot a zero-width span before scanning a token.
     location = function() list(line = private$line, column = private$column,
                                 end_line = private$line, end_column = private$column),
+    # Append a completed token; the cursor is already past its final character.
     add = function(kind, value, start) {
       start$kind <- kind
       start$value <- value

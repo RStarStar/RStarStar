@@ -1,8 +1,12 @@
 # Internal generate stage. Each call resets its private state, including after errors.
+# Emits R text from an analyzed AST; it never executes the text. Runtime functions
+# are deparsed into the result so generated programs need neither this package nor R6.
 RSSGenerator <- R6::R6Class(
   "RSSGenerator",
   cloneable = FALSE,
   public = list(
+    # statements must already pass analysis; filename is embedded in runtime errors.
+    # Returns a single R-source string, with only the required helper families.
     generate = function(statements, filename) {
       private$filename <- filename
       private$has_data <- any(vapply(statements, function(x) x$kind == "assign" && x$value$kind == "read", logical(1)))
@@ -32,6 +36,8 @@ RSSGenerator <- R6::R6Class(
             private$call_runtime("class_permissions", c(private$quote_text(nominal), vector(statement$mutable_fields)), statement$token), sep = "\n")
           implementations <- vapply(statement$methods, function(method) {
             private$class_context <- if (is_class) nominal else NULL
+            # Mutations build a local self candidate. The caller's binding is only
+            # replaced after method dispatch returns successfully.
             if (isTRUE(method$mutating)) {
               assignments <- vapply(method$body, function(assignment) {
                 paste0(" self <- ", private$call_runtime("class_set",
@@ -64,6 +70,7 @@ RSSGenerator <- R6::R6Class(
         private$declared <- c(private$declared, statement$name)
         paste0(private$name(statement$name), " <- ", rhs)
       }, character(1))
+      # Emission records dependencies first, then prepends standalone helpers.
       helpers <- character()
       if (length(private$standard_operations)) helpers <- c(helpers, rss_standard_generate(private$standard_operations))
       if (private$needs_runtime) helpers <- c(helpers, paste0(".rss <- base::eval(base::quote((", paste(deparse(rss_runtime, width.cutoff = 100L), collapse = "\n"), ")(", paste(deparse(rss_match_method, width.cutoff = 100L), collapse = "\n"), ")), base::new.env(parent = base::baseenv()))"))
@@ -82,18 +89,26 @@ RSSGenerator <- R6::R6Class(
     needs_runtime = NULL,
     declared = NULL,
     filename = NULL,
+    # Quote lexer-validated identifiers so names that are R keywords remain usable.
     name = function(value) paste0("`", value, "`"),
+    # Escape literal text as R source; never interpolate raw user text into code.
     quote_text = function(value) encodeString(value, quote = '"'),
+    # Scan nested AST lists to enable dynamic checks for branch-dependent values.
     contains_conditional = function(value) {
       if (!is.list(value)) return(FALSE)
       if (identical(value$kind, "conditional")) return(TRUE)
       any(vapply(value, private$contains_conditional, logical(1)))
     },
+    # args contains already-emitted R fragments. Add source coordinates and mark
+    # the shared runtime as required; return a call expression as text.
     call_runtime = function(method, args, token) {
       private$needs_runtime <- TRUE
       paste0(".rss$", method, "(", paste(c(args, private$quote_text(private$filename), paste0(token$line, "L"),
              paste0(token$column, "L")), collapse = ", "), ")")
     },
+    # Recursively emit one expression. table is the R fragment for the current
+    # filter input: bare names read its columns, while @bindings bypass it.
+    # Native R if preserves lazy branches; argument lists preserve written order.
     emit = function(value, table = NULL) {
       recurse <- function(x) private$emit(x, table)
       switch(value$kind,

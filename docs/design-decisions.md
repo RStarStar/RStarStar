@@ -956,3 +956,34 @@ conversion keeps filtering policy visible and preserves R's existing text behavi
 Verification covers composition, source data preservation, CSV/missing/empty values,
 exact signatures, type checks, R caller inputs and encodings, current-locale parity,
 call chains, compilation/execution separation, and standalone generated R.
+
+## 2026-10-11 — Explicit execution directory in the R API
+
+Status: implemented, experimental in 0.0.26. The requested API improvements begin
+with a recurring example-workflow problem: callers currently need a setwd/on.exit
+wrapper to run source stored separately from its data or outputs. Add the optional
+run_file(path, working_dir = NULL) argument. NULL preserves existing behavior; an
+explicit existing local directory controls relative CSV and chart paths during
+execution, with caller-directory restoration on success and error.
+
+Resolve and compile the source from the caller's directory before changing it.
+Resolve a relative working_dir from that same caller directory. This avoids a
+same-named source in the data folder being selected accidentally. Compilation
+errors take precedence over directory errors; invalid or inaccessible directories
+raise rstarstar_error before any program execution. Do not create directories.
+For example, run_file("analysis.rsspps", working_dir = "data") reads analysis.rsspps
+in the caller directory and resolves its relative dataset/output paths inside data.
+A nonexistent data directory fails before printing or writing any program output.
+
+Automatic source-directory selection was deferred because it would change existing
+path behavior and conflate source storage with data/output locations. Rewriting
+paths in generated R would duplicate runtime path handling. A temporary process
+working-directory change is small and follows ordinary R execution conventions.
+It is not filesystem isolation; absolute paths and parent-directory traversal
+remain possible. Earlier effects still are not rolled back on runtime failure.
+Returned closures retain no directory policy for later R calls, and standalone
+generated R remains unchanged. No new exports, dependencies, or language syntax.
+
+Verification covers relative source/directory resolution, output location, default
+compatibility, invalid inputs, compilation ordering, restoration after successful,
+empty, and failed runs, source diagnostics, overwrite protection, and Cairo charts.

@@ -7,7 +7,10 @@ syntax and [design decisions](design-decisions.md) for open proposals.
 
 The R package provides transpile(path) for compilation and run_file(path) for
 explicit execution with variables and functions returned to R. Both accept only
-local UTF-8 .rsspps files; see the [package guide](r-package.md).
+local UTF-8 .rsspps files. The optional run_file(path, working_dir = directory)
+argument selects an existing directory for relative data/output paths during
+execution and restores the caller's directory afterward, including on errors.
+The default uses the caller's directory; see the [package guide](r-package.md).
 The compiler implementation uses internal R6 classes. This does not change source
 syntax or record value semantics; generated R runs without R6.
 

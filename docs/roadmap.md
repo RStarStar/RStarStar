@@ -101,6 +101,7 @@ mutable class fields and direct nested assignments remain deferred.
 ## 5. Contracts and ecosystem access
 
 - [x] Explicit run_file(path) execution and result/function transfer to R callers.
+- [x] Optional execution working_dir with caller-directory restoration on success and error.
 - [ ] External R calls, interfaces, and reference/mutation contracts.
 
 Specify interfaces and explicit interoperability between .rsspps programs,

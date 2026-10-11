@@ -1,4 +1,7 @@
 # Shared exact method argument matching, also embedded in standalone runtime code.
+# parameters excludes self; labels follows source order (empty labels are positional).
+# Returns the parameter index for each supplied argument, or raises rstarstar_error.
+# Shared by analysis and runtime so unknown receiver types obey the same exact rules.
 rss_match_method <- function(parameters, labels, token, filename) {
   fail <- function(message) {
     stop(structure(list(message = sprintf("%s:%d:%d: %s", filename, token$line, token$column, message),
@@ -19,6 +22,10 @@ rss_match_method <- function(parameters, labels, token, filename) {
 
 # Self-contained runtime helper, embedded only in programs containing read.
 # Keep all dependencies inside this function or explicitly namespace-qualified.
+# path and separator select input; schema is a named Text/Number/Boolean vector and
+# missing_values replaces the default markers. Returns a data.frame preserving
+# headers and row order. All file access and conversion happen at execution time;
+# filename/line/column refer to the source read statement, not the CSV data file.
 rss_read_csv <- function(path, separator, filename, line, column, schema = character(), missing_values = c("", "NA")) {
   fail <- function(message) {
     stop(structure(list(
@@ -44,11 +51,13 @@ rss_read_csv <- function(path, separator, filename, line, column, schema = chara
   csv_line <- 1L
   record_line <- 1L
   width <- NULL
+  # Commit the accumulated field and reset quoting state for the next field.
   finish_field <- function() {
     record <<- c(record, paste0(field, collapse = ""))
     field <<- character()
     state <<- "start"
   }
+  # Commit one row, enforcing the header width even for empty or multiline fields.
   finish_record <- function() {
     finish_field()
     if (is.null(width)) width <<- length(record)
@@ -84,6 +93,8 @@ rss_read_csv <- function(path, separator, filename, line, column, schema = chara
   absent <- setdiff(names(schema), header)
   if (length(absent)) fail(sprintf("schema column '%s' is absent from the CSV header.", absent[[1L]]))
   rows <- records[-1L]
+  # Apply missing markers before explicit conversion or whole-column inference.
+  # Empty/all-missing inferred columns stay Text; declarations retain numeric/logical types.
   convert <- function(index) {
     values <- vapply(rows, function(row) row[[index]], character(1))
     missing <- values %in% missing_values
@@ -120,6 +131,9 @@ rss_read_csv <- function(path, separator, filename, line, column, schema = chara
 
 # Embedded expression checks also cover values whose CSV type/length is unknown
 # until execution. All closures live in a private environment in generated R.
+# match_method is injected explicitly because this factory is embedded as source.
+# Returns the helper list used as .rss, with private per-program registries captured
+# by its closures. Helpers receive original source coordinates for diagnostics.
 rss_runtime <- function(match_method) {
   methods <- list()
   schemas <- list()
@@ -130,6 +144,7 @@ rss_runtime <- function(match_method) {
                         end_line = line, end_column = column + 1L),
                    class = c("rstarstar_error", "error", "condition")))
   }
+  # Classify storage/nominal tags for language operations; this is not schema validation.
   type <- function(value) {
     class_name <- attr(value, "rss_class_type", exact = TRUE)
     if (is.list(value) && is.character(class_name) && length(class_name) == 1L && !is.na(class_name)) return(paste0("Class:", class_name))
@@ -141,16 +156,19 @@ rss_runtime <- function(match_method) {
     if (is.logical(value)) return("Boolean")
     "Unsupported"
   }
+  # Fields accept one unattributed primitive value, including typed missing values.
   plain_scalar <- function(value) {
     length(value) == 1L && is.null(attributes(value)) &&
       typeof(value) %in% c("double", "integer", "logical", "character")
   }
+  # Check supported record-tree shape; valid_receiver also checks its declared schema.
   plain_record <- function(value) {
     if (!startsWith(type(value), "Record:") || !length(value) ||
         !setequal(names(attributes(value)), c("names", "rss_record_type")) ||
         is.null(names(value)) || anyNA(names(value)) || any(!nzchar(names(value))) || anyDuplicated(names(value))) return(FALSE)
     all(vapply(value, function(field) plain_scalar(field) || plain_record(field), logical(1)))
   }
+  # Classes may hold scalar/record fields, but never nested mutable class references.
   plain_class <- function(value) {
     startsWith(type(value), "Class:") && length(value) > 0L &&
       setequal(names(attributes(value)), c("names", "rss_class_type")) &&
@@ -158,6 +176,8 @@ rss_runtime <- function(match_method) {
       all(nzchar(names(value))) && !anyDuplicated(names(value)) &&
       all(vapply(value, function(field) plain_scalar(field) || plain_record(field), logical(1)))
   }
+  # Enforce operand types and scalar broadcasting before applying an R operator.
+  # Record equality reduces field comparisons: false wins over missing, then true.
   binary <- function(op, left, right, filename, line, column) {
     error <- function(message) fail(message, filename, line, column)
     types <- c(type(left), type(right))
@@ -199,19 +219,23 @@ rss_runtime <- function(match_method) {
            ">" = left > right, ">=" = left >= right, "and" = left & right, "or" = left | right)
   }
   runtime <- list(
+    # Register ordered field types under a canonical Record:/Class: nominal name.
     schema = function(type, fields, types, filename, line, column) {
       names(types) <- fields
       schemas[[type]] <<- types
       invisible(NULL)
     },
+    # Store a generated method closure by ID; call sites carry visible candidate IDs.
     method = function(id, type, parameters, implementation, mutating, filename, line, column) {
       methods[[id]] <<- list(type = type, parameters = parameters, implementation = implementation, mutating = mutating)
       invisible(NULL)
     },
+    # Record which private fields a checked mutating method may replace.
     class_permissions = function(type, fields, filename, line, column) {
       mutable_fields[[type]] <<- fields
       invisible(NULL)
     },
+    # Validate constructor values, then return a tagged list with declared field names.
     class_value = function(class_name, fields, types, values, filename, line, column) {
       for (i in seq_along(fields)) {
         value <- values[[i]]
@@ -222,11 +246,14 @@ rss_runtime <- function(match_method) {
       names(values) <- fields
       structure(values, rss_class_type = class_name)
     },
+    # Read an exact field from a validated self receiver inside a class method.
     class_field = function(value, expected, field, filename, line, column) {
       if (!valid_receiver(value, expected)) fail("Class receiver does not match its declared layout.", filename, line, column)
       if (!field %in% names(value)) fail(sprintf("Unknown class field '%s'.", field), filename, line, column)
       value[[field, exact = TRUE]]
     },
+    # Validate and replace a field on the method-local candidate; return the new value.
+    # The generated caller assignment commits only after the complete method succeeds.
     class_set = function(value, expected, field, replacement, filename, line, column) {
       if (!valid_receiver(value, expected)) fail("Class receiver does not match its declared layout.", filename, line, column)
       if (!field %in% mutable_fields[[expected]]) fail(sprintf("Field '%s' is immutable or unknown.", field), filename, line, column)
@@ -238,6 +265,7 @@ rss_runtime <- function(match_method) {
       value[[field]] <- replacement
       value
     },
+    # Construct a tagged record after recursively validating every supplied field.
     record = function(record_name, fields, types, values, filename, line, column) {
       for (i in seq_along(fields)) {
         value <- values[[i]]
@@ -248,12 +276,15 @@ rss_runtime <- function(match_method) {
       names(values) <- fields
       structure(values, rss_record_type = record_name)
     },
+    # Return one nonmissing boolean for native R if, avoiding implicit coercion.
     condition = function(value, filename, line, column) {
       if (!is.logical(value) || !is.null(dim(value)) || length(value) != 1L || is.na(value)) {
         fail("An if condition must be exactly one nonmissing boolean.", filename, line, column)
       }
       value
     },
+    # Invoke a generated function with eager arguments; append call-site context
+    # to language errors while retaining the original failure's structured location.
     call = function(target, arguments, filename, line, column) {
       # Force each argument once before entering the function, including unused ones.
       arguments <- lapply(arguments, identity)
@@ -262,6 +293,9 @@ rss_runtime <- function(match_method) {
         stop(e)
       })
     },
+    # Return a numeric scalar for count/sum/average, enforcing explicit missing policy.
+    # Empty numeric sum is zero; average rejects empty input. Both sum and average
+    # reject nonmissing nonfinite inputs; count simply counts entries or rows.
     summary = function(operation, value, skip, filename, line, column) {
       error <- function(message) fail(message, filename, line, column)
       if (operation == "count") {
@@ -281,6 +315,9 @@ rss_runtime <- function(match_method) {
       if (!is.finite(result)) error("Summary result is outside the finite numeric range.")
       as.double(result)
     },
+    # Validate plain table columns, stage UTF-8 CSV, then copy without overwrite.
+    # Returns the path invisibly; cleans staging files on error, without promising
+    # atomic publication or rollback of earlier program effects.
     write = function(table, path, separator, missing_value, filename, line, column) {
       error <- function(message) fail(message, filename, line, column)
       if (!is.data.frame(table)) error("CSV export requires a table.")
@@ -309,6 +346,8 @@ rss_runtime <- function(match_method) {
       })
       invisible(path)
     },
+    # Render a validated nonempty table through Cairo to a temporary PNG, then
+    # publish without overwrite. Always clean the temporary file and owned device.
     plot = function(table, x, y, path, filename, line, column) {
       error <- function(message) fail(message, filename, line, column)
       if (!is.data.frame(table)) error("Plotting requires a table.")
@@ -346,11 +385,13 @@ rss_runtime <- function(match_method) {
       invisible(path)
     },
     binary = binary,
+    # Apply a numeric sign or boolean not only after checking the language type.
     unary = function(op, value, filename, line, column) {
       expected <- if (op == "not") "Boolean" else "Number"
       if (type(value) != expected) fail(if (op == "not") "Logical operations require booleans." else "Arithmetic requires numbers.", filename, line, column)
       switch(op, "not" = !value, "+" = +value, "-" = -value)
     },
+    # Combine homogeneous scalar elements, rejecting records, classes, and tables.
     vector = function(values, filename, line, column) {
       if (any(lengths(values) != 1L)) fail("Vector elements must each contain one value.", filename, line, column)
       types <- vapply(values, type, character(1))
@@ -359,6 +400,8 @@ rss_runtime <- function(match_method) {
       if (any(types %in% c("Table", "Unsupported")) || length(unique(types)) != 1L) fail("Vector elements must have the same non-table type.", filename, line, column)
       do.call(base::c, values)
     },
+    # Exact table/record lookup, with no partial names or public class-field access.
+    # Generic record field reads do not perform full declared-schema validation.
     column = function(table, name, filename, line, column) {
       if (startsWith(type(table), "Class:")) fail("Class fields are private; use a read-only method.", filename, line, column)
       if (startsWith(type(table), "Record:")) {
@@ -369,6 +412,7 @@ rss_runtime <- function(match_method) {
       if (!(name %in% names(table))) fail(sprintf("Unknown column '%s'. Check the table's column names.", name), filename, line, column)
       table[[name, exact = TRUE]]
     },
+    # Test vector missingness (optionally negated); whole structured values are rejected.
     missing = function(value, negate, filename, line, column) {
       if (startsWith(type(value), "Class:")) fail("Operate on class values through methods.", filename, line, column)
       if (startsWith(type(value), "Record:")) fail("Test a record field for missing values, not a record.", filename, line, column)
@@ -376,6 +420,8 @@ rss_runtime <- function(match_method) {
       result <- is.na(value)
       if (negate) !result else result
     },
+    # Apply a scalar or per-row logical predicate; missing results require opt-in
+    # dropping. Preserve table shape and row order, including a zero-row result.
     filter = function(table, predicate, skip, filename, line, column) {
       if (!is.data.frame(table)) fail("Filtering requires a table.", filename, line, column)
       if (!is.logical(predicate)) fail("Filter condition must be boolean.", filename, line, column)
@@ -387,11 +433,14 @@ rss_runtime <- function(match_method) {
       rownames(result) <- NULL
       result
     },
+    # Enforce stable binding type on reassignment; length is allowed to change.
     update = function(previous, value, filename, line, column) {
       if (type(previous) != type(value)) fail(sprintf("Cannot change binding from %s to %s.", type(previous), type(value)), filename, line, column)
       value
     }
   )
+  # Check nominal identity, ordered field layout, and recursive declared schemas.
+  # This validates supported values, not their provenance or immutability in R.
   valid_receiver <- function(value, expected) {
     if (type(value) != expected || !(if (startsWith(expected, "Class:")) plain_class(value) else plain_record(value))) return(FALSE)
     schema <- schemas[[expected]]
@@ -401,10 +450,14 @@ rss_runtime <- function(match_method) {
       plain_scalar(value[[i]]) && type(value[[i]]) == schema[[i]]
     }, logical(1)))
   }
+  # Scalar fields use storage/type checks; nested records require the full schema.
   valid_field <- function(value, expected) {
     if (startsWith(expected, "Record:")) return(valid_receiver(value, expected))
     plain_scalar(value) && type(value) == expected
   }
+  # Select among declaration-visible IDs using the actual receiver type. Evaluate
+  # arguments in written order, then reorder values for exact parameter matching.
+  # Mutating dispatch returns a checked replacement rather than altering the caller.
   runtime$method_call <- function(receiver, name, candidates, arguments, labels, mutating, filename, line, column) {
     force(receiver)
     arguments <- lapply(arguments, identity)
@@ -420,6 +473,8 @@ rss_runtime <- function(match_method) {
     if (mutating && !valid_receiver(candidate, entry$type)) error("Mutating method returned an invalid class receiver.")
     candidate
   }
+  # Reject invalid receivers before replacements; rebuild a copy using declared
+  # field types. Updating a corrupt R-supplied record cannot silently repair it.
   runtime$record_update <- function(value, fields, replacements, filename, line, column) {
     if (!startsWith(type(value), "Record:")) fail("A with update requires a record.", filename, line, column)
     if (!valid_receiver(value, type(value))) fail("Record update receiver does not match its declared layout.", filename, line, column)
@@ -433,6 +488,9 @@ rss_runtime <- function(match_method) {
     runtime$record(attr(value, "rss_record_type", exact = TRUE), names(value), types,
                    result, filename, line, column)
   }
+  # keys names grouping columns; specs holds named aggregate descriptors emitted
+  # by the generator. Return one row per first-seen key combination, using the same
+  # scalar summary rules for each group, without evaluating arbitrary expressions.
   runtime$summarize <- function(table, keys, specs, filename, line, column) {
     error <- function(message) fail(message, filename, line, column)
     if (!is.data.frame(table)) error("Grouped summaries require a table.")

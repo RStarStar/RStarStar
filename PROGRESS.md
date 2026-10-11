@@ -1173,3 +1173,65 @@ checking CSV/chart output creation. Checked the README's relative links and git
 diff whitespace. Local environment: R 4.6.0 on macOS arm64. Other platforms,
 hosted CI, and PDF manuals were not checked; lowercase conversion still follows
 the executing R locale.
+
+## 2026-10-11 — Optional execution directory for run_file (0.0.26)
+
+Added run_file(path, working_dir = NULL) so R callers can select an existing
+folder for relative data and output paths without a manual setwd/on.exit wrapper.
+The default preserves existing behavior. Source paths resolve and compile before
+changing directories; a relative working_dir also resolves from the caller's
+directory. Invalid directory arguments produce rstarstar_error before program
+execution. Explicit directory changes restore the caller's directory on return
+or error, including empty programs and failed overwrite attempts.
+
+Added six behavioral checks covering separate source/data locations (including a
+same-named source decoy), relative paths and spaces, CSV output location, invalid
+inputs, source diagnostics and compilation precedence, default/NULL compatibility,
+returned functions, earlier effects on failure, and Cairo chart output/restoration.
+Updated the development run-file example and packaged examples helper to use the
+argument. Updated API help, guides, decision record, roadmap, README, and package
+version/build instructions. No source syntax, generated R, exports, or dependencies
+changed.
+
+Verification: reinstalled 0.0.26 into temporary libraries; all 336 checks passed
+with 0 skips, and all thirteen development demos passed. R CMD build . and
+R CMD check --no-manual RStarStar_0.0.26.tar.gz completed with Status: OK, no warnings
+or notes. Both R blocks in the packaged README and all twelve installed source
+examples passed through its updated run_file helper, including CSV/chart output
+checks. Checked 103 relative links and balanced fences across 14 Markdown files,
+example consistency, and git diff whitespace. Local environment: R 4.6.0 on macOS
+arm64 with Cairo. Hosted CI, other platforms/R versions, and PDF manuals remain
+unverified.
+
+Limits: this temporarily changes the R process working directory; it is not a
+filesystem sandbox. Absolute and parent-directory paths remain usable, directories
+are not created, and prior console/file effects are not rolled back. The option
+applies to this execution only, not later calls to returned R functions.
+
+## 2026-10-11 — API and compiler implementation comments
+
+Added source comments across all eight R modules explaining the public API's
+arguments, return values, errors, and side effects; compiler stage contracts;
+parser precedence and AST spans; analysis scopes and unknown type/size handling;
+R emission and helper selection; runtime validation, dispatch, copying, CSV/chart
+output, and standard-library behavior. Comments distinguish static analysis from
+execution and schema checks from provenance or deep-immutability guarantees.
+Added an architecture reading map and corrected its outdated working-directory
+and class-field descriptions to match the implemented API. Public help remains
+hand-maintained, with no documentation-generation dependency.
+
+Verification: captured parsed R expressions and generated R for all twelve
+packaged sources before this comment pass. Final comparison with source references
+excluded confirmed identical parsed expressions in all eight modules and identical
+generated R strings. Reinstalled 0.0.26; all 336 behavioral checks passed with
+0 skips, and all thirteen development demos passed, including Cairo rendering.
+R CMD build . and R CMD check --no-manual RStarStar_0.0.26.tar.gz completed with
+Status: OK and no warnings or notes. Checked 111 relative links and balanced fences
+across 14 Markdown files, example consistency, and git diff whitespace. Two final
+comment wording corrections were checked by the final parsed/generated comparison;
+they did not require repeating behavioral checks.
+
+No executable code, API signatures, language semantics, or dependencies changed
+in this pass. Preserved the earlier uncommitted working_dir API improvements.
+Verification was local on R 4.6.0/macOS arm64; hosted CI, other platforms, and PDF
+manuals remain unverified.

@@ -1,10 +1,13 @@
 \name{run_file}
 \alias{run_file}
 \title{Execute a RStarStar Source File and Return Its Bindings}
-\usage{run_file(path)}
+\usage{run_file(path, working_dir = NULL)}
 \arguments{
   \item{path}{One local UTF-8 \code{.rsspps} file path, as required by
   \code{\link{transpile}}.}
+  \item{working_dir}{Optional nonempty path to an existing local directory for
+  program execution. Relative paths are resolved from the caller's working
+  directory. \code{NULL} (the default) uses the caller's working directory.}
 }
 \description{
 Compiles the entire file, then explicitly executes the generated R in a fresh
@@ -37,9 +40,18 @@ Compilation errors prevent execution. Runtime errors propagate without returning
 partial results; earlier console and file effects are not rolled back. Language
 errors retain their original source locations.
 
-Printing goes to normal R output. CSV exports refuse to overwrite existing files. Data and chart paths resolve from the caller's
-working directory; this function does not change it. Charts retain their existing
-Cairo requirement and refusal to overwrite files.
+Printing goes to normal R output. CSV exports refuse to overwrite existing files.
+Relative data, export, and chart paths resolve from \code{working_dir} when supplied,
+or from the caller's working directory by default. The source \code{path} is always
+resolved and compiled before changing directories. Compilation errors take precedence
+over invalid \code{working_dir} arguments. Invalid or inaccessible directories fail
+before program execution with an \code{rstarstar_error}.
+
+An explicit \code{working_dir} temporarily changes R's process working directory;
+the caller's directory is restored on return or error. No directory is created.
+This is a path-resolution convenience, not filesystem isolation: absolute paths
+and parent-directory paths remain usable. Charts retain their existing Cairo
+requirement and refusal to overwrite files.
 
 Each call uses fresh program bindings. Caller variables are not injected. Results
 are ordinary R values, and returned functions are ordinary R closures with R's
@@ -52,4 +64,8 @@ source language remains unsupported.
 path <- system.file("examples", "basics.rsspps", package = "RStarStar")
 results <- run_file(path)
 results$adjusted
+
+directory <- system.file("examples", package = "RStarStar")
+sales <- run_file(file.path(directory, "filter.rsspps"), working_dir = directory)
+sales$matching_regions
 }

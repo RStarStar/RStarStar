@@ -1,6 +1,6 @@
 # Packaged RStarStar examples
 
-These examples use the implemented syntax in RStarStar 0.0.25. Start with
+These examples use the implemented syntax and API in RStarStar 0.0.26. Start with
 [basics.rsspps](basics.rsspps), then choose a topic:
 
 | Example | Demonstrates |
@@ -39,9 +39,7 @@ run_example <- function(name = "filter") {
   work <- tempfile("rstarstar-example-")
   dir.create(work)
   stopifnot(file.copy(file.path(examples, "data"), work, recursive = TRUE))
-  previous <- setwd(work)
-  on.exit(setwd(previous))
-  values <- run_file(file.path(examples, paste0(name, ".rsspps")))
+  values <- run_file(file.path(examples, paste0(name, ".rsspps")), working_dir = work)
   list(values = values, directory = work)
 }
 result <- run_example("filter")

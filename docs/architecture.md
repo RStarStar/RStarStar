@@ -1,14 +1,32 @@
 # Architecture
 
-R/api.R exports transpile(path) and run_file(path). The compiler entry point validates
+R/api.R exports transpile(path) and run_file(path, working_dir = NULL). The compiler entry point validates
 and reads local UTF-8 .rsspps files, then delegates to the internal rss_compile()
 in R/transpile.R. The compiler performs tokenization, parsing, semantic analysis,
 and R generation. Internal rss_* functions are not exported.
 
 CSV programs embed a self-contained loader and checked expression helpers.
-Records with scalar/nested fields and classes with private scalar fields are implemented.
+Records with scalar/nested fields and classes with private scalar/record fields are implemented.
 The explicit R interoperability bridge remains future work. The
 compiler uses R6 alongside R-bundled dependencies; see the [package guide](r-package.md).
+
+## Reading the implementation
+
+Start with [R/api.R](../R/api.R) for public arguments, return values, errors, and
+execution effects, then [R/transpile.R](../R/transpile.R) for stage coordination.
+The source comments in each stage describe its input/output contract and the
+invariants used by its private helpers:
+
+- [R/tokenize.R](../R/tokenize.R): token kinds, decoded values, and source coordinates.
+- [R/parse.R](../R/parse.R): statement nodes, expression precedence, and source spans.
+- [R/analyze.R](../R/analyze.R): scopes, type/size inference, and deferred runtime checks.
+- [R/generate.R](../R/generate.R): R expression emission and helper selection.
+- [R/runtime.R](../R/runtime.R): execution-time data, object, and expression checks.
+- [R/standard-library.R](../R/standard-library.R): operation contracts and embedded implementations.
+
+These internal helpers are not exported APIs. Public R help remains maintained in
+man/transpile.Rd and man/run_file.Rd; source comments do not require a documentation
+generator or additional dependencies.
 
 ## Internal compiler classes
 
@@ -105,11 +123,14 @@ are rejected before generation. Embedded helper closures are created in base-R
 parent environments, preventing user function names from shadowing dependencies.
 
 
-run_file(path) delegates validation and whole-file compilation to transpile(path),
-then evaluates generated R in a fresh environment parented by baseenv(). It returns
+run_file(path, working_dir = NULL) delegates validation and whole-file compilation
+to transpile(path), then optionally selects an existing execution directory and
+evaluates generated R in a fresh environment parented by baseenv(). It returns
 final bindings through mget(), excluding reserved compiler helpers. Returned function
-closures retain that environment. Execution is explicit, with no caller injection,
-working-directory changes, effect rollback, or external-call bridge.
+closures retain that environment. The default preserves the caller's working
+directory; an explicit working_dir temporarily changes it and restores it on return
+or error. Source paths resolve before directory selection. Execution is explicit,
+with no caller injection, effect rollback, filesystem isolation, or external-call bridge.
 
 
 CSV write statements validate a table binding during analysis and emit an embedded

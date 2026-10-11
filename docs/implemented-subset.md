@@ -37,8 +37,9 @@ Generated R includes its runtime helpers and runs independently of the compiler.
 Chart code uses the R-bundled graphics/grDevices packages. Compilation is not a
 sandbox for later execution, and checks cannot protect generated R that is edited.
 Relative dataset and chart paths use the execution working directory, not the
-source-file directory. Developer runners in examples/ set the working directory
-to the installed example folder explicitly and compile packaged .rsspps files.
+source-file directory. run_file(path, working_dir = directory) can select an
+execution directory and restore the caller's directory afterward. Developer
+runners in examples/ use packaged .rsspps files with explicit data directories.
 
 The package declares R >= 4.1.0 and is tested locally on R 4.6.0/macOS arm64.
 Earlier versions and other platforms are not yet verified. R6 is the compiler’s
@@ -511,10 +512,15 @@ statement is not yet supported: assign or print its result instead.
 
 ## Explicit execution API
 
-run_file(path) uses the same file contract as transpile(path), compiles the whole
+run_file(path, working_dir = NULL) uses the same file contract as transpile(path), compiles the whole
 file, then executes it in a fresh environment. It returns a named list of final
 variables and callable functions, excluding runtime helpers. Printing and file
-operations occur during execution; paths use the caller's working directory.
+operations occur during execution; relative paths use the caller's working
+directory by default. An optional working_dir selects an existing local directory
+for execution and restores the caller's directory on return or error. Both source
+and directory arguments resolve from the caller's directory; compilation precedes
+directory selection. Invalid directories fail before program execution. The option
+does not create directories or restrict access to other filesystem paths.
 Errors propagate without partial results or rollback of earlier effects. See the
 [package guide](r-package.md#explicit-execution-from-r) for result and scope rules.
 

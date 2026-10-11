@@ -169,9 +169,13 @@ print(positive)
 You can pass `positive` to the R plotting, reporting, or modelling packages you
 already use. No extra R package is needed for the examples above.
 
-Relative dataset and output paths resolve from R's **current working directory**,
-not from the source file's directory. Check `getwd()` when a CSV cannot be found.
-Using an absolute path for the `.rsspps` file does not change this rule.
+Relative dataset and output paths resolve from R's **current working directory**
+by default, not from the source file's directory. Check `getwd()` when a CSV cannot
+be found. To choose another existing data/output folder, use
+`run_file("sales-analysis.rsspps", working_dir = "data-folder")`.
+The source path still resolves from your current directory. RStarStar temporarily
+uses the selected folder for execution and restores your directory afterward,
+including on errors. Using an absolute source path alone does not select a data folder.
 
 CSV exports and charts created by RStarStar refuse to overwrite existing outputs;
 choose a fresh filename for repeated runs. RStarStar PNG charts need

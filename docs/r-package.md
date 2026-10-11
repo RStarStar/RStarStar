@@ -1,6 +1,6 @@
 # R package guide
 
-RStarStar 0.0.25 is an experimental, locally installable R package. There is no
+RStarStar 0.0.26 is an experimental, locally installable R package. There is no
 public CLI and no published CRAN release. It exports transpile(path) to return generated R text and run_file(path) to
 execute a program and return its bindings. Both accept .rsspps files only.
 
@@ -67,11 +67,34 @@ print-only programs return an empty list. Returned functions retain their checks
 and can be called by existing R code, using ordinary R argument semantics.
 
 Printing goes to normal R output. CSV reads/exports and chart writes happen during execution;
-relative paths use the caller's working directory, which run_file() does not change.
+relative paths use the caller's working directory by default.
 CSV exports and charts refuse to overwrite existing files. Charts still require Cairo. Runtime errors
 preserve source locations and return no partial result. Earlier output/file effects
 are not rolled back. For example, a print followed by a missing CSV still prints
 before raising an error; an invalid declaration later in the file prevents all execution.
+
+Use run_file(path, working_dir = directory) to choose an execution directory without
+manually calling setwd(). For example, run an installed CSV example from any folder:
+
+```r
+directory <- system.file("examples", package = "RStarStar", mustWork = TRUE)
+results <- run_file(file.path(directory, "filter.rsspps"), working_dir = directory)
+results$matching_regions
+```
+
+working_dir defaults to NULL, preserving the caller's directory. An explicit value
+must be one nonempty path to an existing local directory; it is not created.
+Both path and a relative working_dir resolve from the caller's directory. The entire
+source compiles before directory selection, so source errors take precedence over
+invalid directory arguments. For valid source, an invalid or inaccessible directory
+raises rstarstar_error before any program output or file effects. For example,
+run_file(path, working_dir = "absent-folder") fails if that folder does not exist.
+
+Execution temporarily changes R's process working directory and restores it on
+return or error. This controls relative paths only; it does not restrict filesystem
+access or roll back earlier writes. Generated R is unchanged and uses whichever
+directory is active when separately executed. Returned functions remain ordinary
+R closures; working_dir applies only during this run_file call.
 
 Records return as ordinary named R lists with an internal type attribute, and their
 constructors return as R functions. Field checks apply when constructors run; R
@@ -178,7 +201,7 @@ from the source-package payload using .Rbuildignore.
 
 Reinstall after changing R/ and run Rscript tests/run.R against that installation.
 Tests include internal compiler cases and public file-API cases. R CMD build .
-and R CMD check --no-manual RStarStar_0.0.25.tar.gz validate the package, installed
+and R CMD check --no-manual RStarStar_0.0.26.tar.gz validate the package, installed
 help, examples, and tests. Use the current version in the archive name. Chart
 rendering tests report skips when Cairo is unavailable. --no-manual omits PDF
 manual generation only. See [Contributing](../CONTRIBUTING.md) for commands.

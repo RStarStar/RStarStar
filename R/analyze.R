@@ -1,8 +1,12 @@
 # Internal analyze stage. Each call resets its private state, including after errors.
+# Checks an AST without reading datasets or evaluating user expressions. Inference
+# uses type/size facts; Unknown types and NA sizes defer checks to generated R.
 RSSAnalyzer <- R6::R6Class(
   "RSSAnalyzer",
   cloneable = FALSE,
   public = list(
+    # statements: parser AST in declaration order; filename: diagnostic label.
+    # Returns the same statements invisibly, or raises a source-located error.
     analyze = function(statements, filename) {
       private$filename <- filename
       private$bindings <- new.env(parent = emptyenv())
@@ -15,6 +19,7 @@ RSSAnalyzer <- R6::R6Class(
           if (exists(statement$name, private$bindings, inherits = FALSE)) rss_error(if (is_class) "Class name is already declared." else "Record name is already declared.", statement$name_token, private$filename)
           record_type <- paste0(if (is_class) "Class:" else "Record:", statement$name)
           if (statement$name %in% c("Number", "Text", "Boolean")) rss_error(if (is_class) "A class name cannot replace a built-in field type." else "A record name cannot replace a built-in field type.", statement$name_token, private$filename)
+          # Resolve nested types only against earlier records, keeping schemas acyclic.
           schema <- vapply(seq_along(statement$types), function(i) {
             field_type <- statement$types[[i]]
             if (field_type %in% c("Number", "Text", "Boolean")) return(field_type)
@@ -30,6 +35,8 @@ RSSAnalyzer <- R6::R6Class(
             if (actual$type != schema[[field]]) rss_error(sprintf("Default for field '%s' requires one %s value.", field, schema[[field]]), default$token, private$filename)
           }
           assign(record_type, schema, private$records)
+          # Method scopes admit self, parameters, and earlier callable declarations.
+          # Register each signature after its body, preserving declaration visibility.
           for (method in statement$methods) {
             outer <- private$bindings
             private$bindings <- new.env(parent = emptyenv())
@@ -121,16 +128,22 @@ RSSAnalyzer <- R6::R6Class(
     methods = NULL,
     class_context = NULL,
     filename = NULL,
+    # Compact inference result; nominal types use Record:Name or Class:Name tags.
     info = function(type, size) list(type = type, size = size),
+    # Resolve only this analysis scope, never an ambient R/global binding.
     lookup = function(name, token) {
       if (!exists(name, private$bindings, inherits = FALSE)) {
         rss_error(sprintf("Unknown variable '%s'. Define it before using it.", name), token, private$filename)
       }
       get(name, private$bindings, inherits = FALSE)$info
     },
+    # Reject known non-tables; Unknown parameters must be validated at execution.
     require_table = function(name, token) {
       if (!private$lookup(name, token)$type %in% c("Table", "Unknown")) rss_error("Column access and filtering require a table.", token, private$filename)
     },
+    # Recursively return type/size facts and validate every reachable AST form.
+    # in_filter makes bare names column references; @name still uses lexical lookup.
+    # Both conditional branches are checked, without executing either branch.
     infer = function(value, in_filter = FALSE) {
       kind <- value$kind
       recurse <- function(x) private$infer(x, in_filter)
@@ -199,6 +212,8 @@ RSSAnalyzer <- R6::R6Class(
             maximum, if (maximum == 1L) "argument" else "arguments", supplied), value$token, private$filename)
         }
         if (!constructor && supplied != maximum) rss_error(sprintf("Function '%s' expects %d arguments; received %d.", value$name, maximum, supplied), value$token, private$filename)
+        # Match labels before inferring arguments so diagnostics follow the call
+        # contract; matching never evaluates expressions or reorders source effects.
         matched <- integer()
         for (i in seq_along(value$arguments)) {
           label <- value$labels[[i]]

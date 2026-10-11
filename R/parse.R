@@ -1,8 +1,13 @@
 # Internal parse stage. Each call resets its private state, including after errors.
+# Recursive-descent parser: tokens become statement/expression lists (the AST).
+# Nodes preserve diagnostic tokens and whole-construct spans. Parsing validates
+# syntax only; names/types are analyzed later and program files are never opened.
 RSSParser <- R6::R6Class(
   "RSSParser",
   cloneable = FALSE,
   public = list(
+    # Consume a tokenizer stream ending in EOF; return statements in source order.
+    # Data-producing statements become assignments so binding rules are shared.
     parse = function(tokens, filename) {
       private$tokens <- tokens
       private$filename <- filename
@@ -277,16 +282,20 @@ RSSParser <- R6::R6Class(
     position = NULL,
     tokens = NULL,
     filename = NULL,
+    # Inspect the next token without consuming it; tokenize() supplies the EOF guard.
     peek = function() private$tokens[[private$position]],
+    # Consume and return the current token.
     take = function() {
       token <- private$peek()
       private$position <- private$position + 1L
       token
     },
+    # Consume a required token or report the caller's contextual syntax diagnostic.
     expect = function(kind, message) {
       if (private$peek()$kind != kind) rss_error(message, private$peek(), private$filename)
       private$take()
     },
+    # Assemble a kind-tagged AST node with named children and its full source span.
     node = function(kind, token, ...) {
       # Force child parsing before recording the exclusive end position.
       fields <- list(...)
@@ -296,6 +305,8 @@ RSSParser <- R6::R6Class(
              span = list(line = token$line, column = token$column,
                          end_line = end$end_line, end_column = end$end_column)), fields)
     },
+    # Enter at '(' and consume ')'. Preserve expressions, exact labels ("" for
+    # positional arguments), and their tokens in source order for later matching.
     call_arguments = function() {
       private$take()
       arguments <- list()
@@ -323,6 +334,8 @@ RSSParser <- R6::R6Class(
       private$expect(")", "Expected ')' after function arguments.")
       list(arguments = arguments, labels = labels, argument_tokens = argument_tokens)
     },
+    # Parse a literal, name, call, vector, group, @binding, summary, or conditional.
+    # Contextual call syntax distinguishes built-ins and std:: from ordinary names.
     atom = function() {
       token <- private$peek()
       if (token$kind == "if") {
@@ -389,6 +402,8 @@ RSSParser <- R6::R6Class(
       }
       rss_error("Expected a value, variable, vector, or parenthesized expression.", token, private$filename)
     },
+    # Extend an atom with repeated field/method access or record copy updates.
+    # Keep name.column nodes for table syntax; expression.field uses member nodes.
     primary = function() {
       value <- private$atom()
       while (private$peek()$kind %in% c("with", ".")) {
@@ -439,6 +454,7 @@ RSSParser <- R6::R6Class(
       }
       value
     },
+    # Highest operator precedence: recursively bind unary numeric signs.
     unary = function() {
       if (private$peek()$kind %in% c("+", "-")) {
         token <- private$take()
@@ -446,6 +462,7 @@ RSSParser <- R6::R6Class(
       }
       private$primary()
     },
+    # Fold multiplication/division left-to-right over signed primary expressions.
     product = function() {
       value <- private$unary()
       while (private$peek()$kind %in% c("*", "/")) {
@@ -455,6 +472,7 @@ RSSParser <- R6::R6Class(
       }
       value
     },
+    # Fold addition/subtraction left-to-right over products.
     sum_expression = function() {
       value <- private$product()
       while (private$peek()$kind %in% c("+", "-")) {
@@ -464,6 +482,7 @@ RSSParser <- R6::R6Class(
       }
       value
     },
+    # Accept one comparison or missingness test; reject chained comparisons.
     comparison = function() {
       value <- private$sum_expression()
       if (private$peek()$kind == "is") {
@@ -482,6 +501,7 @@ RSSParser <- R6::R6Class(
       }
       value
     },
+    # Logical not binds less tightly than comparisons and more tightly than and.
     negation = function() {
       if (private$peek()$kind == "not") {
         token <- private$take()
@@ -489,6 +509,7 @@ RSSParser <- R6::R6Class(
       }
       private$comparison()
     },
+    # Build elementwise and expressions; runtime evaluation is not short-circuiting.
     conjunction = function() {
       value <- private$negation()
       while (private$peek()$kind == "and") {
@@ -498,6 +519,7 @@ RSSParser <- R6::R6Class(
       }
       value
     },
+    # Lowest-precedence entry point: fold or over conjunctions and return one AST.
     expression = function() {
       value <- private$conjunction()
       while (private$peek()$kind == "or") {
@@ -507,6 +529,9 @@ RSSParser <- R6::R6Class(
       }
       value
     },
+    # Parse a function/method declaration. Ordinary bodies contain one return;
+    # mut self class methods instead contain ordered self.field assignments.
+    # Receiver syntax is checked here; visibility and field permissions come later.
     parse_function = function(method = FALSE, class_method = FALSE) {
       token <- private$peek()
       private$take()
