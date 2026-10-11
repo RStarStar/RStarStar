@@ -8,6 +8,13 @@ RStarStar is an experimental transpiler **implemented in R** that translates its
 syntax into readable R code. It is for people who want to use R but find its
 syntax difficult to approach. Prior programming experience is not required.
 
+## AI use and user safety
+
+The initial system was built with AI assistance. We are working to reduce our
+reliance on AI-generated code as part of our commitment to providing users with a
+safe and secure experience. All contributions remain subject to human review and
+verification, including those made with AI assistance.
+
 ## Project status
 
 **Compiler prototype.** Bindings, `mut`, literals, vectors, arithmetic, printing,

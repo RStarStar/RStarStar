@@ -7,3 +7,13 @@ print selected.revenue
 # Inspect the rows whose revenue is missing instead of silently discarding them.
 filter sales where revenue is missing into needs_review
 print needs_review
+
+# Compare cleaned labels while keeping their original spelling in the result.
+read "data/regions.csv" into regions with columns {region: Text, revenue: Number}
+target_region = "north"
+filter regions where std::lower_text(std::trim_text(region)) == @target_region skipping missing into matching_regions
+print matching_regions
+
+# Missing labels require an explicit policy; keep them separately for review.
+filter regions where region is missing into missing_regions
+print missing_regions

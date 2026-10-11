@@ -1147,3 +1147,29 @@ availability were not exercised. No compiler or package behavior changed in this
 update; the full behavioral suite and package build/check were not rerun. Preserved
 all prior uncommitted changes. No publication, message posting, or GitHub visibility
 change was performed.
+
+## 2026-10-11 — Refresh packaged examples for 0.0.25
+
+Updated inst/examples to demonstrate recent implemented features together. The
+filter example uses a small mixed-case/whitespace CSV fixture, explicit lowercase
+and trimming operations, an outer target binding, and separate missing-label
+review while preserving original strings. The CSV example now contrasts custom
+missing markers with an empty marker list. The methods example combines scalar
+record defaults, named overrides, and field access on a returned record, retaining
+the original value. Refreshed the basics introduction.
+
+Added an installed examples README indexing all twelve sources, explaining key
+failure cases, and providing an R helper that copies fixtures to a fresh temporary
+working directory so export/chart examples can run without writing into the
+installed package. Extended the three affected development runners with expected
+result checks. No compiler behavior, language design, dependencies, or API changed.
+
+Verification: reinstalled 0.0.25 into temporary libraries; all 330 behavioral checks
+passed with 0 skips. All thirteen development demos passed, including Cairo chart
+rendering. R CMD build . and R CMD check --no-manual RStarStar_0.0.25.tar.gz passed
+with Status: OK, no warnings or notes. Executed both R blocks in the new README
+and used its helper to run all twelve installed sources through run_file(),
+checking CSV/chart output creation. Checked the README's relative links and git
+diff whitespace. Local environment: R 4.6.0 on macOS arm64. Other platforms,
+hosted CI, and PDF manuals were not checked; lowercase conversion still follows
+the executing R locale.

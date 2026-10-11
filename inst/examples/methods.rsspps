@@ -1,6 +1,6 @@
 record Point {
-  x: Number
-  y: Number
+  x: Number = 0
+  y: Number = 0
   fn magnitude(self) { return std::square_root(self.x * self.x + self.y * self.y) }
   fn shifted(self, dx, dy) { return self with {x: self.x + dx, y: self.y + dy} }
 }
@@ -9,3 +9,12 @@ distance = start.magnitude()
 next = start.shifted(dx: 1, dy: 2)
 print distance
 print next
+
+# Literal defaults and named overrides also work with value methods.
+origin = Point()
+on_axis = Point(y: 4)
+axis_distance = on_axis.magnitude()
+shifted_x = origin.shifted(dx: 3, dy: 4).x
+print axis_distance
+print shifted_x
+print origin

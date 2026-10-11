@@ -7,3 +7,8 @@ print std::text_length(codes.code)
 
 read "data/missing-codes.csv" into literal_codes with columns {code: Text} with missing ["N/A"]
 print literal_codes
+
+# An empty marker list preserves NA, N/A, and the empty string as text.
+read "data/missing-codes.csv" into all_codes with columns {code: Text} with missing []
+print all_codes
+print std::text_length(all_codes.code)

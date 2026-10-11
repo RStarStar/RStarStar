@@ -11,5 +11,6 @@ local({
   eval(parse(text = generated), envir = environment)
   stopifnot(identical(environment$codes$code, c("0012", "0007")),
             identical(environment$codes$amount, c(3, 4)),
-            identical(environment$literal_codes$code, c("NA", NA_character_, "")))
+            identical(environment$literal_codes$code, c("NA", NA_character_, "")),
+            identical(environment$all_codes$code, c("NA", "N/A", "")))
 })

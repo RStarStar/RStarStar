@@ -1,4 +1,4 @@
-# RStarStar's implemented first subset.
+# Start here: vectors, scalar arithmetic, and explicit mutable bindings.
 scores = [72, 85, 91, 68]
 adjusted = scores + 5
 print adjusted
